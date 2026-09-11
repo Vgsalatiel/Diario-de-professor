@@ -1,0 +1,393 @@
+import { useMemo, useState } from 'react'
+import { useData } from '../context/DataContext'
+import { useToast } from '../context/ToastContext'
+import type { ModeloCalculo, Periodo, SistemaPeriodo } from '../types'
+import {
+  calcularMedia,
+  chaveNota,
+  formatarNota,
+  situacao,
+} from '../lib/media'
+import { opcoesPeriodo, rotuloSistema, turmaInicial } from '../lib/periodos'
+import { exportarExcel, exportarHTML, exportarPDF } from '../lib/export'
+import { Modal } from '../components/Modal'
+
+export function Notas() {
+  const {
+    turmas,
+    alunos,
+    avaliacoes,
+    notas,
+    definirNota,
+    configDaTurma,
+    atualizarConfig,
+    criarAvaliacao,
+    removerAvaliacao,
+  } = useData()
+  const { notificar } = useToast()
+
+  const [escolaFiltro, setEscolaFiltro] = useState('todas')
+  const [turmaId, setTurmaId] = useState<string>(() => turmaInicial(turmas))
+  const [periodo, setPeriodo] = useState<Periodo>('1')
+  const [modalAval, setModalAval] = useState(false)
+  const [novaAval, setNovaAval] = useState({ nome: '', peso: '1', periodo: '1' as Periodo })
+
+  const escolas = useMemo(
+    () =>
+      Array.from(new Set(turmas.map((t) => t.escola).filter(Boolean))).sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [turmas],
+  )
+
+  // Sem opção "todas" aqui: com mais de uma escola, sempre uma fica ativa.
+  const escolaAtiva = escolas.length > 1 && escolaFiltro === 'todas' ? escolas[0] : escolaFiltro
+
+  const turmasDaEscola = useMemo(
+    () =>
+      escolaAtiva === 'todas' ? turmas : turmas.filter((t) => t.escola === escolaAtiva),
+    [turmas, escolaAtiva],
+  )
+
+  function trocarEscola(e: string) {
+    setEscolaFiltro(e)
+    const disponiveis = turmas.filter((t) => t.escola === e)
+    setTurmaId(disponiveis[0]?.id ?? '')
+    setPeriodo('1')
+  }
+
+  function trocarTurma(id: string) {
+    setTurmaId(id)
+    setPeriodo('1')
+  }
+
+  const turmaAtual = turmas.find((t) => t.id === turmaId) ?? null
+  const sistemaAtual: SistemaPeriodo = turmaAtual?.sistemaPeriodo ?? 'semestre'
+  const periodosDisponiveis = opcoesPeriodo(sistemaAtual)
+  const periodoAtivo: Periodo = periodosDisponiveis.some((p) => p.valor === periodo)
+    ? periodo
+    : '1'
+
+  const config = turmaId ? configDaTurma(turmaId) : null
+  const alunosTurma = useMemo(
+    () =>
+      alunos
+        .filter((a) => a.turmaId === turmaId)
+        .sort((a, b) => a.nome.localeCompare(b.nome)),
+    [alunos, turmaId],
+  )
+  const avalsTurma = useMemo(
+    () =>
+      avaliacoes.filter((a) => a.turmaId === turmaId && a.periodo === periodoAtivo),
+    [avaliacoes, turmaId, periodoAtivo],
+  )
+
+  function onNota(alunoId: string, avaliacaoId: string, texto: string) {
+    if (texto.trim() === '') {
+      definirNota(alunoId, avaliacaoId, null)
+      return
+    }
+    const valor = Number(texto.replace(',', '.'))
+    if (Number.isNaN(valor)) return
+    const limitado = Math.max(0, Math.min(10, valor))
+    definirNota(alunoId, avaliacaoId, limitado)
+  }
+
+  function onNotaSalva(texto: string) {
+    if (texto.trim() !== '') notificar('Nota salva.')
+  }
+
+  function abrirModalAval() {
+    setNovaAval({ nome: '', peso: '1', periodo: periodoAtivo })
+    setModalAval(true)
+  }
+
+  function addAvaliacao() {
+    if (!novaAval.nome.trim() || !turmaId) return
+    criarAvaliacao({
+      turmaId,
+      nome: novaAval.nome.trim(),
+      peso: Number(novaAval.peso) || 1,
+      periodo: novaAval.periodo,
+    })
+    notificar('Avaliação adicionada.')
+    setModalAval(false)
+  }
+
+  function exportar(formato: 'excel' | 'html' | 'pdf') {
+    if (!turmaId || !config) return
+    const turma = turmas.find((t) => t.id === turmaId)!
+    const dados = { turma, alunos: alunosTurma, avaliacoes: avalsTurma, notas, config }
+    if (formato === 'excel') exportarExcel(dados)
+    else if (formato === 'html') exportarHTML(dados)
+    else exportarPDF(dados)
+  }
+
+  if (turmas.length === 0) {
+    return (
+      <div className="stack-lg">
+        <header className="pagina-head">
+          <div>
+            <h1>Notas</h1>
+          </div>
+        </header>
+        <div className="vazio painel">
+          <p>Cadastre turmas e alunos para lançar notas.</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="stack-lg">
+      <header className="pagina-head">
+        <div>
+          <h1>Notas</h1>
+          <p className="pagina-sub">
+            As médias são calculadas automaticamente conforme o modelo da turma.
+          </p>
+        </div>
+        <div className="grupo-botoes">
+          <button className="btn btn-fantasma" onClick={() => exportar('excel')}>
+            Exportar Excel
+          </button>
+          <button className="btn btn-fantasma" onClick={() => exportar('html')}>
+            Exportar HTML
+          </button>
+          <button className="btn btn-fantasma" onClick={() => exportar('pdf')}>
+            Exportar PDF
+          </button>
+        </div>
+      </header>
+
+      {escolas.length > 1 && (
+        <div className="abas">
+          {escolas.map((e) => (
+            <button
+              key={e}
+              className={`aba ${escolaAtiva === e ? 'ativa' : ''}`}
+              onClick={() => trocarEscola(e)}
+            >
+              {e}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="abas">
+        {periodosDisponiveis.map((p) => (
+          <button
+            key={p.valor}
+            className={`aba ${periodoAtivo === p.valor ? 'ativa' : ''}`}
+            onClick={() => setPeriodo(p.valor)}
+          >
+            {p.rotulo}
+          </button>
+        ))}
+      </div>
+
+      <div className="barra-config">
+        <label className="campo-inline">
+          <span>Turma</span>
+          <select
+            className="select"
+            value={turmaId}
+            onChange={(e) => trocarTurma(e.target.value)}
+          >
+            {turmasDaEscola.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.nome}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {config && (
+          <>
+            <label className="campo-inline">
+              <span>Cálculo da média</span>
+              <select
+                className="select"
+                value={config.modelo}
+                onChange={(e) =>
+                  atualizarConfig(turmaId, {
+                    modelo: e.target.value as ModeloCalculo,
+                  })
+                }
+              >
+                <option value="simples">Média simples</option>
+                <option value="ponderada">Média ponderada (por peso)</option>
+              </select>
+            </label>
+
+            <label className="campo-inline campo-estreito">
+              <span>Média p/ aprovação</span>
+              <input
+                className="input-num"
+                type="number"
+                min={0}
+                max={10}
+                step={0.5}
+                value={config.mediaAprovacao}
+                onChange={(e) =>
+                  atualizarConfig(turmaId, {
+                    mediaAprovacao: Number(e.target.value) || 0,
+                  })
+                }
+              />
+            </label>
+
+            <button className="btn btn-fantasma" onClick={abrirModalAval}>
+              + Avaliação
+            </button>
+          </>
+        )}
+      </div>
+
+      {turmasDaEscola.length === 0 ? (
+        <div className="vazio painel">
+          <p>Nenhuma turma nesta escola.</p>
+        </div>
+      ) : alunosTurma.length === 0 ? (
+        <div className="vazio painel">
+          <p>Esta turma ainda não tem alunos.</p>
+        </div>
+      ) : (
+        <div className="painel sem-padding rolagem-x">
+          <table className="tabela tabela-notas">
+            <thead>
+              <tr>
+                <th className="col-aluno">Aluno</th>
+                {avalsTurma.map((av) => (
+                  <th key={av.id} className="col-nota">
+                    <span className="th-aval">
+                      {av.nome}
+                      {config?.modelo === 'ponderada' && (
+                        <em className="peso">peso {av.peso}</em>
+                      )}
+                    </span>
+                    <button
+                      className="remover-col"
+                      title="Remover avaliação"
+                      onClick={() => {
+                        if (confirm(`Remover a avaliação "${av.nome}"?`))
+                          removerAvaliacao(av.id)
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </th>
+                ))}
+                <th className="col-media">Média</th>
+                <th className="col-situacao">Situação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {alunosTurma.map((aluno) => {
+                const media = config
+                  ? calcularMedia(aluno.id, avalsTurma, notas, config.modelo)
+                  : null
+                const sit = situacao(media, config?.mediaAprovacao ?? 6)
+                return (
+                  <tr key={aluno.id}>
+                    <td className="celula-nome col-aluno">{aluno.nome}</td>
+                    {avalsTurma.map((av) => {
+                      const v = notas[chaveNota(aluno.id, av.id)]
+                      return (
+                        <td key={av.id} className="col-nota">
+                          <input
+                            className="input-nota"
+                            inputMode="decimal"
+                            value={v == null ? '' : String(v).replace('.', ',')}
+                            onChange={(e) => onNota(aluno.id, av.id, e.target.value)}
+                            onBlur={(e) => onNotaSalva(e.target.value)}
+                            placeholder="—"
+                          />
+                        </td>
+                      )
+                    })}
+                    <td className="col-media celula-media">{formatarNota(media)}</td>
+                    <td className="col-situacao">
+                      <span className={`pill pill-${sit}`}>
+                        {sit === 'aprovado'
+                          ? 'Aprovado'
+                          : sit === 'recuperacao'
+                            ? 'Recuperação'
+                            : '—'}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+
+          {avalsTurma.length === 0 && (
+            <div className="aviso-tabela">
+              Nenhuma avaliação neste {rotuloSistema(sistemaAtual).toLowerCase()}. Use
+              “+ Avaliação” para adicionar colunas de nota.
+            </div>
+          )}
+        </div>
+      )}
+
+      <Modal
+        aberto={modalAval}
+        titulo="Nova avaliação"
+        onFechar={() => setModalAval(false)}
+        rodape={
+          <>
+            <button className="btn btn-fantasma" onClick={() => setModalAval(false)}>
+              Cancelar
+            </button>
+            <button className="btn btn-primario" onClick={addAvaliacao}>
+              Adicionar
+            </button>
+          </>
+        }
+      >
+        <div className="form-grid">
+          <label className="campo campo-largo">
+            <span>Nome da avaliação</span>
+            <input
+              value={novaAval.nome}
+              onChange={(e) => setNovaAval({ ...novaAval, nome: e.target.value })}
+              placeholder="Ex.: Prova 1, Trabalho, Recuperação"
+              autoFocus
+            />
+          </label>
+          <label className="campo">
+            <span>Peso</span>
+            <input
+              type="number"
+              min={0}
+              step={0.5}
+              value={novaAval.peso}
+              onChange={(e) => setNovaAval({ ...novaAval, peso: e.target.value })}
+            />
+          </label>
+          <label className="campo">
+            <span>{rotuloSistema(sistemaAtual)}</span>
+            <select
+              className="select"
+              value={novaAval.periodo}
+              onChange={(e) =>
+                setNovaAval({ ...novaAval, periodo: e.target.value as Periodo })
+              }
+            >
+              {periodosDisponiveis.map((p) => (
+                <option key={p.valor} value={p.valor}>
+                  {p.rotulo}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="texto-suave campo-largo">
+            O peso só afeta o resultado quando o cálculo da turma está em “média
+            ponderada”.
+          </p>
+        </div>
+      </Modal>
+    </div>
+  )
+}
