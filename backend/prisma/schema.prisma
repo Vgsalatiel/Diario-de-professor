@@ -1,0 +1,193 @@
+// Schema do banco de dados do Diário — espelha os tipos de
+// /src/types.ts do frontend, agora como tabelas relacionais de verdade.
+// Cada Turma pertence a um Professor (via professorId), e tudo o mais
+// (Aluno, Avaliacao, Evento, DataAula...) pertence a uma Turma — é essa
+// cadeia de relações que isola os dados de cada professor no banco,
+// no lugar do prefixo de chave que o app usa hoje no localStorage.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  // Conexão via pooler (pgbouncer) — usada pelo app no dia a dia
+  url       = env("DATABASE_URL")
+  // Conexão direta — só o Prisma Migrate usa, pra criar/alterar tabelas
+  directUrl = env("DIRECT_URL")
+}
+
+model Professor {
+  id      String  @id @default(cuid())
+  nome    String
+  email   String  @unique
+  senha   String // hash da senha — nunca texto puro
+  materia String
+  fotoUrl String?
+
+  criadoEm DateTime @default(now())
+
+  turmas  Turma[]
+  eventos Evento[]
+
+  @@map("professores")
+}
+
+enum SistemaPeriodo {
+  bimestre
+  trimestre
+  semestre
+}
+
+model Turma {
+  id             String         @id @default(cuid())
+  nome           String // ex.: "9º Ano A"
+  serie          String // ex.: "Ensino Fundamental II"
+  anoLetivo      String // ex.: "2026"
+  escola         String // nome da escola — professor pode ter turmas em mais de uma
+  sistemaPeriodo SistemaPeriodo
+  cor            String
+  diasAula       Int[] // dias da semana com aula: 0=domingo .. 6=sábado
+
+  professorId String
+  professor   Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+
+  alunos     Aluno[]
+  avaliacoes Avaliacao[]
+  datasAula  DataAula[]
+  eventos    Evento[]
+  config     ConfigCalculo?
+
+  @@index([professorId])
+  @@map("turmas")
+}
+
+enum SituacaoMatricula {
+  ativo
+  inativo
+  transferido
+}
+
+model Aluno {
+  id             String            @id @default(cuid())
+  nome           String
+  email          String?
+  telefonePais   String?
+  matricula      String?
+  dataNascimento DateTime?
+  situacao       SituacaoMatricula @default(ativo)
+
+  turmaId String
+  turma   Turma  @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+
+  notas       Nota[]
+  frequencias Frequencia[]
+
+  @@index([turmaId])
+  @@map("alunos")
+}
+
+model Avaliacao {
+  id      String @id @default(cuid())
+  nome    String // ex.: "Prova 1", "Trabalho"
+  peso    Float  @default(1)
+  periodo String // "1".."4" — bimestre/trimestre/semestre, depende da turma
+
+  turmaId String
+  turma   Turma  @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+
+  notas Nota[]
+
+  @@index([turmaId])
+  @@map("avaliacoes")
+}
+
+// Uma nota lançada de um aluno numa avaliação (substitui o "MapaDeNotas"
+// em formato de string do frontend por uma linha de verdade na tabela).
+model Nota {
+  id    String @id @default(cuid())
+  valor Float?
+
+  alunoId     String
+  aluno       Aluno     @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  avaliacaoId String
+  avaliacao   Avaliacao @relation(fields: [avaliacaoId], references: [id], onDelete: Cascade)
+
+  @@unique([alunoId, avaliacaoId])
+  @@map("notas")
+}
+
+// Uma data de chamada dentro de uma turma — cada uma vira uma "coluna"
+// de frequência. semAula marca um dia que não conta pra ninguém.
+model DataAula {
+  id      String   @id @default(cuid())
+  data    DateTime @db.Date
+  periodo String
+  semAula Boolean  @default(false)
+
+  turmaId String
+  turma   Turma  @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+
+  frequencias Frequencia[]
+
+  @@unique([turmaId, data])
+  @@map("datas_aula")
+}
+
+// presente = true (presença), false (falta), null (ainda não lançado)
+model Frequencia {
+  id       String   @id @default(cuid())
+  presente Boolean?
+
+  alunoId    String
+  aluno      Aluno    @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  dataAulaId String
+  dataAula   DataAula @relation(fields: [dataAulaId], references: [id], onDelete: Cascade)
+
+  @@unique([alunoId, dataAulaId])
+  @@map("frequencias")
+}
+
+enum ModeloCalculo {
+  simples
+  ponderada
+}
+
+model ConfigCalculo {
+  id             String        @id @default(cuid())
+  modelo         ModeloCalculo @default(simples)
+  mediaAprovacao Float         @default(6)
+
+  turmaId String @unique
+  turma   Turma  @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+
+  @@map("configs_calculo")
+}
+
+enum TipoEvento {
+  prova
+  trabalho
+  reuniao
+  outro
+}
+
+model Evento {
+  id       String     @id @default(cuid())
+  titulo   String
+  tipo     TipoEvento
+  data     DateTime   @db.Date
+  hora     String?
+  conteudo String?
+
+  // Todo evento pertence a um professor — a turma é opcional (evento avulso,
+  // ex.: reunião pedagógica), mas sem isso um evento sem turma ficaria sem dono.
+  professorId String
+  professor   Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+
+  turmaId String?
+  turma   Turma?  @relation(fields: [turmaId], references: [id], onDelete: SetNull)
+
+  @@index([professorId])
+  @@index([turmaId])
+  @@map("eventos")
+}
