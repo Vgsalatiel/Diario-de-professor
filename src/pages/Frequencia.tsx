@@ -91,11 +91,15 @@ export function Frequencia() {
     setData(novaData ? diaValidoMaisProximo(novaData, diasAulaAtual) : novaData)
   }
 
-  function onCelula(alunoId: string) {
+  async function onCelula(alunoId: string) {
     if (!turmaId || semAulaHoje) return
-    const dataAulaId = garantirDataAula(turmaId, data, periodoAtivo)
-    const atual = frequencia[chavePresenca(alunoId, dataAulaId)]
-    definirPresenca(alunoId, dataAulaId, proximoEstado(atual))
+    try {
+      const dataAulaId = await garantirDataAula(turmaId, data, periodoAtivo)
+      const atual = frequencia[chavePresenca(alunoId, dataAulaId)]
+      definirPresenca(alunoId, dataAulaId, proximoEstado(atual))
+    } catch {
+      // erro já notificado pelo DataContext
+    }
   }
 
   function onSemAula() {

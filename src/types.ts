@@ -4,7 +4,6 @@ export interface Professora {
   id: string
   nome: string
   email: string
-  senha: string // simulado — em produção nunca guarde senha em texto puro
   materia: string
   fotoUrl?: string
 }

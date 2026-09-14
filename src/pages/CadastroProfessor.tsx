@@ -16,6 +16,7 @@ export function CadastroProfessor() {
   const [confirmarSenha, setConfirmarSenha] = useState('')
   const [fotoUrl, setFotoUrl] = useState('')
   const [erro, setErro] = useState('')
+  const [enviando, setEnviando] = useState(false)
 
   if (autenticada) {
     navigate('/', { replace: true })
@@ -27,7 +28,7 @@ export function CadastroProfessor() {
     lerImagemComprimida(file).then(setFotoUrl)
   }
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault()
     setErro('')
 
@@ -49,14 +50,20 @@ export function CadastroProfessor() {
       return
     }
 
-    criarPerfil({
+    setEnviando(true)
+    const r = await criarPerfil({
       nome: normalizarNome(nome),
       email: email.trim(),
       senha,
       materia: materia.trim(),
       fotoUrl,
     })
-    navigate('/', { replace: true })
+    setEnviando(false)
+    if (r.ok) {
+      navigate('/', { replace: true })
+    } else {
+      setErro(r.erro ?? 'Não foi possível criar o perfil.')
+    }
   }
 
   const iniciais = nome
@@ -168,8 +175,8 @@ export function CadastroProfessor() {
 
           {erro && <div className="alerta-erro">{erro}</div>}
 
-          <button className="btn btn-primario btn-bloco" type="submit">
-            Criar perfil
+          <button className="btn btn-primario btn-bloco" type="submit" disabled={enviando}>
+            {enviando ? 'Criando...' : 'Criar perfil'}
           </button>
 
           <p className="login-dica">

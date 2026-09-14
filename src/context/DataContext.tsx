@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type {
   Aluno,
   Avaliacao,
@@ -9,21 +9,11 @@ import type {
   MapaDeNotas,
   Turma,
 } from '../types'
-import { usePersistedState, novoId } from '../lib/storage'
+import { api, ApiError } from '../lib/api'
 import { chaveNota } from '../lib/media'
 import { chavePresenca } from '../lib/frequencia'
 import { useAuth } from './AuthContext'
-import {
-  alunosIniciais,
-  avaliacoesIniciais,
-  configsIniciais,
-  datasAulaIniciais,
-  eventosIniciais,
-  frequenciaIniciais,
-  notasIniciais,
-  professoraInicial,
-  turmasIniciais,
-} from '../data/seed'
+import { useToast } from './ToastContext'
 
 interface DataContextValue {
   turmas: Turma[]
@@ -32,6 +22,7 @@ interface DataContextValue {
   notas: MapaDeNotas
   configs: ConfigCalculo[]
   eventos: Evento[]
+  carregando: boolean
 
   // Turmas
   criarTurma: (dados: Omit<Turma, 'id'>) => void
@@ -64,10 +55,10 @@ interface DataContextValue {
   datasAula: DataAula[]
   frequencia: MapaDeFrequencia
   // Garante que exista uma aula para essa turma/data (cria se faltar) e devolve o id dela
-  garantirDataAula: (turmaId: string, data: string, periodo: DataAula['periodo']) => string
+  garantirDataAula: (turmaId: string, data: string, periodo: DataAula['periodo']) => Promise<string>
   definirPresenca: (alunoId: string, dataAulaId: string, valor: boolean | null) => void
   // Alterna se um dia conta como "sem aula" (não entra na frequência de ninguém)
-  alternarSemAula: (turmaId: string, data: string, periodo: DataAula['periodo']) => void
+  alternarSemAula: (turmaId: string, data: string, periodo: DataAula['periodo']) => Promise<void>
 }
 
 const DataContext = createContext<DataContextValue | null>(null)
@@ -78,18 +69,62 @@ const CONFIG_PADRAO = (turmaId: string): ConfigCalculo => ({
   mediaAprovacao: 6.0,
 })
 
+// Respostas cruas da API — o Prisma serializa datas/nulos de um jeito
+// que precisa ser adaptado pro formato que o resto do app espera.
+interface TurmaApi extends Turma {
+  config: ConfigCalculo
+}
+interface AlunoApi extends Omit<Aluno, 'dataNascimento'> {
+  dataNascimento: string | null
+}
+interface EventoApi extends Omit<Evento, 'turmaId' | 'hora' | 'conteudo'> {
+  turmaId: string | null
+  hora: string | null
+  conteudo: string | null
+}
+interface NotaApi {
+  alunoId: string
+  avaliacaoId: string
+  valor: number | null
+}
+interface FrequenciaApi {
+  alunoId: string
+  dataAulaId: string
+  presente: boolean | null
+}
+
+function normalizarAluno(a: AlunoApi): Aluno {
+  return { ...a, dataNascimento: a.dataNascimento ?? undefined }
+}
+
+function normalizarEvento(e: EventoApi): Evento {
+  return {
+    ...e,
+    turmaId: e.turmaId ?? undefined,
+    hora: e.hora ?? undefined,
+    conteudo: e.conteudo ?? undefined,
+  }
+}
+
+function mensagemErro(erro: unknown): string {
+  if (erro instanceof ApiError) return erro.message
+  return 'Não foi possível concluir a operação.'
+}
+
 export function DataProvider({ children }: { children: ReactNode }) {
   const { professora } = useAuth()
-  // Só a professora de demonstração (seed) começa com dados de exemplo —
-  // qualquer outro professor cadastrado começa do zero.
-  const ehContaDemo = professora.id === professoraInicial.id
-  const ns = (chave: string) => `${chave}:${professora.id}`
-  const vazio = <T,>(cheio: T, v: T): T => (ehContaDemo ? cheio : v)
+  const { notificar } = useToast()
 
-  const [turmasBrutas, setTurmas] = usePersistedState<Turma[]>(
-    ns('turmas'),
-    vazio(turmasIniciais, []),
-  )
+  const [turmasBrutas, setTurmasBrutas] = useState<Turma[]>([])
+  const [alunos, setAlunos] = useState<Aluno[]>([])
+  const [avaliacoes, setAvaliacoes] = useState<Avaliacao[]>([])
+  const [notas, setNotas] = useState<MapaDeNotas>({})
+  const [configs, setConfigs] = useState<ConfigCalculo[]>([])
+  const [eventos, setEventos] = useState<Evento[]>([])
+  const [datasAula, setDatasAula] = useState<DataAula[]>([])
+  const [frequencia, setFrequencia] = useState<MapaDeFrequencia>({})
+  const [carregando, setCarregando] = useState(true)
+
   // Turmas salvas antes do campo "dias de aula" existir não têm esse dado —
   // preenche com segunda a sexta pra não quebrar as telas que dependem dele.
   const turmas = useMemo(
@@ -99,34 +134,73 @@ export function DataProvider({ children }: { children: ReactNode }) {
       ),
     [turmasBrutas],
   )
-  const [alunos, setAlunos] = usePersistedState<Aluno[]>(
-    ns('alunos'),
-    vazio(alunosIniciais, []),
-  )
-  const [avaliacoes, setAvaliacoes] = usePersistedState<Avaliacao[]>(
-    ns('avaliacoes'),
-    vazio(avaliacoesIniciais, []),
-  )
-  const [notas, setNotas] = usePersistedState<MapaDeNotas>(
-    ns('notas'),
-    vazio(notasIniciais, {}),
-  )
-  const [configs, setConfigs] = usePersistedState<ConfigCalculo[]>(
-    ns('configs'),
-    vazio(configsIniciais, []),
-  )
-  const [eventos, setEventos] = usePersistedState<Evento[]>(
-    ns('eventos'),
-    vazio(eventosIniciais, []),
-  )
-  const [datasAula, setDatasAula] = usePersistedState<DataAula[]>(
-    ns('datasAula'),
-    vazio(datasAulaIniciais, []),
-  )
-  const [frequencia, setFrequencia] = usePersistedState<MapaDeFrequencia>(
-    ns('frequencia'),
-    vazio(frequenciaIniciais, {}),
-  )
+
+  useEffect(() => {
+    if (!professora.id) {
+      setTurmasBrutas([])
+      setAlunos([])
+      setAvaliacoes([])
+      setNotas({})
+      setConfigs([])
+      setEventos([])
+      setDatasAula([])
+      setFrequencia({})
+      setCarregando(false)
+      return
+    }
+
+    let cancelado = false
+    setCarregando(true)
+
+    Promise.all([
+      api.get<TurmaApi[]>('/turmas'),
+      api.get<AlunoApi[]>('/alunos'),
+      api.get<Avaliacao[]>('/avaliacoes'),
+      api.get<NotaApi[]>('/notas'),
+      api.get<EventoApi[]>('/eventos'),
+      api.get<DataAula[]>('/datas-aula'),
+      api.get<FrequenciaApi[]>('/frequencia'),
+    ])
+      .then(
+        ([
+          turmasApi,
+          alunosApi,
+          avaliacoesApi,
+          notasApi,
+          eventosApi,
+          datasAulaApi,
+          frequenciaApi,
+        ]) => {
+          if (cancelado) return
+          setTurmasBrutas(turmasApi.map(({ config: _config, ...t }) => t))
+          setConfigs(turmasApi.map((t) => t.config))
+          setAlunos(alunosApi.map(normalizarAluno))
+          setAvaliacoes(avaliacoesApi)
+          setNotas(
+            Object.fromEntries(
+              notasApi.map((n) => [chaveNota(n.alunoId, n.avaliacaoId), n.valor]),
+            ),
+          )
+          setEventos(eventosApi.map(normalizarEvento))
+          setDatasAula(datasAulaApi)
+          setFrequencia(
+            Object.fromEntries(
+              frequenciaApi.map((f) => [chavePresenca(f.alunoId, f.dataAulaId), f.presente]),
+            ),
+          )
+        },
+      )
+      .catch((erro) => {
+        if (!cancelado) notificar(mensagemErro(erro))
+      })
+      .finally(() => {
+        if (!cancelado) setCarregando(false)
+      })
+
+    return () => {
+      cancelado = true
+    }
+  }, [professora.id, notificar])
 
   const value = useMemo<DataContextValue>(() => {
     return {
@@ -138,125 +212,220 @@ export function DataProvider({ children }: { children: ReactNode }) {
       eventos,
       datasAula,
       frequencia,
+      carregando,
 
       criarTurma: (dados) => {
-        const id = novoId()
-        setTurmas((ts) => [...ts, { ...dados, id }])
-        setConfigs((cs) => [...cs, CONFIG_PADRAO(id)])
+        api
+          .post<TurmaApi>('/turmas', dados)
+          .then(({ config, ...turma }) => {
+            setTurmasBrutas((ts) => [...ts, turma])
+            setConfigs((cs) => [...cs, config])
+          })
+          .catch((erro) => notificar(mensagemErro(erro)))
       },
-      atualizarTurma: (id, dados) =>
-        setTurmas((ts) => ts.map((t) => (t.id === id ? { ...t, ...dados } : t))),
+      atualizarTurma: (id, dados) => {
+        api
+          .patch<TurmaApi>(`/turmas/${id}`, dados)
+          .then(({ config, ...turma }) => {
+            setTurmasBrutas((ts) => ts.map((t) => (t.id === id ? turma : t)))
+            setConfigs((cs) => cs.map((c) => (c.turmaId === id ? config : c)))
+          })
+          .catch((erro) => notificar(mensagemErro(erro)))
+      },
       removerTurma: (id) => {
-        setTurmas((ts) => ts.filter((t) => t.id !== id))
-        // remove alunos, avaliações, notas, datas de aula, frequência,
-        // config e vínculos de eventos da turma
-        const alunosDaTurma = alunos.filter((a) => a.turmaId === id).map((a) => a.id)
-        const avalsDaTurma = avaliacoes.filter((a) => a.turmaId === id).map((a) => a.id)
-        const datasDaTurma = datasAula.filter((d) => d.turmaId === id).map((d) => d.id)
-        setAlunos((as) => as.filter((a) => a.turmaId !== id))
-        setAvaliacoes((avs) => avs.filter((a) => a.turmaId !== id))
-        setDatasAula((ds) => ds.filter((d) => d.turmaId !== id))
-        setConfigs((cs) => cs.filter((c) => c.turmaId !== id))
-        setNotas((ns) => {
-          const copia = { ...ns }
-          for (const k of Object.keys(copia)) {
-            const [aId, avId] = k.split('::')
-            if (alunosDaTurma.includes(aId) || avalsDaTurma.includes(avId)) {
-              delete copia[k]
-            }
-          }
-          return copia
-        })
-        setFrequencia((fs) => {
-          const copia = { ...fs }
-          for (const k of Object.keys(copia)) {
-            const [aId, dId] = k.split('::')
-            if (alunosDaTurma.includes(aId) || datasDaTurma.includes(dId)) {
-              delete copia[k]
-            }
-          }
-          return copia
-        })
-        setEventos((es) =>
-          es.map((e) => (e.turmaId === id ? { ...e, turmaId: undefined } : e)),
-        )
+        api
+          .delete(`/turmas/${id}`)
+          .then(() => {
+            setTurmasBrutas((ts) => ts.filter((t) => t.id !== id))
+            const alunosDaTurma = alunos.filter((a) => a.turmaId === id).map((a) => a.id)
+            const avalsDaTurma = avaliacoes.filter((a) => a.turmaId === id).map((a) => a.id)
+            const datasDaTurma = datasAula.filter((d) => d.turmaId === id).map((d) => d.id)
+            setAlunos((as) => as.filter((a) => a.turmaId !== id))
+            setAvaliacoes((avs) => avs.filter((a) => a.turmaId !== id))
+            setDatasAula((ds) => ds.filter((d) => d.turmaId !== id))
+            setConfigs((cs) => cs.filter((c) => c.turmaId !== id))
+            setNotas((ns) => {
+              const copia = { ...ns }
+              for (const k of Object.keys(copia)) {
+                const [aId, avId] = k.split('::')
+                if (alunosDaTurma.includes(aId) || avalsDaTurma.includes(avId)) {
+                  delete copia[k]
+                }
+              }
+              return copia
+            })
+            setFrequencia((fs) => {
+              const copia = { ...fs }
+              for (const k of Object.keys(copia)) {
+                const [aId, dId] = k.split('::')
+                if (alunosDaTurma.includes(aId) || datasDaTurma.includes(dId)) {
+                  delete copia[k]
+                }
+              }
+              return copia
+            })
+            setEventos((es) =>
+              es.map((e) => (e.turmaId === id ? { ...e, turmaId: undefined } : e)),
+            )
+          })
+          .catch((erro) => notificar(mensagemErro(erro)))
       },
 
-      criarAluno: (dados) =>
-        setAlunos((as) => [...as, { ...dados, id: novoId() }]),
-      atualizarAluno: (id, dados) =>
-        setAlunos((as) => as.map((a) => (a.id === id ? { ...a, ...dados } : a))),
+      criarAluno: (dados) => {
+        api
+          .post<AlunoApi>(`/turmas/${dados.turmaId}/alunos`, dados)
+          .then((aluno) => setAlunos((as) => [...as, normalizarAluno(aluno)]))
+          .catch((erro) => notificar(mensagemErro(erro)))
+      },
+      atualizarAluno: (id, dados) => {
+        api
+          .patch<AlunoApi>(`/alunos/${id}`, dados)
+          .then((aluno) =>
+            setAlunos((as) => as.map((a) => (a.id === id ? normalizarAluno(aluno) : a))),
+          )
+          .catch((erro) => notificar(mensagemErro(erro)))
+      },
       removerAluno: (id) => {
-        setAlunos((as) => as.filter((a) => a.id !== id))
-        setNotas((ns) => {
-          const copia = { ...ns }
-          for (const k of Object.keys(copia)) {
-            if (k.startsWith(`${id}::`)) delete copia[k]
-          }
-          return copia
-        })
-        setFrequencia((fs) => {
-          const copia = { ...fs }
-          for (const k of Object.keys(copia)) {
-            if (k.startsWith(`${id}::`)) delete copia[k]
-          }
-          return copia
-        })
+        api
+          .delete(`/alunos/${id}`)
+          .then(() => {
+            setAlunos((as) => as.filter((a) => a.id !== id))
+            setNotas((ns) => {
+              const copia = { ...ns }
+              for (const k of Object.keys(copia)) {
+                if (k.startsWith(`${id}::`)) delete copia[k]
+              }
+              return copia
+            })
+            setFrequencia((fs) => {
+              const copia = { ...fs }
+              for (const k of Object.keys(copia)) {
+                if (k.startsWith(`${id}::`)) delete copia[k]
+              }
+              return copia
+            })
+          })
+          .catch((erro) => notificar(mensagemErro(erro)))
       },
 
-      criarAvaliacao: (dados) =>
-        setAvaliacoes((avs) => [...avs, { ...dados, id: novoId() }]),
-      atualizarAvaliacao: (id, dados) =>
-        setAvaliacoes((avs) => avs.map((a) => (a.id === id ? { ...a, ...dados } : a))),
+      criarAvaliacao: (dados) => {
+        api
+          .post<Avaliacao>(`/turmas/${dados.turmaId}/avaliacoes`, dados)
+          .then((avaliacao) => setAvaliacoes((avs) => [...avs, avaliacao]))
+          .catch((erro) => notificar(mensagemErro(erro)))
+      },
+      atualizarAvaliacao: (id, dados) => {
+        api
+          .patch<Avaliacao>(`/avaliacoes/${id}`, dados)
+          .then((avaliacao) =>
+            setAvaliacoes((avs) => avs.map((a) => (a.id === id ? avaliacao : a))),
+          )
+          .catch((erro) => notificar(mensagemErro(erro)))
+      },
       removerAvaliacao: (id) => {
-        setAvaliacoes((avs) => avs.filter((a) => a.id !== id))
-        setNotas((ns) => {
-          const copia = { ...ns }
-          for (const k of Object.keys(copia)) {
-            if (k.endsWith(`::${id}`)) delete copia[k]
-          }
-          return copia
-        })
+        api
+          .delete(`/avaliacoes/${id}`)
+          .then(() => {
+            setAvaliacoes((avs) => avs.filter((a) => a.id !== id))
+            setNotas((ns) => {
+              const copia = { ...ns }
+              for (const k of Object.keys(copia)) {
+                if (k.endsWith(`::${id}`)) delete copia[k]
+              }
+              return copia
+            })
+          })
+          .catch((erro) => notificar(mensagemErro(erro)))
       },
 
-      definirNota: (alunoId, avaliacaoId, valor) =>
-        setNotas((ns) => ({ ...ns, [chaveNota(alunoId, avaliacaoId)]: valor })),
+      definirNota: (alunoId, avaliacaoId, valor) => {
+        const chave = chaveNota(alunoId, avaliacaoId)
+        const anterior = notas[chave] ?? null
+        setNotas((ns) => ({ ...ns, [chave]: valor }))
+        api.put(`/alunos/${alunoId}/notas/${avaliacaoId}`, { valor }).catch((erro) => {
+          setNotas((ns) => ({ ...ns, [chave]: anterior }))
+          notificar(mensagemErro(erro))
+        })
+      },
 
       configDaTurma: (turmaId) =>
         configs.find((c) => c.turmaId === turmaId) ?? CONFIG_PADRAO(turmaId),
-      atualizarConfig: (turmaId, dados) =>
-        setConfigs((cs) => {
-          const existe = cs.some((c) => c.turmaId === turmaId)
-          if (existe) {
-            return cs.map((c) => (c.turmaId === turmaId ? { ...c, ...dados } : c))
-          }
-          return [...cs, { ...CONFIG_PADRAO(turmaId), ...dados }]
-        }),
+      atualizarConfig: (turmaId, dados) => {
+        api
+          .patch<ConfigCalculo>(`/turmas/${turmaId}/config`, dados)
+          .then((config) => {
+            setConfigs((cs) => {
+              const existe = cs.some((c) => c.turmaId === turmaId)
+              return existe
+                ? cs.map((c) => (c.turmaId === turmaId ? config : c))
+                : [...cs, config]
+            })
+          })
+          .catch((erro) => notificar(mensagemErro(erro)))
+      },
 
-      criarEvento: (dados) =>
-        setEventos((es) => [...es, { ...dados, id: novoId() }]),
-      atualizarEvento: (id, dados) =>
-        setEventos((es) => es.map((e) => (e.id === id ? { ...e, ...dados } : e))),
-      removerEvento: (id) => setEventos((es) => es.filter((e) => e.id !== id)),
+      criarEvento: (dados) => {
+        api
+          .post<EventoApi>('/eventos', dados)
+          .then((evento) => setEventos((es) => [...es, normalizarEvento(evento)]))
+          .catch((erro) => notificar(mensagemErro(erro)))
+      },
+      atualizarEvento: (id, dados) => {
+        api
+          .patch<EventoApi>(`/eventos/${id}`, dados)
+          .then((evento) =>
+            setEventos((es) => es.map((e) => (e.id === id ? normalizarEvento(evento) : e))),
+          )
+          .catch((erro) => notificar(mensagemErro(erro)))
+      },
+      removerEvento: (id) => {
+        api
+          .delete(`/eventos/${id}`)
+          .then(() => setEventos((es) => es.filter((e) => e.id !== id)))
+          .catch((erro) => notificar(mensagemErro(erro)))
+      },
 
-      garantirDataAula: (turmaId, data, periodo) => {
+      garantirDataAula: async (turmaId, data, periodo) => {
         const existente = datasAula.find((d) => d.turmaId === turmaId && d.data === data)
         if (existente) return existente.id
-        const id = novoId()
-        setDatasAula((ds) => [...ds, { id, turmaId, data, periodo }])
-        return id
+        try {
+          const criado = await api.post<DataAula>(`/turmas/${turmaId}/datas-aula`, {
+            data,
+            periodo,
+          })
+          setDatasAula((ds) => [...ds, criado])
+          return criado.id
+        } catch (erro) {
+          notificar(mensagemErro(erro))
+          throw erro
+        }
       },
-      definirPresenca: (alunoId, dataAulaId, valor) =>
-        setFrequencia((fs) => ({ ...fs, [chavePresenca(alunoId, dataAulaId)]: valor })),
+      definirPresenca: (alunoId, dataAulaId, valor) => {
+        const chave = chavePresenca(alunoId, dataAulaId)
+        const anterior = frequencia[chave] ?? null
+        setFrequencia((fs) => ({ ...fs, [chave]: valor }))
+        api
+          .put(`/alunos/${alunoId}/frequencia/${dataAulaId}`, { presente: valor })
+          .catch((erro) => {
+            setFrequencia((fs) => ({ ...fs, [chave]: anterior }))
+            notificar(mensagemErro(erro))
+          })
+      },
 
-      alternarSemAula: (turmaId, data, periodo) => {
-        const existente = datasAula.find((d) => d.turmaId === turmaId && d.data === data)
-        if (existente) {
-          setDatasAula((ds) =>
-            ds.map((d) => (d.id === existente.id ? { ...d, semAula: !d.semAula } : d)),
+      alternarSemAula: async (turmaId, data, periodo) => {
+        try {
+          const atualizado = await api.post<DataAula>(
+            `/turmas/${turmaId}/datas-aula/alternar-sem-aula`,
+            { data, periodo },
           )
-        } else {
-          setDatasAula((ds) => [...ds, { id: novoId(), turmaId, data, periodo, semAula: true }])
+          setDatasAula((ds) => {
+            const existe = ds.some((d) => d.id === atualizado.id)
+            return existe
+              ? ds.map((d) => (d.id === atualizado.id ? atualizado : d))
+              : [...ds, atualizado]
+          })
+        } catch (erro) {
+          notificar(mensagemErro(erro))
         }
       },
     }
@@ -269,14 +438,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     eventos,
     datasAula,
     frequencia,
-    setTurmas,
-    setAlunos,
-    setAvaliacoes,
-    setNotas,
-    setConfigs,
-    setEventos,
-    setDatasAula,
-    setFrequencia,
+    carregando,
+    notificar,
   ])
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

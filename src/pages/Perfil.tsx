@@ -15,6 +15,7 @@ export function Perfil() {
   })
   const [salvo, setSalvo] = useState(false)
   const [erro, setErro] = useState('')
+  const [salvando, setSalvando] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   function set<K extends keyof typeof form>(campo: K, valor: string) {
@@ -28,7 +29,7 @@ export function Perfil() {
     lerImagemComprimida(file).then((dataUrl) => set('fotoUrl', dataUrl))
   }
 
-  function salvar() {
+  async function salvar() {
     const erroNome = validarNome(form.nome)
     if (erroNome) {
       setErro(erroNome)
@@ -36,8 +37,14 @@ export function Perfil() {
       return
     }
     setErro('')
-    atualizarPerfil({ ...form, nome: normalizarNome(form.nome) })
-    setSalvo(true)
+    setSalvando(true)
+    const r = await atualizarPerfil({ ...form, nome: normalizarNome(form.nome) })
+    setSalvando(false)
+    if (r.ok) {
+      setSalvo(true)
+    } else {
+      setErro(r.erro ?? 'Não foi possível salvar as alterações.')
+    }
   }
 
   const iniciais = form.nome
@@ -121,8 +128,8 @@ export function Perfil() {
 
           <div className="acoes-fim">
             {salvo && <span className="feedback-ok">Alterações salvas.</span>}
-            <button className="btn btn-primario" onClick={salvar}>
-              Salvar alterações
+            <button className="btn btn-primario" onClick={salvar} disabled={salvando}>
+              {salvando ? 'Salvando...' : 'Salvar alterações'}
             </button>
           </div>
 

@@ -18,8 +18,8 @@ import { Perfil } from './pages/Perfil'
 export default function App() {
   return (
     <AuthProvider>
-      <DataProvider>
-        <ToastProvider>
+      <ToastProvider>
+        <DataProvider>
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />
@@ -43,8 +43,8 @@ export default function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </BrowserRouter>
-        </ToastProvider>
-      </DataProvider>
+        </DataProvider>
+      </ToastProvider>
     </AuthProvider>
   )
 }

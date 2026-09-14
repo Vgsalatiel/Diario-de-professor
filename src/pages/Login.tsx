@@ -11,15 +11,18 @@ export function Login() {
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState('')
+  const [enviando, setEnviando] = useState(false)
 
   if (autenticada) {
     navigate('/', { replace: true })
   }
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault()
     setErro('')
-    const r = entrar(email, senha)
+    setEnviando(true)
+    const r = await entrar(email, senha)
+    setEnviando(false)
     if (r.ok) {
       navigate('/', { replace: true })
     } else {
@@ -74,8 +77,8 @@ export function Login() {
 
           {erro && <div className="alerta-erro">{erro}</div>}
 
-          <button className="btn btn-primario btn-bloco" type="submit">
-            Entrar
+          <button className="btn btn-primario btn-bloco" type="submit" disabled={enviando}>
+            {enviando ? 'Entrando...' : 'Entrar'}
           </button>
 
           <p className="login-dica">

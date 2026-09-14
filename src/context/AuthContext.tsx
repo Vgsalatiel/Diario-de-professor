@@ -1,61 +1,113 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Professora } from '../types'
-import { usePersistedState, novoId } from '../lib/storage'
-import { professoraInicial } from '../data/seed'
+import { api, ApiError, definirToken, obterToken } from '../lib/api'
+
+interface DadosCadastro {
+  nome: string
+  email: string
+  senha: string
+  materia: string
+  fotoUrl?: string
+}
+
+interface DadosAtualizacao {
+  nome?: string
+  email?: string
+  materia?: string
+  fotoUrl?: string
+  senha?: string
+}
+
+interface Resultado {
+  ok: boolean
+  erro?: string
+}
 
 interface AuthContextValue {
   professora: Professora
   autenticada: boolean
-  entrar: (email: string, senha: string) => { ok: boolean; erro?: string }
+  carregando: boolean
+  entrar: (email: string, senha: string) => Promise<Resultado>
   sair: () => void
-  atualizarPerfil: (dados: Partial<Professora>) => void
-  criarPerfil: (dados: Omit<Professora, 'id'>) => void
+  atualizarPerfil: (dados: DadosAtualizacao) => Promise<Resultado>
+  criarPerfil: (dados: DadosCadastro) => Promise<Resultado>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [professoras, setProfessoras] = usePersistedState<Professora[]>('professoras', [
-    professoraInicial,
-  ])
-  const [professoraId, setProfessoraId] = usePersistedState<string>(
-    'professoraId',
-    professoraInicial.id,
-  )
-  const [autenticada, setAutenticada] = usePersistedState<boolean>('sessao', false)
+const PROFESSORA_VAZIA: Professora = { id: '', nome: '', email: '', materia: '' }
 
-  const professora =
-    professoras.find((p) => p.id === professoraId) ?? professoras[0] ?? professoraInicial
+function mensagemErro(erro: unknown): string {
+  if (erro instanceof ApiError) return erro.message
+  return 'Não foi possível concluir a operação.'
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [professora, setProfessora] = useState<Professora | null>(null)
+  const [carregando, setCarregando] = useState(true)
+
+  useEffect(() => {
+    const token = obterToken()
+    if (!token) {
+      setCarregando(false)
+      return
+    }
+    api
+      .get<Professora>('/auth/perfil')
+      .then((p) => setProfessora(p))
+      .catch(() => {
+        definirToken(null)
+        setProfessora(null)
+      })
+      .finally(() => setCarregando(false))
+  }, [])
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      professora,
-      autenticada,
-      entrar: (email, senha) => {
-        const encontrada = professoras.find(
-          (p) =>
-            p.email.toLowerCase() === email.trim().toLowerCase() && p.senha === senha,
-        )
-        if (encontrada) {
-          setProfessoraId(encontrada.id)
-          setAutenticada(true)
+      professora: professora ?? PROFESSORA_VAZIA,
+      autenticada: professora != null,
+      carregando,
+      entrar: async (email, senha) => {
+        try {
+          const resposta = await api.post<{ token: string; professor: Professora }>(
+            '/auth/login',
+            { email, senha },
+          )
+          definirToken(resposta.token)
+          setProfessora(resposta.professor)
           return { ok: true }
+        } catch (erro) {
+          return { ok: false, erro: mensagemErro(erro) }
         }
-        return { ok: false, erro: 'E-mail ou senha incorretos.' }
       },
-      sair: () => setAutenticada(false),
-      atualizarPerfil: (dados) =>
-        setProfessoras((ps) =>
-          ps.map((p) => (p.id === professora.id ? { ...p, ...dados } : p)),
-        ),
-      criarPerfil: (dados) => {
-        const id = novoId()
-        setProfessoras((ps) => [...ps, { ...dados, id }])
-        setProfessoraId(id)
-        setAutenticada(true)
+      sair: () => {
+        definirToken(null)
+        setProfessora(null)
+      },
+      atualizarPerfil: async (dados) => {
+        try {
+          const atualizada = await api.patch<Professora>('/auth/perfil', dados)
+          setProfessora(atualizada)
+          return { ok: true }
+        } catch (erro) {
+          return { ok: false, erro: mensagemErro(erro) }
+        }
+      },
+      criarPerfil: async (dados) => {
+        try {
+          const resposta = await api.post<{ token: string; professor: Professora }>(
+            '/auth/registro',
+            dados,
+          )
+          definirToken(resposta.token)
+          setProfessora(resposta.professor)
+          return { ok: true }
+        } catch (erro) {
+          return { ok: false, erro: mensagemErro(erro) }
+        }
       },
     }),
-    [professora, professoras, autenticada, setProfessoras, setProfessoraId, setAutenticada],
+    [professora, carregando],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
