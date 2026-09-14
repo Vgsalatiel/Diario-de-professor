@@ -8,8 +8,8 @@ import { useAuth } from '../context/AuthContext'
 export function Login() {
   const { entrar, autenticada } = useAuth()
   const navigate = useNavigate()
-  const [email, setEmail] = useState('professora@escola.com')
-  const [senha, setSenha] = useState('123456')
+  const [email, setEmail] = useState('')
+  const [senha, setSenha] = useState('')
   const [erro, setErro] = useState('')
 
   if (autenticada) {
