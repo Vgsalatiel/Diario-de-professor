@@ -5,20 +5,32 @@ import { calcularFrequencia, chavePresenca, proximoEstado } from '../lib/frequen
 import { opcoesPeriodo, rotuloSistema, turmaInicial } from '../lib/periodos'
 import { formatarData } from '../lib/eventos'
 import {
-  diaUtilMaisProximo,
+  diaValidoMaisProximo,
   nomeDiaSemana,
-  passoDiaUtil,
+  passoDiaValido,
 } from '../lib/diasUteis'
+
+const DIAS_UTEIS_PADRAO = [1, 2, 3, 4, 5]
 import { exportarFrequenciaExcel, exportarFrequenciaPDF } from '../lib/export'
 
 export function Frequencia() {
-  const { turmas, alunos, datasAula, frequencia, garantirDataAula, definirPresenca } =
-    useData()
+  const {
+    turmas,
+    alunos,
+    datasAula,
+    frequencia,
+    garantirDataAula,
+    definirPresenca,
+    alternarSemAula,
+  } = useData()
 
   const [escolaFiltro, setEscolaFiltro] = useState('todas')
   const [turmaId, setTurmaId] = useState<string>(() => turmaInicial(turmas))
   const [periodo, setPeriodo] = useState<Periodo>('1')
-  const [data, setData] = useState<string>(() => diaUtilMaisProximo(hojeISO()))
+  const [data, setData] = useState<string>(() => {
+    const turma = turmas.find((t) => t.id === turmaId)
+    return diaValidoMaisProximo(hojeISO(), turma?.diasAula ?? DIAS_UTEIS_PADRAO)
+  })
 
   const escolas = useMemo(
     () =>
@@ -40,17 +52,22 @@ export function Frequencia() {
   function trocarEscola(e: string) {
     setEscolaFiltro(e)
     const disponiveis = turmas.filter((t) => t.escola === e)
-    setTurmaId(disponiveis[0]?.id ?? '')
+    const novaTurma = disponiveis[0]
+    setTurmaId(novaTurma?.id ?? '')
     setPeriodo('1')
+    setData((d) => diaValidoMaisProximo(d, novaTurma?.diasAula ?? DIAS_UTEIS_PADRAO))
   }
 
   function trocarTurma(id: string) {
     setTurmaId(id)
     setPeriodo('1')
+    const turma = turmas.find((t) => t.id === id)
+    setData((d) => diaValidoMaisProximo(d, turma?.diasAula ?? DIAS_UTEIS_PADRAO))
   }
 
   const turmaAtual = turmas.find((t) => t.id === turmaId) ?? null
   const sistemaAtual: SistemaPeriodo = turmaAtual?.sistemaPeriodo ?? 'semestre'
+  const diasAulaAtual = turmaAtual?.diasAula ?? DIAS_UTEIS_PADRAO
   const periodosDisponiveis = opcoesPeriodo(sistemaAtual)
   const periodoAtivo: Periodo = periodosDisponiveis.some((p) => p.valor === periodo)
     ? periodo
@@ -68,16 +85,22 @@ export function Frequencia() {
     [datasAula, turmaId, periodoAtivo],
   )
   const dataAulaHoje = datasAula.find((d) => d.turmaId === turmaId && d.data === data)
+  const semAulaHoje = dataAulaHoje?.semAula ?? false
 
   function mudarData(novaData: string) {
-    setData(novaData ? diaUtilMaisProximo(novaData) : novaData)
+    setData(novaData ? diaValidoMaisProximo(novaData, diasAulaAtual) : novaData)
   }
 
   function onCelula(alunoId: string) {
-    if (!turmaId) return
+    if (!turmaId || semAulaHoje) return
     const dataAulaId = garantirDataAula(turmaId, data, periodoAtivo)
     const atual = frequencia[chavePresenca(alunoId, dataAulaId)]
     definirPresenca(alunoId, dataAulaId, proximoEstado(atual))
+  }
+
+  function onSemAula() {
+    if (!turmaId) return
+    alternarSemAula(turmaId, data, periodoAtivo)
   }
 
   function exportar(formato: 'excel' | 'pdf') {
@@ -165,13 +188,13 @@ export function Frequencia() {
         </label>
 
         <label className="campo-inline">
-          <span>Dia da aula (dias úteis)</span>
+          <span>Dia da aula (dias programados desta turma)</span>
           <div className="navegador-dia">
             <button
               type="button"
               className="btn btn-fantasma btn-pequeno"
-              onClick={() => setData((d) => passoDiaUtil(d, -1))}
-              aria-label="Dia útil anterior"
+              onClick={() => setData((d) => passoDiaValido(d, -1, diasAulaAtual))}
+              aria-label="Dia de aula anterior"
             >
               ‹
             </button>
@@ -183,8 +206,8 @@ export function Frequencia() {
             <button
               type="button"
               className="btn btn-fantasma btn-pequeno"
-              onClick={() => setData((d) => passoDiaUtil(d, 1))}
-              aria-label="Próximo dia útil"
+              onClick={() => setData((d) => passoDiaValido(d, 1, diasAulaAtual))}
+              aria-label="Próximo dia de aula"
             >
               ›
             </button>
@@ -201,22 +224,45 @@ export function Frequencia() {
           <p>Esta turma ainda não tem alunos.</p>
         </div>
       ) : (
-        <div className="grid-perfil">
+        <div className="grid-frequencia">
           <section className="painel">
-            <h2>
-              {nomeDiaSemana(data)}, {formatarData(data)}
-            </h2>
+            <div className="frequencia-dia-head">
+              <h2>
+                {nomeDiaSemana(data)}, {formatarData(data)}
+              </h2>
+              <button
+                type="button"
+                className={`btn btn-pequeno ${semAulaHoje ? 'btn-primario' : 'btn-fantasma'}`}
+                onClick={onSemAula}
+              >
+                {semAulaHoje ? '✕ Sem aula neste dia' : 'Não houve aula neste dia'}
+              </button>
+            </div>
+
+            {semAulaHoje && (
+              <p className="texto-suave">
+                Este dia está marcado como sem aula — não conta na frequência de
+                ninguém. Clique de novo no botão acima para desfazer.
+              </p>
+            )}
+
             <table className="tabela">
               <tbody>
                 {alunosTurma.map((aluno) => {
                   const v = dataAulaHoje
                     ? frequencia[chavePresenca(aluno.id, dataAulaHoje.id)]
                     : undefined
-                  const rotulo = v === true ? 'Presente' : v === false ? 'Falta' : '—'
-                  const classe =
-                    v === true
-                      ? 'pill-aprovado'
+                  const rotulo = semAulaHoje
+                    ? '—'
+                    : v === true
+                      ? 'Presente'
                       : v === false
+                        ? 'Falta'
+                        : '—'
+                  const classe =
+                    !semAulaHoje && v === true
+                      ? 'pill-aprovado'
+                      : !semAulaHoje && v === false
                         ? 'pill-recuperacao'
                         : 'pill-sem-nota'
                   return (
@@ -227,6 +273,7 @@ export function Frequencia() {
                           type="button"
                           className={`pill pill-btn ${classe}`}
                           onClick={() => onCelula(aluno.id)}
+                          disabled={semAulaHoje}
                         >
                           {rotulo}
                         </button>

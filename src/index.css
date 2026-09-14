@@ -544,6 +544,21 @@ input:focus, select:focus, textarea:focus {
 .bolha-cor:hover { transform: scale(1.1); }
 .bolha-cor.sel { border-color: var(--ink); box-shadow: 0 0 0 2px #fff inset; }
 
+.seletor-dias { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip-dia {
+  min-width: 44px;
+  padding: 7px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink-suave);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.chip-dia:hover { border-color: var(--indigo); }
+.chip-dia.sel { background: var(--indigo); border-color: var(--indigo); color: #fff; }
+
 /* ============================================================
    Tabelas (alunos + notas)
    ============================================================ */
@@ -625,6 +640,7 @@ input:focus, select:focus, textarea:focus {
 .pill-sem-nota { background: var(--paper); color: var(--muted); }
 .pill-btn { border: none; cursor: pointer; font: inherit; min-width: 44px; }
 .pill-btn:hover { filter: brightness(0.95); }
+.pill-btn:disabled { cursor: not-allowed; opacity: 0.6; }
 
 .barra-config {
   display: flex;
@@ -645,6 +661,23 @@ input:focus, select:focus, textarea:focus {
 
 .navegador-dia { display: flex; align-items: center; gap: 6px; }
 .navegador-dia input[type="date"] { width: auto; }
+
+.frequencia-dia-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.frequencia-dia-head h2 { font-size: 18px; }
+.frequencia-dia-head .btn { align-self: stretch; text-align: center; }
+
+.grid-frequencia {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+  align-items: start;
+}
 
 /* ============================================================
    Agenda

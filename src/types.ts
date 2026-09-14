@@ -20,7 +20,12 @@ export interface Turma {
   escola: string // nome da escola — útil para quem dá aula em mais de uma
   sistemaPeriodo: SistemaPeriodo // como essa escola divide o ano: bimestre ou semestre
   cor: string // cor de identificação da turma
+  // Dias da semana em que há aula dessa turma — 0=domingo .. 6=sábado
+  diasAula: number[]
 }
+
+// Situação da matrícula do aluno na turma
+export type SituacaoMatricula = 'ativo' | 'inativo' | 'transferido'
 
 export interface Aluno {
   id: string
@@ -28,6 +33,9 @@ export interface Aluno {
   nome: string
   telefonePais?: string
   email?: string
+  matricula?: string
+  dataNascimento?: string // ISO: "2012-05-20"
+  situacao: SituacaoMatricula
 }
 
 // Número do período dentro do ano letivo: "1"/"2" (semestre) ou "1".."4" (bimestre)
@@ -72,6 +80,7 @@ export interface DataAula {
   turmaId: string
   data: string // ISO: "2026-09-15"
   periodo: Periodo
+  semAula?: boolean // dia marcado como "não houve aula" — não conta na frequência
 }
 
 // Frequência num mapa plano: chave = `${alunoId}::${dataAulaId}`

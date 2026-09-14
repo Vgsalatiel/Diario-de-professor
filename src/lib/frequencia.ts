@@ -12,7 +12,9 @@ export interface ResumoFrequencia {
 }
 
 // Considera só as aulas com presença/falta já registrada — uma aula
-// recém-criada não conta contra o aluno antes de ser marcada.
+// recém-criada não conta contra o aluno antes de ser marcada. Dias
+// marcados como "sem aula" são ignorados por completo, mesmo que já
+// tenham alguma presença/falta lançada.
 export function calcularFrequencia(
   alunoId: string,
   datasAula: DataAula[],
@@ -21,6 +23,7 @@ export function calcularFrequencia(
   let presencas = 0
   let faltas = 0
   for (const d of datasAula) {
+    if (d.semAula) continue
     const v = frequencia[chavePresenca(alunoId, d.id)]
     if (v === true) presencas++
     else if (v === false) faltas++

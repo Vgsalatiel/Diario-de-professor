@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import { lerImagemComprimida } from '../lib/imagem'
+import { normalizarNome, validarNome } from '../lib/validarNome'
 
 export function Perfil() {
   const { professora, atualizarPerfil } = useAuth()
@@ -13,6 +14,7 @@ export function Perfil() {
     fotoUrl: professora.fotoUrl ?? '',
   })
   const [salvo, setSalvo] = useState(false)
+  const [erro, setErro] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
   function set<K extends keyof typeof form>(campo: K, valor: string) {
@@ -27,7 +29,14 @@ export function Perfil() {
   }
 
   function salvar() {
-    atualizarPerfil(form)
+    const erroNome = validarNome(form.nome)
+    if (erroNome) {
+      setErro(erroNome)
+      setSalvo(false)
+      return
+    }
+    setErro('')
+    atualizarPerfil({ ...form, nome: normalizarNome(form.nome) })
     setSalvo(true)
   }
 
@@ -107,6 +116,8 @@ export function Perfil() {
               />
             </label>
           </div>
+
+          {erro && <div className="alerta-erro">{erro}</div>}
 
           <div className="acoes-fim">
             {salvo && <span className="feedback-ok">Alterações salvas.</span>}

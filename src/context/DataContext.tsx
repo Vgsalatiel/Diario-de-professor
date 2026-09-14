@@ -66,6 +66,8 @@ interface DataContextValue {
   // Garante que exista uma aula para essa turma/data (cria se faltar) e devolve o id dela
   garantirDataAula: (turmaId: string, data: string, periodo: DataAula['periodo']) => string
   definirPresenca: (alunoId: string, dataAulaId: string, valor: boolean | null) => void
+  // Alterna se um dia conta como "sem aula" (não entra na frequência de ninguém)
+  alternarSemAula: (turmaId: string, data: string, periodo: DataAula['periodo']) => void
 }
 
 const DataContext = createContext<DataContextValue | null>(null)
@@ -84,9 +86,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const ns = (chave: string) => `${chave}:${professora.id}`
   const vazio = <T,>(cheio: T, v: T): T => (ehContaDemo ? cheio : v)
 
-  const [turmas, setTurmas] = usePersistedState<Turma[]>(
+  const [turmasBrutas, setTurmas] = usePersistedState<Turma[]>(
     ns('turmas'),
     vazio(turmasIniciais, []),
+  )
+  // Turmas salvas antes do campo "dias de aula" existir não têm esse dado —
+  // preenche com segunda a sexta pra não quebrar as telas que dependem dele.
+  const turmas = useMemo(
+    () =>
+      turmasBrutas.map((t) =>
+        Array.isArray(t.diasAula) ? t : { ...t, diasAula: [1, 2, 3, 4, 5] },
+      ),
+    [turmasBrutas],
   )
   const [alunos, setAlunos] = usePersistedState<Aluno[]>(
     ns('alunos'),
@@ -237,6 +248,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
       },
       definirPresenca: (alunoId, dataAulaId, valor) =>
         setFrequencia((fs) => ({ ...fs, [chavePresenca(alunoId, dataAulaId)]: valor })),
+
+      alternarSemAula: (turmaId, data, periodo) => {
+        const existente = datasAula.find((d) => d.turmaId === turmaId && d.data === data)
+        if (existente) {
+          setDatasAula((ds) =>
+            ds.map((d) => (d.id === existente.id ? { ...d, semAula: !d.semAula } : d)),
+          )
+        } else {
+          setDatasAula((ds) => [...ds, { id: novoId(), turmaId, data, periodo, semAula: true }])
+        }
+      },
     }
   }, [
     turmas,

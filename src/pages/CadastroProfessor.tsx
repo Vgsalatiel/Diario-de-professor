@@ -2,6 +2,7 @@ import { useRef, useState, type FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { lerImagemComprimida } from '../lib/imagem'
+import { normalizarNome, validarNome } from '../lib/validarNome'
 
 export function CadastroProfessor() {
   const { criarPerfil, autenticada } = useAuth()
@@ -30,8 +31,13 @@ export function CadastroProfessor() {
     e.preventDefault()
     setErro('')
 
-    if (!nome.trim() || !email.trim() || !materia.trim()) {
-      setErro('Preencha nome, e-mail e matéria.')
+    const erroNome = validarNome(nome)
+    if (erroNome) {
+      setErro(erroNome)
+      return
+    }
+    if (!email.trim() || !materia.trim()) {
+      setErro('Preencha e-mail e matéria.')
       return
     }
     if (senha.length < 6) {
@@ -44,7 +50,7 @@ export function CadastroProfessor() {
     }
 
     criarPerfil({
-      nome: nome.trim(),
+      nome: normalizarNome(nome),
       email: email.trim(),
       senha,
       materia: materia.trim(),

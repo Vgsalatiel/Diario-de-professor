@@ -7,6 +7,15 @@ import { Modal } from '../components/Modal'
 
 const CORES = ['#4759a8', '#2f9e6b', '#e8a33d', '#b05ac0', '#d05a5a', '#3aa0b5']
 
+const DIAS_SEMANA = [
+  { valor: 1, rotulo: 'Seg' },
+  { valor: 2, rotulo: 'Ter' },
+  { valor: 3, rotulo: 'Qua' },
+  { valor: 4, rotulo: 'Qui' },
+  { valor: 5, rotulo: 'Sex' },
+  { valor: 6, rotulo: 'Sáb' },
+]
+
 const VAZIO = {
   nome: '',
   serie: '',
@@ -14,6 +23,17 @@ const VAZIO = {
   escola: '',
   sistemaPeriodo: 'semestre' as SistemaPeriodo,
   cor: CORES[0],
+  diasAula: [1, 2, 3, 4, 5] as number[],
+}
+
+function diasAulaResumo(dias: number[]): string {
+  if (dias.length === 0) return 'Nenhum dia definido'
+  if (dias.length === 5 && [1, 2, 3, 4, 5].every((d) => dias.includes(d))) {
+    return 'Segunda a sexta'
+  }
+  return DIAS_SEMANA.filter((d) => dias.includes(d.valor))
+    .map((d) => d.rotulo)
+    .join(', ')
 }
 
 export function Turmas() {
@@ -21,6 +41,7 @@ export function Turmas() {
   const { notificar } = useToast()
   const [modal, setModal] = useState(false)
   const [editando, setEditando] = useState<Turma | null>(null)
+  const [erroForm, setErroForm] = useState('')
   const [form, setForm] = useState(VAZIO)
   const [escolaFiltro, setEscolaFiltro] = useState('todas')
 
@@ -40,12 +61,14 @@ export function Turmas() {
 
   function abrirNova() {
     setEditando(null)
+    setErroForm('')
     setForm(VAZIO)
     setModal(true)
   }
 
   function abrirEdicao(t: Turma) {
     setEditando(t)
+    setErroForm('')
     setForm({
       nome: t.nome,
       serie: t.serie,
@@ -53,8 +76,18 @@ export function Turmas() {
       escola: t.escola,
       sistemaPeriodo: t.sistemaPeriodo,
       cor: t.cor,
+      diasAula: t.diasAula,
     })
     setModal(true)
+  }
+
+  function alternarDia(dia: number) {
+    setForm((f) => ({
+      ...f,
+      diasAula: f.diasAula.includes(dia)
+        ? f.diasAula.filter((d) => d !== dia)
+        : [...f.diasAula, dia].sort((a, b) => a - b),
+    }))
   }
 
   // Se já existe alguma turma com esse nome de escola, adota o mesmo
@@ -71,12 +104,27 @@ export function Turmas() {
   }
 
   function salvar() {
-    if (!form.nome.trim()) return
+    if (!form.nome.trim()) {
+      setErroForm('Informe o nome da turma.')
+      return
+    }
+    if (!form.escola.trim()) {
+      setErroForm(
+        'Informe a escola — sem isso a turma fica invisível nas telas de Alunos, Notas e Frequência quando você tem mais de uma escola cadastrada.',
+      )
+      return
+    }
+    if (form.diasAula.length === 0) {
+      setErroForm('Marque pelo menos um dia da semana em que essa turma tem aula.')
+      return
+    }
+    setErroForm('')
+    const dados = { ...form, nome: form.nome.trim(), escola: form.escola.trim() }
     if (editando) {
-      atualizarTurma(editando.id, form)
+      atualizarTurma(editando.id, dados)
       notificar('Turma atualizada.')
     } else {
-      criarTurma(form)
+      criarTurma(dados)
       notificar('Turma criada.')
     }
     setModal(false)
@@ -144,6 +192,7 @@ export function Turmas() {
                   <h2>{t.nome}</h2>
                   <p className="texto-suave">{t.serie || 'Sem série definida'}</p>
                   {t.escola && <p className="texto-suave">{t.escola}</p>}
+                  <p className="texto-suave">{diasAulaResumo(t.diasAula)}</p>
                   <div className="card-turma-meta">
                     <span>{total} alunos</span>
                     <span>·</span>
@@ -151,7 +200,10 @@ export function Turmas() {
                   </div>
                 </div>
                 <div className="card-turma-acoes">
-                  <Link to="/alunos" className="btn btn-fantasma btn-pequeno">
+                  <Link
+                    to={`/alunos?turma=${t.id}`}
+                    className="btn btn-fantasma btn-pequeno"
+                  >
                     Ver alunos
                   </Link>
                   <button
@@ -236,6 +288,25 @@ export function Turmas() {
             </select>
           </label>
           <div className="campo campo-largo">
+            <span>Dias de aula dessa turma</span>
+            <div className="seletor-dias">
+              {DIAS_SEMANA.map((d) => (
+                <button
+                  key={d.valor}
+                  type="button"
+                  className={`chip-dia ${form.diasAula.includes(d.valor) ? 'sel' : ''}`}
+                  onClick={() => alternarDia(d.valor)}
+                >
+                  {d.rotulo}
+                </button>
+              ))}
+            </div>
+            <p className="texto-suave">
+              Só esses dias entram na chamada de frequência — os outros nem
+              aparecem para lançar presença.
+            </p>
+          </div>
+          <div className="campo campo-largo">
             <span>Cor de identificação</span>
             <div className="seletor-cor">
               {CORES.map((c) => (
@@ -250,6 +321,7 @@ export function Turmas() {
               ))}
             </div>
           </div>
+          {erroForm && <div className="alerta-erro campo-largo">{erroForm}</div>}
         </div>
       </Modal>
     </div>

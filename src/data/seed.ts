@@ -22,20 +22,20 @@ export const professoraInicial: Professora = {
 }
 
 export const turmasIniciais: Turma[] = [
-  { id: 't1', nome: '9º Ano A', serie: 'Ensino Fundamental II', anoLetivo: '2026', escola: 'Escola Estadual Pedro Álvares', sistemaPeriodo: 'bimestre', cor: '#4759a8' },
-  { id: 't2', nome: '9º Ano B', serie: 'Ensino Fundamental II', anoLetivo: '2026', escola: 'Escola Estadual Pedro Álvares', sistemaPeriodo: 'bimestre', cor: '#2f9e6b' },
-  { id: 't3', nome: '1º Ano EM', serie: 'Ensino Médio', anoLetivo: '2026', escola: 'Colégio Santa Clara', sistemaPeriodo: 'semestre', cor: '#e8a33d' },
-  { id: 't4', nome: '2º Ano EM', serie: 'Ensino Médio', anoLetivo: '2026', escola: 'Colégio Santa Clara', sistemaPeriodo: 'semestre', cor: '#b05ac0' },
+  { id: 't1', nome: '9º Ano A', serie: 'Ensino Fundamental II', anoLetivo: '2026', escola: 'Escola Estadual Pedro Álvares', sistemaPeriodo: 'bimestre', cor: '#4759a8', diasAula: [2, 4] },
+  { id: 't2', nome: '9º Ano B', serie: 'Ensino Fundamental II', anoLetivo: '2026', escola: 'Escola Estadual Pedro Álvares', sistemaPeriodo: 'bimestre', cor: '#2f9e6b', diasAula: [1, 3, 5] },
+  { id: 't3', nome: '1º Ano EM', serie: 'Ensino Médio', anoLetivo: '2026', escola: 'Colégio Santa Clara', sistemaPeriodo: 'semestre', cor: '#e8a33d', diasAula: [1, 2, 3, 4, 5] },
+  { id: 't4', nome: '2º Ano EM', serie: 'Ensino Médio', anoLetivo: '2026', escola: 'Colégio Santa Clara', sistemaPeriodo: 'semestre', cor: '#b05ac0', diasAula: [1, 2, 3, 4, 5] },
 ]
 
 export const alunosIniciais: Aluno[] = [
-  { id: 'a1', turmaId: 't1', nome: 'João', email: 'joao@escola.com', telefonePais: '(11) 91234-5001' },
-  { id: 'a2', turmaId: 't1', nome: 'Ana', email: 'ana@escola.com', telefonePais: '(11) 91234-5002' },
-  { id: 'a3', turmaId: 't1', nome: 'Lucas', email: 'lucas@escola.com', telefonePais: '(11) 91234-5003' },
-  { id: 'a4', turmaId: 't1', nome: 'Beatriz' },
-  { id: 'a5', turmaId: 't2', nome: 'Rafael' },
-  { id: 'a6', turmaId: 't2', nome: 'Carla' },
-  { id: 'a7', turmaId: 't3', nome: 'Mariana' },
+  { id: 'a1', turmaId: 't1', nome: 'João', email: 'joao@escola.com', telefonePais: '(11) 91234-5001', dataNascimento: '2011-03-12', situacao: 'ativo' },
+  { id: 'a2', turmaId: 't1', nome: 'Ana', email: 'ana@escola.com', telefonePais: '(11) 91234-5002', dataNascimento: '2011-07-25', situacao: 'ativo' },
+  { id: 'a3', turmaId: 't1', nome: 'Lucas', email: 'lucas@escola.com', telefonePais: '(11) 91234-5003', dataNascimento: '2010-11-02', situacao: 'ativo' },
+  { id: 'a4', turmaId: 't1', nome: 'Beatriz', situacao: 'transferido' },
+  { id: 'a5', turmaId: 't2', nome: 'Rafael', situacao: 'ativo' },
+  { id: 'a6', turmaId: 't2', nome: 'Carla', situacao: 'inativo' },
+  { id: 'a7', turmaId: 't3', nome: 'Mariana', situacao: 'ativo' },
 ]
 
 export const avaliacoesIniciais: Avaliacao[] = [
