@@ -18,28 +18,42 @@ const VAZIO = {
   conteudo: '',
 }
 
+type Filtro = 'proximos' | 'todos' | 'concluidos'
+
 export function Agenda() {
   const { eventos, turmas, criarEvento, atualizarEvento, removerEvento } = useData()
   const { notificar } = useToast()
   const [modal, setModal] = useState(false)
   const [editando, setEditando] = useState<Evento | null>(null)
   const [form, setForm] = useState(VAZIO)
-  const [filtro, setFiltro] = useState<'proximos' | 'todos'>('proximos')
+  const [filtro, setFiltro] = useState<Filtro>('proximos')
+  const [diaFiltro, setDiaFiltro] = useState('')
+
+  function trocarFiltro(f: Filtro) {
+    setFiltro(f)
+    setDiaFiltro('')
+  }
 
   const listagem = useMemo(() => {
     const hoje = new Date()
     hoje.setHours(0, 0, 0, 0)
     return [...eventos]
-      .filter((e) =>
-        filtro === 'proximos'
-          ? new Date(e.data + 'T00:00:00') >= hoje
-          : true,
-      )
+      .filter((e) => {
+        if (filtro === 'proximos') {
+          return !e.concluido && new Date(e.data + 'T00:00:00') >= hoje
+        }
+        if (filtro === 'concluidos') {
+          if (!e.concluido) return false
+        } else if (e.concluido) {
+          return false
+        }
+        return diaFiltro ? e.data === diaFiltro : true
+      })
       .sort((a, b) => {
         const d = a.data.localeCompare(b.data)
         return d !== 0 ? d : (a.hora ?? '').localeCompare(b.hora ?? '')
       })
-  }, [eventos, filtro])
+  }, [eventos, filtro, diaFiltro])
 
   function abrirNovo() {
     setEditando(null)
@@ -74,7 +88,9 @@ export function Agenda() {
       atualizarEvento(editando.id, dados)
       notificar('Evento atualizado.')
     } else {
-      criarEvento(dados)
+      criarEvento(dados).catch(() => {
+        // erro já notificado pelo DataContext
+      })
       notificar('Evento adicionado.')
     }
     setModal(false)
@@ -82,6 +98,16 @@ export function Agenda() {
 
   function excluir(e: Evento) {
     if (confirm(`Excluir "${e.titulo}"?`)) removerEvento(e.id)
+  }
+
+  function concluir(e: Evento) {
+    atualizarEvento(e.id, { concluido: true })
+    notificar('Evento marcado como concluído.')
+  }
+
+  function reabrir(e: Evento) {
+    atualizarEvento(e.id, { concluido: false })
+    notificar('Evento reaberto.')
   }
 
   const nomeTurma = (id?: string) =>
@@ -101,19 +127,49 @@ export function Agenda() {
         </button>
       </header>
 
-      <div className="abas">
-        <button
-          className={`aba ${filtro === 'proximos' ? 'ativa' : ''}`}
-          onClick={() => setFiltro('proximos')}
-        >
-          Próximos
-        </button>
-        <button
-          className={`aba ${filtro === 'todos' ? 'ativa' : ''}`}
-          onClick={() => setFiltro('todos')}
-        >
-          Todos
-        </button>
+      <div className="barra-config">
+        <div className="abas">
+          <button
+            className={`aba ${filtro === 'proximos' ? 'ativa' : ''}`}
+            onClick={() => trocarFiltro('proximos')}
+          >
+            Próximos
+          </button>
+          <button
+            className={`aba ${filtro === 'todos' ? 'ativa' : ''}`}
+            onClick={() => trocarFiltro('todos')}
+          >
+            Todos
+          </button>
+          <button
+            className={`aba ${filtro === 'concluidos' ? 'ativa' : ''}`}
+            onClick={() => trocarFiltro('concluidos')}
+          >
+            Concluídos
+          </button>
+        </div>
+
+        {filtro !== 'proximos' && (
+          <label className="campo-inline campo-inline-fim">
+            <span>Filtrar por dia</span>
+            <div className="navegador-dia">
+              <input
+                type="date"
+                value={diaFiltro}
+                onChange={(e) => setDiaFiltro(e.target.value)}
+              />
+              {diaFiltro && (
+                <button
+                  type="button"
+                  className="btn btn-fantasma btn-pequeno"
+                  onClick={() => setDiaFiltro('')}
+                >
+                  Limpar
+                </button>
+              )}
+            </div>
+          </label>
+        )}
       </div>
 
       {listagem.length === 0 ? (
@@ -121,16 +177,24 @@ export function Agenda() {
           <p>
             {filtro === 'proximos'
               ? 'Nenhum evento futuro. Que tal agendar a próxima prova?'
-              : 'Nenhum evento cadastrado ainda.'}
+              : filtro === 'concluidos'
+                ? diaFiltro
+                  ? 'Nenhum evento concluído nesse dia.'
+                  : 'Nenhum evento concluído ainda.'
+                : diaFiltro
+                  ? 'Nenhum evento nesse dia.'
+                  : 'Nenhum evento cadastrado ainda.'}
           </p>
-          <button className="btn btn-primario" onClick={abrirNovo}>
-            Adicionar evento
-          </button>
+          {filtro !== 'concluidos' && (
+            <button className="btn btn-primario" onClick={abrirNovo}>
+              Adicionar evento
+            </button>
+          )}
         </div>
       ) : (
         <div className="timeline">
           {listagem.map((e) => (
-            <article key={e.id} className="evento-cartao">
+            <article key={e.id} className={`evento-cartao ${e.concluido ? 'concluido' : ''}`}>
               <div
                 className="evento-cartao-barra"
                 style={{ background: corTipo(e.tipo) }}
@@ -155,8 +219,28 @@ export function Agenda() {
                 <h3>{e.titulo}</h3>
                 {e.conteudo && <p className="evento-conteudo">{e.conteudo}</p>}
                 <span className="evento-data-completa">{formatarData(e.data)}</span>
+                {e.prazo && (
+                  <span className="evento-data-completa evento-prazo">
+                    Entrega até {formatarData(e.prazo)}
+                  </span>
+                )}
               </div>
               <div className="evento-cartao-acoes">
+                {e.concluido ? (
+                  <button
+                    className="btn btn-fantasma btn-pequeno"
+                    onClick={() => reabrir(e)}
+                  >
+                    ↺ Reabrir
+                  </button>
+                ) : (
+                  <button
+                    className="btn btn-fantasma btn-pequeno"
+                    onClick={() => concluir(e)}
+                  >
+                    ✓ Concluir
+                  </button>
+                )}
                 <button
                   className="btn btn-fantasma btn-pequeno"
                   onClick={() => abrirEdicao(e)}

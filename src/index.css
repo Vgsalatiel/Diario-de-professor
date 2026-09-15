@@ -29,6 +29,42 @@
   --fonte-corpo: 'Inter', system-ui, -apple-system, sans-serif;
 
   --sidebar-larg: 248px;
+
+  --topbar-fundo: rgba(247, 248, 251, 0.85);
+  --linha-hover: #fbfcfe;
+  --verde-texto: #1f7a52;
+  --vermelho-texto: #a23a3a;
+}
+
+/* ============================================================
+   Modo escuro — mesma paleta de variáveis, valores diferentes.
+   Ativado via [data-theme="dark"] no <html> (ver ThemeContext).
+   ============================================================ */
+:root[data-theme='dark'] {
+  --ink: #e9ebf2;
+  --ink-suave: #c1c6d4;
+  --muted: #8991a3;
+  --paper: #12151f;
+  --surface: #1a1e2b;
+  --line: #2b2f40;
+  --line-forte: #3a3f54;
+
+  --indigo: #7c8cf0;
+  --indigo-escuro: #97a4f5;
+  --indigo-claro: #232a4d;
+  --amber: #f0b559;
+  --verde: #4cc794;
+  --verde-claro: #163629;
+  --vermelho: #e28080;
+  --vermelho-claro: #3a2222;
+
+  --sombra: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.35);
+  --sombra-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+
+  --topbar-fundo: rgba(18, 21, 31, 0.85);
+  --linha-hover: #1f2333;
+  --verde-texto: #7ee0b4;
+  --vermelho-texto: #f0a3a3;
 }
 
 * { box-sizing: border-box; }
@@ -124,6 +160,17 @@ button { font-family: inherit; }
 
 /* ---------- campos ---------- */
 .campo { display: flex; flex-direction: column; gap: 6px; }
+.campo-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-suave);
+  margin: 16px 0 12px;
+  cursor: pointer;
+}
+.campo-checkbox input[type='checkbox'] { width: auto; accent-color: var(--indigo); }
 .campo > span { font-size: 13px; font-weight: 600; color: var(--ink-suave); }
 
 input, select, textarea {
@@ -233,7 +280,7 @@ input:focus, select:focus, textarea:focus {
   gap: 12px;
   padding: 0 28px;
   border-bottom: 1px solid var(--line);
-  background: rgba(247, 248, 251, 0.85);
+  background: var(--topbar-fundo);
   backdrop-filter: blur(8px);
   position: sticky;
   top: 0;
@@ -241,8 +288,9 @@ input:focus, select:focus, textarea:focus {
 }
 .topbar-titulo { font-weight: 600; color: var(--ink-suave); font-size: 15px; }
 .menu-toggle { display: none; }
+.tema-toggle { margin-left: auto; font-size: 17px; }
 
-.pagina { padding: 32px 28px 64px; max-width: 1080px; width: 100%; }
+.pagina { padding: 32px 28px 64px; max-width: 1360px; width: 100%; }
 
 .pagina-head {
   display: flex;
@@ -288,6 +336,8 @@ input:focus, select:focus, textarea:focus {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
   margin-bottom: 16px;
 }
 .painel-head h2 { font-size: 18px; }
@@ -374,7 +424,7 @@ input:focus, select:focus, textarea:focus {
 }
 .alerta-erro {
   background: var(--vermelho-claro);
-  color: #a23a3a;
+  color: var(--vermelho-texto);
   border-radius: var(--raio-sm);
   padding: 10px 12px;
   font-size: 13.5px;
@@ -550,7 +600,7 @@ input:focus, select:focus, textarea:focus {
   padding: 7px 10px;
   border-radius: 20px;
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--surface);
   color: var(--ink-suave);
   font-size: 13px;
   font-weight: 600;
@@ -579,7 +629,7 @@ input:focus, select:focus, textarea:focus {
 }
 .tabela td { padding: 13px 16px; border-bottom: 1px solid var(--line); }
 .tabela tbody tr:last-child td { border-bottom: none; }
-.tabela tbody tr:hover td { background: #fbfcfe; }
+.tabela tbody tr:hover td { background: var(--linha-hover); }
 .celula-nome { font-weight: 600; }
 .celula-vazia { text-align: center; color: var(--muted); padding: 32px; }
 .col-acoes { text-align: right; white-space: nowrap; }
@@ -604,7 +654,7 @@ input:focus, select:focus, textarea:focus {
   min-width: 160px;
 }
 .tabela-notas thead .col-aluno { background: var(--paper); }
-.tabela-notas tbody tr:hover .col-aluno { background: #fbfcfe; }
+.tabela-notas tbody tr:hover .col-aluno { background: var(--linha-hover); }
 .col-nota { text-align: center; }
 .th-aval { display: inline-flex; flex-direction: column; align-items: center; }
 .th-aval .peso { font-style: normal; font-weight: 500; color: var(--indigo); font-size: 11px; text-transform: none; }
@@ -635,8 +685,8 @@ input:focus, select:focus, textarea:focus {
   font-size: 12.5px;
   font-weight: 600;
 }
-.pill-aprovado { background: var(--verde-claro); color: #1f7a52; }
-.pill-recuperacao { background: var(--vermelho-claro); color: #a23a3a; }
+.pill-aprovado { background: var(--verde-claro); color: var(--verde-texto); }
+.pill-recuperacao { background: var(--vermelho-claro); color: var(--vermelho-texto); }
 .pill-sem-nota { background: var(--paper); color: var(--muted); }
 .pill-btn { border: none; cursor: pointer; font: inherit; min-width: 44px; }
 .pill-btn:hover { filter: brightness(0.95); }
@@ -654,6 +704,7 @@ input:focus, select:focus, textarea:focus {
   box-shadow: var(--sombra-sm);
 }
 .campo-inline { display: flex; flex-direction: column; gap: 6px; }
+.campo-inline-fim { margin-left: auto; }
 .campo-inline > span { font-size: 12.5px; font-weight: 600; color: var(--ink-suave); }
 .campo-inline .select { min-width: 190px; }
 .campo-estreito .input-num { width: 90px; }
@@ -671,6 +722,7 @@ input:focus, select:focus, textarea:focus {
 }
 .frequencia-dia-head h2 { font-size: 18px; }
 .frequencia-dia-head .btn { align-self: stretch; text-align: center; }
+.frequencia-aula-resumo { margin-bottom: 16px; }
 
 .grid-frequencia {
   display: grid;
@@ -682,7 +734,7 @@ input:focus, select:focus, textarea:focus {
 /* ============================================================
    Agenda
    ============================================================ */
-.abas { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--raio-sm); padding: 4px; width: fit-content; }
+.abas { display: flex; flex-wrap: wrap; gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--raio-sm); padding: 4px; width: fit-content; }
 .aba {
   border: none;
   background: transparent;
@@ -706,6 +758,8 @@ input:focus, select:focus, textarea:focus {
   overflow: hidden;
   box-shadow: var(--sombra-sm);
 }
+.evento-cartao.concluido { opacity: 0.65; }
+.evento-cartao.concluido h3 { text-decoration: line-through; }
 .evento-cartao-barra { width: 5px; flex-shrink: 0; }
 .evento-cartao-data {
   display: flex;
@@ -724,6 +778,7 @@ input:focus, select:focus, textarea:focus {
 .evento-hora { font-size: 13px; font-weight: 600; color: var(--ink-suave); }
 .evento-conteudo { color: var(--ink-suave); font-size: 14px; margin: 6px 0 0; }
 .evento-data-completa { display: block; margin-top: 8px; font-size: 12.5px; color: var(--muted); }
+.evento-prazo { color: var(--amber); font-weight: 600; margin-top: 2px; }
 .evento-cartao-acoes {
   display: flex;
   flex-direction: column;
@@ -775,6 +830,55 @@ input:focus, select:focus, textarea:focus {
   gap: 10px;
   padding: 16px 22px;
   border-top: 1px solid var(--line);
+}
+
+/* ============================================================
+   Drawer (painel lateral) — como o Modal, mas desliza da direita
+   e não cobre o menu lateral.
+   ============================================================ */
+.drawer-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: var(--sidebar-larg);
+  background: rgba(31, 36, 51, 0.35);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 100;
+  animation: fade 0.12s ease-out;
+}
+.drawer {
+  background: var(--surface);
+  width: min(720px, 100%);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -12px 0 40px rgba(31, 36, 51, 0.2);
+  animation: desliza 0.18s ease-out;
+}
+.drawer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.drawer-head h2 { font-size: 19px; }
+.drawer-body { padding: 24px; overflow-y: auto; flex: 1; min-height: 0; }
+.drawer-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+}
+@keyframes desliza { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+@media (max-width: 760px) {
+  .drawer-overlay { left: 0; }
 }
 
 /* ============================================================
@@ -871,3 +975,70 @@ input:focus, select:focus, textarea:focus {
   .hero-titulo { font-size: 24px; }
   .evento-cartao-acoes { flex-direction: row; }
 }
+
+/* ============================================================
+   Plano de aula
+   ============================================================ */
+.plano-cartao-linha { cursor: pointer; transition: box-shadow 0.15s ease; }
+.plano-cartao-linha:hover { box-shadow: 0 4px 14px rgba(31, 36, 51, 0.1); }
+.plano-cartao-linha:focus-visible { outline: 2px solid var(--indigo); outline-offset: 2px; }
+.plano-cartao-linha.plano-encerrado { opacity: 0.65; }
+
+.lista-planos-grupo-titulo {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.editor-rico { max-width: 760px; }
+
+.aviso-nao-salvo { color: var(--amber); font-weight: 600; font-size: 13px; }
+
+.form-grid-compacto { margin-top: 12px; }
+
+.campo-espacosa { margin-top: 14px; }
+.campo-data-curta { max-width: 220px; }
+
+.lista-simples { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.lista-simples li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--paper);
+  border-radius: var(--raio-sm);
+  font-size: 13.5px;
+}
+
+/* Editor de texto rico (Quill) — combina com o resto do app */
+.ql-toolbar.ql-snow {
+  font-family: var(--fonte-corpo);
+  border-color: var(--line-forte);
+  border-radius: var(--raio-sm) var(--raio-sm) 0 0;
+  background: var(--paper);
+}
+.ql-container.ql-snow {
+  font-family: var(--fonte-corpo);
+  font-size: 14px;
+  border-color: var(--line-forte);
+  border-radius: 0 0 var(--raio-sm) var(--raio-sm);
+}
+.ql-editor { min-height: 120px; }
+.ql-editor.ql-blank::before { color: var(--muted); font-style: normal; }
+
+/* O Quill escreve os ícones/menu do toolbar com cores fixas (#444,
+   #fff) — no escuro isso fica invisível ou vira um retângulo branco. */
+:root[data-theme='dark'] .ql-snow .ql-stroke { stroke: var(--ink-suave); }
+:root[data-theme='dark'] .ql-snow .ql-fill,
+:root[data-theme='dark'] .ql-snow .ql-stroke.ql-fill { fill: var(--ink-suave); }
+:root[data-theme='dark'] .ql-snow .ql-picker { color: var(--ink-suave); }
+:root[data-theme='dark'] .ql-snow .ql-picker-options {
+  background-color: var(--surface);
+  border-color: var(--line-forte);
+}
+:root[data-theme='dark'] .ql-snow .ql-picker.ql-expanded .ql-picker-label { border-color: var(--line-forte); }

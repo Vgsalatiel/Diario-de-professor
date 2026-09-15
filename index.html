@@ -11,6 +11,17 @@
       href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <script>
+      // Aplica o tema antes da página pintar, pra não piscar claro e
+      // depois escurecer quando o usuário já escolheu o modo escuro.
+      (function () {
+        try {
+          var salvo = localStorage.getItem('diario:tema')
+          var escuro = salvo ? salvo === 'escuro' : window.matchMedia('(prefers-color-scheme: dark)').matches
+          document.documentElement.dataset.theme = escuro ? 'dark' : 'light'
+        } catch (e) {}
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

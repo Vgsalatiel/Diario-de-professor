@@ -67,7 +67,10 @@ export interface Evento {
   data: string // ISO: "2026-09-15"
   hora?: string // "10:00"
   turmaId?: string
+  planoId?: string // quando é uma prova criada de dentro de um plano de aula
   conteudo?: string
+  concluido?: boolean
+  prazo?: string // ISO — prazo de entrega, usado em eventos do tipo "trabalho"/atividade
 }
 
 // Notas ficam num mapa plano: chave = `${alunoId}::${avaliacaoId}`
@@ -85,3 +88,27 @@ export interface DataAula {
 // Frequência num mapa plano: chave = `${alunoId}::${dataAulaId}`
 // true = presente, false = falta, ausência de chave = ainda não lançado
 export type MapaDeFrequencia = Record<string, boolean | null>
+
+// Duração que o professor escolhe pro plano — em todos os casos ele
+// decide também a data final ("até quando" vale o plano).
+export type DuracaoPlano = 'quinzenal' | 'semestral' | 'personalizado'
+
+export interface PlanoDeAula {
+  id: string
+  turmaId: string
+  titulo: string
+  duracao: DuracaoPlano
+  dataInicio: string // ISO
+  dataFim: string // ISO — até quando esse plano vale
+  conteudo?: string // tópicos/conteúdo previsto
+}
+
+// "O que foi aplicado no dia" — um resumo por turma+data, mostrado no
+// botão "Aula deste dia" da tela de Frequência.
+export interface RegistroAula {
+  id: string
+  turmaId: string
+  data: string // ISO
+  resumo: string
+  planoId?: string // plano de aula ao qual esse dia pertence, se houver
+}

@@ -2,6 +2,10 @@
   command = "npm run build"
   publish = "dist"
 
+[build.environment]
+  # react-router-dom 7 exige Node 20+
+  NODE_VERSION = "20"
+
 # SPA: qualquer rota (ex.: /alunos, /notas) cai no index.html e o
 # react-router assume o roteamento no navegador.
 [[redirects]]

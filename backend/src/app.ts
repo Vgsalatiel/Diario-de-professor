@@ -14,6 +14,11 @@ import {
 } from './modules/frequencia/frequencia.routes'
 import { alunoNotasRouter, notasRouter } from './modules/notas/notas.routes'
 import { turmasRouter } from './modules/turmas/turmas.routes'
+import { planosRouter, turmaPlanosRouter } from './modules/planos/planos.routes'
+import {
+  registrosAulaRouter,
+  turmaRegistrosAulaRouter,
+} from './modules/registrosAula/registrosAula.routes'
 
 export const app = express()
 
@@ -30,6 +35,8 @@ app.use('/auth', authRouter)
 app.use('/turmas/:turmaId/alunos', autenticar, turmaAlunosRouter)
 app.use('/turmas/:turmaId/avaliacoes', autenticar, turmaAvaliacoesRouter)
 app.use('/turmas/:turmaId/datas-aula', autenticar, turmaDatasAulaRouter)
+app.use('/turmas/:turmaId/planos-de-aula', autenticar, turmaPlanosRouter)
+app.use('/turmas/:turmaId/registros-aula', autenticar, turmaRegistrosAulaRouter)
 app.use('/turmas', autenticar, turmasRouter)
 
 app.use('/alunos/:alunoId/notas', autenticar, alunoNotasRouter)
@@ -41,6 +48,8 @@ app.use('/notas', autenticar, notasRouter)
 app.use('/eventos', autenticar, eventosRouter)
 app.use('/datas-aula', autenticar, datasAulaRouter)
 app.use('/frequencia', autenticar, frequenciaRouter)
+app.use('/planos-de-aula', autenticar, planosRouter)
+app.use('/registros-aula', autenticar, registrosAulaRouter)
 
 app.use(rotaNaoEncontrada)
 app.use(errorHandler)

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import type { ModeloCalculo, Periodo, SistemaPeriodo } from '../types'
@@ -31,6 +31,17 @@ export function Notas() {
   const [periodo, setPeriodo] = useState<Periodo>('1')
   const [modalAval, setModalAval] = useState(false)
   const [novaAval, setNovaAval] = useState({ nome: '', peso: '1', periodo: '1' as Periodo })
+  const [modalExportar, setModalExportar] = useState(false)
+  const [exportPeriodo, setExportPeriodo] = useState<'atual' | 'todos'>('atual')
+  const [exportAlunoId, setExportAlunoId] = useState('todos')
+
+  // As turmas chegam da API de forma assíncrona — se a página monta antes
+  // da primeira turma carregar, escolhe a turma inicial assim que chegar.
+  useEffect(() => {
+    if (!turmaId && turmas.length > 0) {
+      setTurmaId(turmaInicial(turmas))
+    }
+  }, [turmas, turmaId])
 
   const escolas = useMemo(
     () =>
@@ -114,13 +125,33 @@ export function Notas() {
     setModalAval(false)
   }
 
+  function abrirModalExportar() {
+    setExportPeriodo('atual')
+    setExportAlunoId('todos')
+    setModalExportar(true)
+  }
+
   function exportar(formato: 'excel' | 'html' | 'pdf') {
     if (!turmaId || !config) return
     const turma = turmas.find((t) => t.id === turmaId)!
-    const dados = { turma, alunos: alunosTurma, avaliacoes: avalsTurma, notas, config }
+
+    const alunosParaExportar =
+      exportAlunoId === 'todos' ? alunosTurma : alunosTurma.filter((a) => a.id === exportAlunoId)
+    const periodosParaExportar =
+      exportPeriodo === 'todos'
+        ? periodosDisponiveis
+        : periodosDisponiveis.filter((p) => p.valor === periodoAtivo)
+
+    const secoes = periodosParaExportar.map((p) => ({
+      rotulo: p.rotulo,
+      avaliacoes: avaliacoes.filter((a) => a.turmaId === turmaId && a.periodo === p.valor),
+    }))
+
+    const dados = { turma, alunos: alunosParaExportar, secoes, notas, config }
     if (formato === 'excel') exportarExcel(dados)
     else if (formato === 'html') exportarHTML(dados)
     else exportarPDF(dados)
+    setModalExportar(false)
   }
 
   if (turmas.length === 0) {
@@ -148,14 +179,8 @@ export function Notas() {
           </p>
         </div>
         <div className="grupo-botoes">
-          <button className="btn btn-fantasma" onClick={() => exportar('excel')}>
-            Exportar Excel
-          </button>
-          <button className="btn btn-fantasma" onClick={() => exportar('html')}>
-            Exportar HTML
-          </button>
-          <button className="btn btn-fantasma" onClick={() => exportar('pdf')}>
-            Exportar PDF
+          <button className="btn btn-fantasma" onClick={abrirModalExportar}>
+            Exportar
           </button>
         </div>
       </header>
@@ -386,6 +411,56 @@ export function Notas() {
             O peso só afeta o resultado quando o cálculo da turma está em “média
             ponderada”.
           </p>
+        </div>
+      </Modal>
+
+      <Modal
+        aberto={modalExportar}
+        titulo="Exportar notas"
+        onFechar={() => setModalExportar(false)}
+        rodape={
+          <>
+            <button className="btn btn-fantasma" onClick={() => exportar('excel')}>
+              Excel
+            </button>
+            <button className="btn btn-fantasma" onClick={() => exportar('html')}>
+              HTML
+            </button>
+            <button className="btn btn-primario" onClick={() => exportar('pdf')}>
+              PDF
+            </button>
+          </>
+        }
+      >
+        <div className="form-grid">
+          <label className="campo">
+            <span>{rotuloSistema(sistemaAtual)}</span>
+            <select
+              className="select"
+              value={exportPeriodo}
+              onChange={(e) => setExportPeriodo(e.target.value as 'atual' | 'todos')}
+            >
+              <option value="atual">
+                Só o {periodosDisponiveis.find((p) => p.valor === periodoAtivo)?.rotulo ?? 'atual'}
+              </option>
+              <option value="todos">Todos os {rotuloSistema(sistemaAtual).toLowerCase()}s</option>
+            </select>
+          </label>
+          <label className="campo">
+            <span>Aluno</span>
+            <select
+              className="select"
+              value={exportAlunoId}
+              onChange={(e) => setExportAlunoId(e.target.value)}
+            >
+              <option value="todos">Todos os alunos</option>
+              {alunosTurma.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.nome}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       </Modal>
     </div>

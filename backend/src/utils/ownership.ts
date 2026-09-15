@@ -48,3 +48,14 @@ export async function eventoDoProfessor(eventoId: string, professorId: string) {
   if (!evento || evento.professorId !== professorId) throw AppError.naoEncontrado('Evento')
   return evento
 }
+
+export async function planoDoProfessor(planoId: string, professorId: string) {
+  const plano = await prisma.planoDeAula.findUnique({
+    where: { id: planoId },
+    include: { turma: true },
+  })
+  if (!plano || plano.turma.professorId !== professorId) {
+    throw AppError.naoEncontrado('Plano de aula')
+  }
+  return plano
+}

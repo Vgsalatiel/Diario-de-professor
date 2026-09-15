@@ -7,6 +7,8 @@ import type {
   Evento,
   MapaDeFrequencia,
   MapaDeNotas,
+  PlanoDeAula,
+  RegistroAula,
   Turma,
 } from '../types'
 import { api, ApiError } from '../lib/api'
@@ -47,9 +49,24 @@ interface DataContextValue {
   atualizarConfig: (turmaId: string, dados: Partial<ConfigCalculo>) => void
 
   // Eventos
-  criarEvento: (dados: Omit<Evento, 'id'>) => void
+  criarEvento: (dados: Omit<Evento, 'id'>) => Promise<void>
   atualizarEvento: (id: string, dados: Partial<Evento>) => void
   removerEvento: (id: string) => void
+
+  // Planos de aula
+  planosDeAula: PlanoDeAula[]
+  criarPlanoDeAula: (dados: Omit<PlanoDeAula, 'id'>) => Promise<PlanoDeAula>
+  atualizarPlanoDeAula: (id: string, dados: Partial<PlanoDeAula>) => Promise<void>
+  removerPlanoDeAula: (id: string) => void
+
+  // Registros de aula ("o que foi aplicado no dia")
+  registrosAula: RegistroAula[]
+  definirRegistroAula: (
+    turmaId: string,
+    data: string,
+    resumo: string,
+    planoId?: string,
+  ) => Promise<void>
 
   // Frequência
   datasAula: DataAula[]
@@ -77,10 +94,12 @@ interface TurmaApi extends Turma {
 interface AlunoApi extends Omit<Aluno, 'dataNascimento'> {
   dataNascimento: string | null
 }
-interface EventoApi extends Omit<Evento, 'turmaId' | 'hora' | 'conteudo'> {
+interface EventoApi extends Omit<Evento, 'turmaId' | 'planoId' | 'hora' | 'conteudo' | 'prazo'> {
   turmaId: string | null
+  planoId: string | null
   hora: string | null
   conteudo: string | null
+  prazo: string | null
 }
 interface NotaApi {
   alunoId: string
@@ -92,6 +111,12 @@ interface FrequenciaApi {
   dataAulaId: string
   presente: boolean | null
 }
+interface PlanoApi extends Omit<PlanoDeAula, 'conteudo'> {
+  conteudo: string | null
+}
+interface RegistroAulaApi extends Omit<RegistroAula, 'planoId'> {
+  planoId: string | null
+}
 
 function normalizarAluno(a: AlunoApi): Aluno {
   return { ...a, dataNascimento: a.dataNascimento ?? undefined }
@@ -101,9 +126,19 @@ function normalizarEvento(e: EventoApi): Evento {
   return {
     ...e,
     turmaId: e.turmaId ?? undefined,
+    planoId: e.planoId ?? undefined,
     hora: e.hora ?? undefined,
     conteudo: e.conteudo ?? undefined,
+    prazo: e.prazo ?? undefined,
   }
+}
+
+function normalizarPlano(p: PlanoApi): PlanoDeAula {
+  return { ...p, conteudo: p.conteudo ?? undefined }
+}
+
+function normalizarRegistroAula(r: RegistroAulaApi): RegistroAula {
+  return { ...r, planoId: r.planoId ?? undefined }
 }
 
 function mensagemErro(erro: unknown): string {
@@ -123,6 +158,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [eventos, setEventos] = useState<Evento[]>([])
   const [datasAula, setDatasAula] = useState<DataAula[]>([])
   const [frequencia, setFrequencia] = useState<MapaDeFrequencia>({})
+  const [planosDeAula, setPlanosDeAula] = useState<PlanoDeAula[]>([])
+  const [registrosAula, setRegistrosAula] = useState<RegistroAula[]>([])
   const [carregando, setCarregando] = useState(true)
 
   // Turmas salvas antes do campo "dias de aula" existir não têm esse dado —
@@ -145,6 +182,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setEventos([])
       setDatasAula([])
       setFrequencia({})
+      setPlanosDeAula([])
+      setRegistrosAula([])
       setCarregando(false)
       return
     }
@@ -160,6 +199,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       api.get<EventoApi[]>('/eventos'),
       api.get<DataAula[]>('/datas-aula'),
       api.get<FrequenciaApi[]>('/frequencia'),
+      api.get<PlanoApi[]>('/planos-de-aula'),
+      api.get<RegistroAulaApi[]>('/registros-aula'),
     ])
       .then(
         ([
@@ -170,6 +211,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
           eventosApi,
           datasAulaApi,
           frequenciaApi,
+          planosApi,
+          registrosAulaApi,
         ]) => {
           if (cancelado) return
           setTurmasBrutas(turmasApi.map(({ config: _config, ...t }) => t))
@@ -188,6 +231,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
               frequenciaApi.map((f) => [chavePresenca(f.alunoId, f.dataAulaId), f.presente]),
             ),
           )
+          setPlanosDeAula(planosApi.map(normalizarPlano))
+          setRegistrosAula(registrosAulaApi.map(normalizarRegistroAula))
         },
       )
       .catch((erro) => {
@@ -212,6 +257,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       eventos,
       datasAula,
       frequencia,
+      planosDeAula,
+      registrosAula,
       carregando,
 
       criarTurma: (dados) => {
@@ -267,6 +314,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
             setEventos((es) =>
               es.map((e) => (e.turmaId === id ? { ...e, turmaId: undefined } : e)),
             )
+            setPlanosDeAula((ps) => ps.filter((p) => p.turmaId !== id))
+            setRegistrosAula((rs) => rs.filter((r) => r.turmaId !== id))
           })
           .catch((erro) => notificar(mensagemErro(erro)))
       },
@@ -364,11 +413,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .catch((erro) => notificar(mensagemErro(erro)))
       },
 
-      criarEvento: (dados) => {
-        api
-          .post<EventoApi>('/eventos', dados)
-          .then((evento) => setEventos((es) => [...es, normalizarEvento(evento)]))
-          .catch((erro) => notificar(mensagemErro(erro)))
+      criarEvento: async (dados) => {
+        try {
+          const evento = await api.post<EventoApi>('/eventos', dados)
+          setEventos((es) => [...es, normalizarEvento(evento)])
+        } catch (erro) {
+          notificar(mensagemErro(erro))
+          throw erro
+        }
       },
       atualizarEvento: (id, dados) => {
         api
@@ -383,6 +435,63 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .delete(`/eventos/${id}`)
           .then(() => setEventos((es) => es.filter((e) => e.id !== id)))
           .catch((erro) => notificar(mensagemErro(erro)))
+      },
+
+      criarPlanoDeAula: async (dados) => {
+        try {
+          const plano = await api.post<PlanoApi>(`/turmas/${dados.turmaId}/planos-de-aula`, dados)
+          const normalizado = normalizarPlano(plano)
+          setPlanosDeAula((ps) => [...ps, normalizado])
+          return normalizado
+        } catch (erro) {
+          notificar(mensagemErro(erro))
+          throw erro
+        }
+      },
+      atualizarPlanoDeAula: async (id, dados) => {
+        try {
+          const plano = await api.patch<PlanoApi>(`/planos-de-aula/${id}`, dados)
+          setPlanosDeAula((ps) => ps.map((p) => (p.id === id ? normalizarPlano(plano) : p)))
+        } catch (erro) {
+          notificar(mensagemErro(erro))
+          throw erro
+        }
+      },
+      removerPlanoDeAula: (id) => {
+        api
+          .delete(`/planos-de-aula/${id}`)
+          .then(() => {
+            setPlanosDeAula((ps) => ps.filter((p) => p.id !== id))
+            // Provas (eventos) e registros ligados a esse plano perdem o
+            // vínculo no servidor (SetNull) — reflete o mesmo aqui.
+            setEventos((es) =>
+              es.map((e) => (e.planoId === id ? { ...e, planoId: undefined } : e)),
+            )
+            setRegistrosAula((rs) =>
+              rs.map((r) => (r.planoId === id ? { ...r, planoId: undefined } : r)),
+            )
+          })
+          .catch((erro) => notificar(mensagemErro(erro)))
+      },
+
+      definirRegistroAula: async (turmaId, data, resumo, planoId) => {
+        try {
+          const registro = await api.put<RegistroAulaApi>(`/turmas/${turmaId}/registros-aula`, {
+            data,
+            resumo,
+            planoId,
+          })
+          const normalizado = normalizarRegistroAula(registro)
+          setRegistrosAula((rs) => {
+            const existe = rs.some((r) => r.id === normalizado.id)
+            return existe
+              ? rs.map((r) => (r.id === normalizado.id ? normalizado : r))
+              : [...rs, normalizado]
+          })
+        } catch (erro) {
+          notificar(mensagemErro(erro))
+          throw erro
+        }
       },
 
       garantirDataAula: async (turmaId, data, periodo) => {
@@ -438,6 +547,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     eventos,
     datasAula,
     frequencia,
+    planosDeAula,
+    registrosAula,
     carregando,
     notificar,
   ])

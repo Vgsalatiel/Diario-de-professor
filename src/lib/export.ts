@@ -12,10 +12,17 @@ import { calcularMedia, chaveNota, formatarNota, situacao } from './media'
 import { calcularFrequencia, chavePresenca } from './frequencia'
 import { formatarData } from './eventos'
 
-interface DadosTurma {
+// Um boletim pode cobrir vários períodos ao mesmo tempo (ex.: "todos os
+// bimestres") — cada um vira uma seção/aba própria, com sua própria média.
+export interface SecaoPeriodo {
+  rotulo: string
+  avaliacoes: Avaliacao[]
+}
+
+export interface DadosBoletim {
   turma: Turma
   alunos: Aluno[]
-  avaliacoes: Avaliacao[]
+  secoes: SecaoPeriodo[]
   notas: MapaDeNotas
   config: ConfigCalculo
 }
@@ -27,14 +34,15 @@ interface DadosFrequencia {
   frequencia: MapaDeFrequencia
 }
 
-// Monta uma matriz (linhas x colunas) com cabeçalho, alunos e média
-function montarMatriz({ turma, alunos, avaliacoes, notas, config }: DadosTurma) {
-  const cabecalho = [
-    'Aluno',
-    ...avaliacoes.map((a) => a.nome),
-    'Média',
-    'Situação',
-  ]
+// Monta uma matriz (linhas x colunas) com cabeçalho, alunos e média —
+// pra uma única seção/período.
+function montarMatrizSecao(
+  alunos: Aluno[],
+  avaliacoes: Avaliacao[],
+  notas: MapaDeNotas,
+  config: ConfigCalculo,
+) {
+  const cabecalho = ['Aluno', ...avaliacoes.map((a) => a.nome), 'Média', 'Situação']
 
   const linhas = alunos.map((aluno) => {
     const media = calcularMedia(aluno.id, avaliacoes, notas, config.modelo)
@@ -50,43 +58,69 @@ function montarMatriz({ turma, alunos, avaliacoes, notas, config }: DadosTurma) 
     ]
   })
 
-  return { cabecalho, linhas, titulo: turma.nome }
+  return { cabecalho, linhas }
 }
 
-export function exportarExcel(dados: DadosTurma): void {
-  const { cabecalho, linhas } = montarMatriz(dados)
-  const aoa = [cabecalho, ...linhas]
-  const ws = XLSX.utils.aoa_to_sheet(aoa)
-
-  // largura de colunas
-  ws['!cols'] = cabecalho.map((c, i) => ({
-    wch: i === 0 ? 26 : Math.max(c.length + 2, 10),
-  }))
-
+// Excel: cada período vira uma aba própria dentro do mesmo arquivo.
+export function exportarExcel(dados: DadosBoletim): void {
   const wb = XLSX.utils.book_new()
-  const nomeAba = dados.turma.nome.slice(0, 28) || 'Turma'
-  XLSX.utils.book_append_sheet(wb, ws, nomeAba)
-  XLSX.writeFile(wb, `notas-${normalizar(dados.turma.nome)}.xlsx`)
+  for (const secao of dados.secoes) {
+    const { cabecalho, linhas } = montarMatrizSecao(
+      dados.alunos,
+      secao.avaliacoes,
+      dados.notas,
+      dados.config,
+    )
+    const aoa = [cabecalho, ...linhas]
+    const ws = XLSX.utils.aoa_to_sheet(aoa)
+    ws['!cols'] = cabecalho.map((c, i) => ({
+      wch: i === 0 ? 26 : Math.max(c.length + 2, 10),
+    }))
+    // Nome de aba no Excel tem limite de 31 caracteres.
+    const nomeAba = secao.rotulo.slice(0, 31) || 'Período'
+    XLSX.utils.book_append_sheet(wb, ws, nomeAba)
+  }
+  XLSX.writeFile(wb, `notas-${normalizar(nomeArquivo(dados))}.xlsx`)
 }
 
-function montarHTML(dados: DadosTurma): { html: string; titulo: string } {
-  const { cabecalho, linhas, titulo } = montarMatriz(dados)
+function montarHTML(dados: DadosBoletim): { html: string; titulo: string } {
+  const titulo =
+    dados.alunos.length === 1
+      ? `${dados.alunos[0].nome} — ${dados.turma.nome}`
+      : dados.turma.nome
 
-  const ths = cabecalho.map((c) => `<th>${escapar(c)}</th>`).join('')
-  const trs = linhas
-    .map((linha) => {
-      const tds = linha
-        .map((cel, i) => {
-          const valor =
-            i < cabecalho.length - 1 && typeof cel === 'number'
-              ? formatarNota(cel)
-              : String(cel ?? '')
-          return `<td>${escapar(valor)}</td>`
+  const secoesHtml = dados.secoes
+    .map((secao) => {
+      const { cabecalho, linhas } = montarMatrizSecao(
+        dados.alunos,
+        secao.avaliacoes,
+        dados.notas,
+        dados.config,
+      )
+      const ths = cabecalho.map((c) => `<th>${escapar(c)}</th>`).join('')
+      const trs = linhas
+        .map((linha) => {
+          const tds = linha
+            .map((cel, i) => {
+              const valor =
+                i < cabecalho.length - 1 && typeof cel === 'number'
+                  ? formatarNota(cel)
+                  : String(cel ?? '')
+              return `<td>${escapar(valor)}</td>`
+            })
+            .join('')
+          return `<tr>${tds}</tr>`
         })
-        .join('')
-      return `<tr>${tds}</tr>`
+        .join('\n')
+      return `<h2>${escapar(secao.rotulo)}</h2>
+  <table>
+    <thead><tr>${ths}</tr></thead>
+    <tbody>
+${trs}
+    </tbody>
+  </table>`
     })
-    .join('\n')
+    .join('\n\n')
 
   const html = `<!doctype html>
 <html lang="pt-BR">
@@ -96,6 +130,8 @@ function montarHTML(dados: DadosTurma): { html: string; titulo: string } {
 <style>
   body { font-family: Arial, Helvetica, sans-serif; color: #1f2433; margin: 32px; }
   h1 { font-size: 20px; }
+  h2 { font-size: 15px; margin: 28px 0 8px; }
+  h2:first-of-type { margin-top: 0; }
   .meta { color: #6b7280; margin-bottom: 20px; font-size: 14px; }
   table { border-collapse: collapse; width: 100%; font-size: 14px; }
   th, td { border: 1px solid #d7dbe6; padding: 8px 12px; text-align: left; }
@@ -103,27 +139,24 @@ function montarHTML(dados: DadosTurma): { html: string; titulo: string } {
   tr:nth-child(even) td { background: #f8f9fc; }
   @media print {
     body { margin: 0; }
+    h2 { break-inside: avoid; }
+    table { break-inside: avoid; }
   }
 </style>
 </head>
 <body>
   <h1>Notas — ${escapar(titulo)}</h1>
   <p class="meta">${dados.turma.serie} · Ano letivo ${dados.turma.anoLetivo} · Gerado em ${new Date().toLocaleDateString('pt-BR')}</p>
-  <table>
-    <thead><tr>${ths}</tr></thead>
-    <tbody>
-${trs}
-    </tbody>
-  </table>
+${secoesHtml}
 </body>
 </html>`
 
   return { html, titulo }
 }
 
-export function exportarHTML(dados: DadosTurma): void {
-  const { html, titulo } = montarHTML(dados)
-  baixarArquivo(html, `notas-${normalizar(titulo)}.html`, 'text/html')
+export function exportarHTML(dados: DadosBoletim): void {
+  const { html } = montarHTML(dados)
+  baixarArquivo(html, `notas-${normalizar(nomeArquivo(dados))}.html`, 'text/html')
 }
 
 // Abre um HTML numa nova aba e aciona a impressão do navegador, onde o
@@ -142,9 +175,14 @@ export function imprimirHTML(html: string): void {
   }
 }
 
-export function exportarPDF(dados: DadosTurma): void {
+export function exportarPDF(dados: DadosBoletim): void {
   const { html } = montarHTML(dados)
   imprimirHTML(html)
+}
+
+// Nome de arquivo: se for de um aluno só, usa o nome dele; senão, a turma.
+function nomeArquivo(dados: DadosBoletim): string {
+  return dados.alunos.length === 1 ? dados.alunos[0].nome : dados.turma.nome
 }
 
 // Monta uma matriz (linhas x colunas) com cabeçalho, alunos e % de presença

@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useData } from '../context/DataContext'
+import { useToast } from '../context/ToastContext'
 import type { Periodo, SistemaPeriodo } from '../types'
 import { calcularFrequencia, chavePresenca, proximoEstado } from '../lib/frequencia'
 import { opcoesPeriodo, rotuloSistema, turmaInicial } from '../lib/periodos'
@@ -9,6 +10,9 @@ import {
   nomeDiaSemana,
   passoDiaValido,
 } from '../lib/diasUteis'
+import { Modal } from '../components/Modal'
+import { EditorRico } from '../components/EditorRico'
+import { resumoTexto } from '../lib/texto'
 
 const DIAS_UTEIS_PADRAO = [1, 2, 3, 4, 5]
 import { exportarFrequenciaExcel, exportarFrequenciaPDF } from '../lib/export'
@@ -22,7 +26,11 @@ export function Frequencia() {
     garantirDataAula,
     definirPresenca,
     alternarSemAula,
+    planosDeAula,
+    registrosAula,
+    definirRegistroAula,
   } = useData()
+  const { notificar } = useToast()
 
   const [escolaFiltro, setEscolaFiltro] = useState('todas')
   const [turmaId, setTurmaId] = useState<string>(() => turmaInicial(turmas))
@@ -31,6 +39,18 @@ export function Frequencia() {
     const turma = turmas.find((t) => t.id === turmaId)
     return diaValidoMaisProximo(hojeISO(), turma?.diasAula ?? DIAS_UTEIS_PADRAO)
   })
+
+  // As turmas chegam da API de forma assíncrona — se a página monta antes
+  // da primeira turma carregar, escolhe a turma (e um dia válido) assim
+  // que a lista chegar.
+  useEffect(() => {
+    if (!turmaId && turmas.length > 0) {
+      const id = turmaInicial(turmas)
+      const turma = turmas.find((t) => t.id === id)
+      setTurmaId(id)
+      setData((d) => diaValidoMaisProximo(d, turma?.diasAula ?? DIAS_UTEIS_PADRAO))
+    }
+  }, [turmas, turmaId])
 
   const escolas = useMemo(
     () =>
@@ -105,6 +125,41 @@ export function Frequencia() {
   function onSemAula() {
     if (!turmaId) return
     alternarSemAula(turmaId, data, periodoAtivo)
+  }
+
+  const registroDoDia = registrosAula.find((r) => r.turmaId === turmaId && r.data === data)
+  const planosAtivosNoDia = useMemo(
+    () =>
+      planosDeAula.filter(
+        (p) => p.turmaId === turmaId && p.dataInicio <= data && data <= p.dataFim,
+      ),
+    [planosDeAula, turmaId, data],
+  )
+
+  const [modalAula, setModalAula] = useState(false)
+  const [resumoAula, setResumoAula] = useState('')
+  const [planoAula, setPlanoAula] = useState('')
+  const [salvandoAula, setSalvandoAula] = useState(false)
+
+  useEffect(() => {
+    if (!modalAula) return
+    setResumoAula(registroDoDia?.resumo ?? '')
+    setPlanoAula(registroDoDia?.planoId ?? planosAtivosNoDia[0]?.id ?? '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modalAula])
+
+  async function salvarAulaDoDia() {
+    if (!turmaId || !resumoAula.trim()) return
+    setSalvandoAula(true)
+    try {
+      await definirRegistroAula(turmaId, data, resumoAula.trim(), planoAula || undefined)
+      notificar('Aula deste dia registrada.')
+      setModalAula(false)
+    } catch {
+      // erro já notificado pelo DataContext
+    } finally {
+      setSalvandoAula(false)
+    }
   }
 
   function exportar(formato: 'excel' | 'pdf') {
@@ -234,19 +289,34 @@ export function Frequencia() {
               <h2>
                 {nomeDiaSemana(data)}, {formatarData(data)}
               </h2>
-              <button
-                type="button"
-                className={`btn btn-pequeno ${semAulaHoje ? 'btn-primario' : 'btn-fantasma'}`}
-                onClick={onSemAula}
-              >
-                {semAulaHoje ? '✕ Sem aula neste dia' : 'Não houve aula neste dia'}
-              </button>
+              <div className="grupo-botoes">
+                <button
+                  type="button"
+                  className={`btn btn-pequeno ${registroDoDia ? 'btn-primario' : 'btn-fantasma'}`}
+                  onClick={() => setModalAula(true)}
+                >
+                  {registroDoDia ? '✎ Aula deste dia' : 'Aula deste dia'}
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-pequeno ${semAulaHoje ? 'btn-primario' : 'btn-fantasma'}`}
+                  onClick={onSemAula}
+                >
+                  {semAulaHoje ? '✕ Sem aula neste dia' : 'Não houve aula neste dia'}
+                </button>
+              </div>
             </div>
 
             {semAulaHoje && (
               <p className="texto-suave">
                 Este dia está marcado como sem aula — não conta na frequência de
                 ninguém. Clique de novo no botão acima para desfazer.
+              </p>
+            )}
+
+            {registroDoDia && (
+              <p className="texto-suave frequencia-aula-resumo">
+                <strong>O que foi aplicado:</strong> {resumoTexto(registroDoDia.resumo)}
               </p>
             )}
 
@@ -330,6 +400,57 @@ export function Frequencia() {
           </section>
         </div>
       )}
+
+      <Modal
+        aberto={modalAula}
+        titulo="Aula deste dia"
+        onFechar={() => setModalAula(false)}
+        rodape={
+          <>
+            <button className="btn btn-fantasma" onClick={() => setModalAula(false)}>
+              Cancelar
+            </button>
+            <button
+              className="btn btn-primario"
+              onClick={salvarAulaDoDia}
+              disabled={salvandoAula || !resumoAula.trim()}
+            >
+              {salvandoAula ? 'Salvando...' : 'Salvar'}
+            </button>
+          </>
+        }
+      >
+        <div className="form-grid">
+          <p className="texto-suave campo-largo">
+            {nomeDiaSemana(data)}, {formatarData(data)} — {turmaAtual?.nome}
+          </p>
+          {planosAtivosNoDia.length > 1 && (
+            <label className="campo campo-largo">
+              <span>Plano de aula</span>
+              <select
+                className="select"
+                value={planoAula}
+                onChange={(e) => setPlanoAula(e.target.value)}
+              >
+                <option value="">— Sem plano vinculado —</option>
+                {planosAtivosNoDia.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.titulo}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <div className="campo campo-largo">
+            <span>O que foi aplicado</span>
+            <EditorRico
+              value={resumoAula}
+              onChange={setResumoAula}
+              placeholder="Resumo do conteúdo dado nesta aula..."
+            />
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

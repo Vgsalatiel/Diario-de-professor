@@ -25,6 +25,15 @@ export function obterToken(): string | null {
   return tokenAtual
 }
 
+// Callback disparado sempre que a API responde 401 (token ausente,
+// inválido ou expirado) — o AuthContext usa isso pra deslogar
+// automaticamente em vez de deixar a tela travada com dados vazios.
+let aoFicarNaoAutorizado: (() => void) | null = null
+
+export function definirCallbackNaoAutorizado(callback: (() => void) | null): void {
+  aoFicarNaoAutorizado = callback
+}
+
 export class ApiError extends Error {
   status: number
   constructor(status: number, mensagem: string) {
@@ -55,6 +64,7 @@ async function requisicao<T>(caminho: string, opcoes: RequestInit = {}): Promise
       (dados && typeof dados === 'object' && 'erro' in dados && typeof dados.erro === 'string'
         ? dados.erro
         : null) ?? 'Não foi possível concluir a operação.'
+    if (resposta.status === 401) aoFicarNaoAutorizado?.()
     throw new ApiError(resposta.status, mensagem)
   }
   return dados as T

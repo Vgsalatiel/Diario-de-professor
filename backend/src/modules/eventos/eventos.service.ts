@@ -1,11 +1,11 @@
 import type { Evento } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
-import { eventoDoProfessor, turmaDoProfessor } from '../../utils/ownership'
+import { eventoDoProfessor, planoDoProfessor, turmaDoProfessor } from '../../utils/ownership'
 import { paraDataISO } from '../../utils/serializers'
 import type { AtualizarEventoDto, CriarEventoDto } from './eventos.dto'
 
 function serializar(evento: Evento) {
-  return { ...evento, data: paraDataISO(evento.data) }
+  return { ...evento, data: paraDataISO(evento.data), prazo: paraDataISO(evento.prazo) }
 }
 
 export async function listarTodos(professorId: string) {
@@ -18,9 +18,15 @@ export async function listarTodos(professorId: string) {
 
 export async function criar(professorId: string, dados: CriarEventoDto) {
   if (dados.turmaId) await turmaDoProfessor(dados.turmaId, professorId)
+  if (dados.planoId) await planoDoProfessor(dados.planoId, professorId)
 
   const evento = await prisma.evento.create({
-    data: { ...dados, data: new Date(dados.data), professorId },
+    data: {
+      ...dados,
+      data: new Date(dados.data),
+      prazo: dados.prazo ? new Date(dados.prazo) : undefined,
+      professorId,
+    },
   })
   return serializar(evento)
 }
@@ -28,10 +34,15 @@ export async function criar(professorId: string, dados: CriarEventoDto) {
 export async function atualizar(eventoId: string, professorId: string, dados: AtualizarEventoDto) {
   await eventoDoProfessor(eventoId, professorId)
   if (dados.turmaId) await turmaDoProfessor(dados.turmaId, professorId)
+  if (dados.planoId) await planoDoProfessor(dados.planoId, professorId)
 
   const evento = await prisma.evento.update({
     where: { id: eventoId },
-    data: { ...dados, data: dados.data ? new Date(dados.data) : undefined },
+    data: {
+      ...dados,
+      data: dados.data ? new Date(dados.data) : undefined,
+      prazo: dados.prazo ? new Date(dados.prazo) : undefined,
+    },
   })
   return serializar(evento)
 }

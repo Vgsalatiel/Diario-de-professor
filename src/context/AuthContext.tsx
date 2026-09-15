@@ -1,6 +1,12 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Professora } from '../types'
-import { api, ApiError, definirToken, obterToken } from '../lib/api'
+import {
+  api,
+  ApiError,
+  definirCallbackNaoAutorizado,
+  definirToken,
+  obterToken,
+} from '../lib/api'
 
 interface DadosCadastro {
   nome: string
@@ -60,6 +66,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfessora(null)
       })
       .finally(() => setCarregando(false))
+  }, [])
+
+  // Se o token expirar/ficar inválido a qualquer momento (qualquer
+  // chamada à API pode responder 401), desloga automaticamente em vez de
+  // deixar a tela travada com dados vazios e só um aviso de erro.
+  useEffect(() => {
+    definirCallbackNaoAutorizado(() => {
+      if (obterToken()) {
+        definirToken(null)
+        setProfessora(null)
+      }
+    })
+    return () => definirCallbackNaoAutorizado(null)
   }, [])
 
   const value = useMemo<AuthContextValue>(

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useTema } from '../context/ThemeContext'
 
 const LINKS = [
   { to: '/', rotulo: 'Início', icone: '◧', exato: true },
@@ -8,6 +9,7 @@ const LINKS = [
   { to: '/alunos', rotulo: 'Alunos', icone: '☺' },
   { to: '/notas', rotulo: 'Notas', icone: '✎' },
   { to: '/frequencia', rotulo: 'Frequência', icone: '☑' },
+  { to: '/plano-de-aula', rotulo: 'Plano de aula', icone: '☰' },
   { to: '/agenda', rotulo: 'Agenda', icone: '▣' },
   { to: '/assistente', rotulo: 'Assistente IA', icone: '✦' },
   { to: '/perfil', rotulo: 'Perfil', icone: '◑' },
@@ -15,6 +17,7 @@ const LINKS = [
 
 export function Layout() {
   const { professora, sair } = useAuth()
+  const { tema, alternarTema } = useTema()
   const navigate = useNavigate()
   const [menuAberto, setMenuAberto] = useState(false)
 
@@ -88,6 +91,14 @@ export function Layout() {
             ☰
           </button>
           <div className="topbar-titulo">Gestão de Notas e Aulas</div>
+          <button
+            className="icon-btn tema-toggle"
+            onClick={alternarTema}
+            aria-label={tema === 'escuro' ? 'Ativar modo claro' : 'Ativar modo escuro'}
+            title={tema === 'escuro' ? 'Modo claro' : 'Modo escuro'}
+          >
+            {tema === 'escuro' ? '☀' : '☾'}
+          </button>
         </header>
         <main className="pagina">
           <Outlet />

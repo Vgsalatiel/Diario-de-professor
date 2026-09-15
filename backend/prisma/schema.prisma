@@ -52,11 +52,13 @@ model Turma {
   professorId String
   professor   Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
 
-  alunos     Aluno[]
-  avaliacoes Avaliacao[]
-  datasAula  DataAula[]
-  eventos    Evento[]
-  config     ConfigCalculo?
+  alunos        Aluno[]
+  avaliacoes    Avaliacao[]
+  datasAula     DataAula[]
+  eventos       Evento[]
+  config        ConfigCalculo?
+  planosDeAula  PlanoDeAula[]
+  registrosAula RegistroAula[]
 
   @@index([professorId])
   @@map("turmas")
@@ -172,12 +174,16 @@ enum TipoEvento {
 }
 
 model Evento {
-  id       String     @id @default(cuid())
-  titulo   String
-  tipo     TipoEvento
-  data     DateTime   @db.Date
-  hora     String?
-  conteudo String?
+  id        String     @id @default(cuid())
+  titulo    String
+  tipo      TipoEvento
+  data      DateTime   @db.Date
+  hora      String?
+  conteudo  String?
+  concluido Boolean    @default(false)
+  // Prazo de entrega — usado por eventos do tipo "trabalho"/atividade
+  // criados de dentro de um plano de aula.
+  prazo     DateTime?  @db.Date
 
   // Todo evento pertence a um professor — a turma é opcional (evento avulso,
   // ex.: reunião pedagógica), mas sem isso um evento sem turma ficaria sem dono.
@@ -187,7 +193,57 @@ model Evento {
   turmaId String?
   turma   Turma?  @relation(fields: [turmaId], references: [id], onDelete: SetNull)
 
+  // Quando o evento é uma prova criada de dentro de um plano de aula.
+  planoId String?
+  plano   PlanoDeAula? @relation(fields: [planoId], references: [id], onDelete: SetNull)
+
   @@index([professorId])
   @@index([turmaId])
+  @@index([planoId])
   @@map("eventos")
+}
+
+// Duração que o professor escolhe pro plano: quinzenal, semestral ou uma
+// data personalizada — em todos os casos ele decide o "até quando" no fim.
+enum DuracaoPlano {
+  quinzenal
+  semestral
+  personalizado
+}
+
+model PlanoDeAula {
+  id         String       @id @default(cuid())
+  titulo     String
+  duracao    DuracaoPlano
+  dataInicio DateTime     @db.Date
+  dataFim    DateTime     @db.Date
+  conteudo   String?
+
+  turmaId String
+  turma   Turma  @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+
+  provas    Evento[]
+  registros RegistroAula[]
+
+  @@index([turmaId])
+  @@map("planos_de_aula")
+}
+
+// "O que foi aplicado no dia" — um resumo por turma/data, mostrado no
+// botão "Aula deste dia" da tela de Frequência.
+model RegistroAula {
+  id     String   @id @default(cuid())
+  data   DateTime @db.Date
+  resumo String
+
+  turmaId String
+  turma   Turma  @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+
+  planoId String?
+  plano   PlanoDeAula? @relation(fields: [planoId], references: [id], onDelete: SetNull)
+
+  @@unique([turmaId, data])
+  @@index([turmaId])
+  @@index([planoId])
+  @@map("registros_aula")
 }
