@@ -1,4 +1,16 @@
+import type { Request } from 'express'
 import rateLimit from 'express-rate-limit'
+
+// O Render coloca a API atrás da própria Cloudflare antes de chegar no
+// nosso proxy — dois saltos, não um. Com "trust proxy" contando só um
+// salto, o Express não consegue extrair de forma confiável o IP real do
+// cliente a partir do X-Forwarded-For, e o rate limit acaba "perdendo" o
+// cliente entre requisições. O Cloudflare, por sua vez, sempre injeta (e
+// nunca deixa o cliente falsificar) o cabeçalho CF-Connecting-IP com o IP
+// de verdade — usamos ele como chave sempre que presente.
+function chaveDoCliente(req: Request): string {
+  return (req.headers['cf-connecting-ip'] as string | undefined) ?? req.ip ?? 'sem-ip'
+}
 
 // Login: impede força bruta de senha — poucas tentativas por IP a cada
 // 15 minutos, mas generoso o bastante pra não travar um professor que
@@ -8,6 +20,7 @@ export const limitadorLogin = rateLimit({
   limit: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: chaveDoCliente,
   message: { erro: 'Muitas tentativas de login. Aguarde alguns minutos e tente de novo.' },
 })
 
@@ -17,6 +30,7 @@ export const limitadorRegistro = rateLimit({
   limit: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: chaveDoCliente,
   message: { erro: 'Muitos cadastros em pouco tempo. Aguarde um pouco e tente de novo.' },
 })
 
@@ -27,6 +41,7 @@ export const limitadorIA = rateLimit({
   limit: 30,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: chaveDoCliente,
   message: { erro: 'Muitas gerações de exercícios em pouco tempo. Aguarde um pouco.' },
 })
 
@@ -37,5 +52,6 @@ export const limitadorEsqueciSenha = rateLimit({
   limit: 5,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: chaveDoCliente,
   message: { erro: 'Muitos pedidos de redefinição. Aguarde um pouco e tente de novo.' },
 })
