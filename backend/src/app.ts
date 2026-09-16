@@ -22,7 +22,19 @@ import {
 
 export const app = express()
 
-app.use(cors())
+// O Render coloca a API atrás de um proxy reverso — sem isso, o
+// express-rate-limit (e qualquer coisa que dependa do IP do cliente) enxerga
+// o IP do proxy pra todo mundo, em vez do IP de quem fez a requisição.
+app.set('trust proxy', 1)
+
+// Em produção, restringe quem pode chamar a API — evita que qualquer site
+// use um token roubado pra bater na API a partir do navegador de outra pessoa.
+// Em dev, sem FRONTEND_URL definida, libera geral pra não travar localhost.
+const origensPermitidas = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(',').map((o) => o.trim())
+  : true
+
+app.use(cors({ origin: origensPermitidas }))
 app.use(express.json())
 
 app.get('/saude', (_req, res) => res.json({ ok: true }))

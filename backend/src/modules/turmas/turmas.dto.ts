@@ -18,6 +18,13 @@ export type CriarTurmaDto = z.infer<typeof criarTurmaDto>
 export const atualizarTurmaDto = criarTurmaDto.partial()
 export type AtualizarTurmaDto = z.infer<typeof atualizarTurmaDto>
 
+export const promoverTurmaDto = z.object({
+  anoLetivo: z.string().trim().min(1, 'Informe o ano letivo da turma nova.'),
+  nome: z.string().trim().min(1, 'Informe o nome da turma nova.'),
+  serie: z.string().trim().default(''),
+})
+export type PromoverTurmaDto = z.infer<typeof promoverTurmaDto>
+
 export const modeloCalculoEnum = z.enum(['simples', 'ponderada'])
 
 export const atualizarConfigDto = z.object({

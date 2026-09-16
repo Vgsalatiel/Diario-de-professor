@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express'
 import { paramId } from '../../utils/params'
 import * as alunosService from './alunos.service'
-import { atualizarAlunoDto, criarAlunoDto } from './alunos.dto'
+import { atualizarAlunoDto, criarAlunoDto, gerarExerciciosDto } from './alunos.dto'
 
 export async function listarTodos(req: Request, res: Response) {
   const alunos = await alunosService.listarTodos(req.professorId)
@@ -18,6 +18,16 @@ export async function atualizar(req: Request, res: Response) {
   const dados = atualizarAlunoDto.parse(req.body)
   const aluno = await alunosService.atualizar(paramId(req.params.alunoId), req.professorId, dados)
   res.json(aluno)
+}
+
+export async function gerarExercicios(req: Request, res: Response) {
+  const dados = gerarExerciciosDto.parse(req.body)
+  const resultado = await alunosService.gerarExercicios(
+    paramId(req.params.alunoId),
+    req.professorId,
+    dados,
+  )
+  res.json(resultado)
 }
 
 export async function remover(req: Request, res: Response) {

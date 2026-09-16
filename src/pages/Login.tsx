@@ -75,6 +75,10 @@ export function Login() {
             />
           </label>
 
+          <Link className="link-acao login-esqueci" to="/esqueci-senha">
+            Esqueci minha senha
+          </Link>
+
           {erro && <div className="alerta-erro">{erro}</div>}
 
           <button className="btn btn-primario btn-bloco" type="submit" disabled={enviando}>

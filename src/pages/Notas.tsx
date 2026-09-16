@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
+import { useAnoLetivo } from '../context/AnoLetivoContext'
 import type { ModeloCalculo, Periodo, SistemaPeriodo } from '../types'
 import {
   calcularMedia,
@@ -25,6 +26,7 @@ export function Notas() {
     removerAvaliacao,
   } = useData()
   const { notificar } = useToast()
+  const { anoAtivo, somenteLeitura } = useAnoLetivo()
 
   const [escolaFiltro, setEscolaFiltro] = useState('todas')
   const [turmaId, setTurmaId] = useState<string>(() => turmaInicial(turmas))
@@ -43,12 +45,17 @@ export function Notas() {
     }
   }, [turmas, turmaId])
 
+  const turmasDoAno = useMemo(
+    () => turmas.filter((t) => t.anoLetivo === anoAtivo),
+    [turmas, anoAtivo],
+  )
+
   const escolas = useMemo(
     () =>
-      Array.from(new Set(turmas.map((t) => t.escola).filter(Boolean))).sort((a, b) =>
+      Array.from(new Set(turmasDoAno.map((t) => t.escola).filter(Boolean))).sort((a, b) =>
         a.localeCompare(b),
       ),
-    [turmas],
+    [turmasDoAno],
   )
 
   // Sem opção "todas" aqui: com mais de uma escola, sempre uma fica ativa.
@@ -56,13 +63,13 @@ export function Notas() {
 
   const turmasDaEscola = useMemo(
     () =>
-      escolaAtiva === 'todas' ? turmas : turmas.filter((t) => t.escola === escolaAtiva),
-    [turmas, escolaAtiva],
+      escolaAtiva === 'todas' ? turmasDoAno : turmasDoAno.filter((t) => t.escola === escolaAtiva),
+    [turmasDoAno, escolaAtiva],
   )
 
   function trocarEscola(e: string) {
     setEscolaFiltro(e)
-    const disponiveis = turmas.filter((t) => t.escola === e)
+    const disponiveis = turmasDoAno.filter((t) => t.escola === e)
     setTurmaId(disponiveis[0]?.id ?? '')
     setPeriodo('1')
   }
@@ -234,6 +241,7 @@ export function Notas() {
               <select
                 className="select"
                 value={config.modelo}
+                disabled={somenteLeitura}
                 onChange={(e) =>
                   atualizarConfig(turmaId, {
                     modelo: e.target.value as ModeloCalculo,
@@ -254,6 +262,7 @@ export function Notas() {
                 max={10}
                 step={0.5}
                 value={config.mediaAprovacao}
+                disabled={somenteLeitura}
                 onChange={(e) =>
                   atualizarConfig(turmaId, {
                     mediaAprovacao: Number(e.target.value) || 0,
@@ -262,14 +271,20 @@ export function Notas() {
               />
             </label>
 
-            <button className="btn btn-fantasma" onClick={abrirModalAval}>
-              + Avaliação
-            </button>
+            {!somenteLeitura && (
+              <button className="btn btn-fantasma" onClick={abrirModalAval}>
+                + Avaliação
+              </button>
+            )}
           </>
         )}
       </div>
 
-      {turmasDaEscola.length === 0 ? (
+      {turmasDoAno.length === 0 ? (
+        <div className="vazio painel">
+          <p>Nenhuma turma cadastrada no ano letivo {anoAtivo}.</p>
+        </div>
+      ) : turmasDaEscola.length === 0 ? (
         <div className="vazio painel">
           <p>Nenhuma turma nesta escola.</p>
         </div>
@@ -291,16 +306,18 @@ export function Notas() {
                         <em className="peso">peso {av.peso}</em>
                       )}
                     </span>
-                    <button
-                      className="remover-col"
-                      title="Remover avaliação"
-                      onClick={() => {
-                        if (confirm(`Remover a avaliação "${av.nome}"?`))
-                          removerAvaliacao(av.id)
-                      }}
-                    >
-                      ✕
-                    </button>
+                    {!somenteLeitura && (
+                      <button
+                        className="remover-col"
+                        title="Remover avaliação"
+                        onClick={() => {
+                          if (confirm(`Remover a avaliação "${av.nome}"?`))
+                            removerAvaliacao(av.id)
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
                   </th>
                 ))}
                 <th className="col-media">Média</th>
@@ -327,6 +344,7 @@ export function Notas() {
                             onChange={(e) => onNota(aluno.id, av.id, e.target.value)}
                             onBlur={(e) => onNotaSalva(e.target.value)}
                             placeholder="—"
+                            disabled={somenteLeitura}
                           />
                         </td>
                       )

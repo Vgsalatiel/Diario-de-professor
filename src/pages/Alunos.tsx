@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
+import { useAnoLetivo } from '../context/AnoLetivoContext'
 import type { Aluno, SituacaoMatricula } from '../types'
 import { Modal } from '../components/Modal'
 import { lerAlunosDaPlanilha, type AlunoImportado } from '../lib/importarAlunos'
@@ -21,6 +22,7 @@ function situacaoInfo(situacao: SituacaoMatricula) {
 export function Alunos() {
   const { turmas, alunos, criarAluno, atualizarAluno, removerAluno } = useData()
   const { notificar } = useToast()
+  const { anoAtivo, somenteLeitura } = useAnoLetivo()
   const [searchParams, setSearchParams] = useSearchParams()
   const [escolaFiltro, setEscolaFiltro] = useState('todas')
   const [turmaFiltro, setTurmaFiltro] = useState<string>('todas')
@@ -35,6 +37,7 @@ export function Alunos() {
     matricula: '',
     dataNascimento: '',
     situacao: 'ativo' as SituacaoMatricula,
+    dificuldades: '',
     escolaId: '',
     turmaId: turmas[0]?.id ?? '',
   })
@@ -59,12 +62,17 @@ export function Alunos() {
     setSearchParams({}, { replace: true })
   }, [searchParams, turmas, setSearchParams])
 
+  const turmasDoAno = useMemo(
+    () => turmas.filter((t) => t.anoLetivo === anoAtivo),
+    [turmas, anoAtivo],
+  )
+
   const escolas = useMemo(
     () =>
-      Array.from(new Set(turmas.map((t) => t.escola).filter(Boolean))).sort((a, b) =>
+      Array.from(new Set(turmasDoAno.map((t) => t.escola).filter(Boolean))).sort((a, b) =>
         a.localeCompare(b),
       ),
-    [turmas],
+    [turmasDoAno],
   )
 
   // Sem opção "todas" aqui: com mais de uma escola, sempre uma fica ativa.
@@ -72,8 +80,8 @@ export function Alunos() {
 
   const turmasDaEscola = useMemo(
     () =>
-      escolaAtiva === 'todas' ? turmas : turmas.filter((t) => t.escola === escolaAtiva),
-    [turmas, escolaAtiva],
+      escolaAtiva === 'todas' ? turmasDoAno : turmasDoAno.filter((t) => t.escola === escolaAtiva),
+    [turmasDoAno, escolaAtiva],
   )
 
   function trocarEscola(e: string) {
@@ -82,8 +90,8 @@ export function Alunos() {
   }
 
   const turmasDaEscolaForm = useMemo(
-    () => (form.escolaId ? turmas.filter((t) => t.escola === form.escolaId) : turmas),
-    [turmas, form.escolaId],
+    () => (form.escolaId ? turmasDoAno.filter((t) => t.escola === form.escolaId) : turmasDoAno),
+    [turmasDoAno, form.escolaId],
   )
 
   const lista = useMemo(() => {
@@ -98,7 +106,7 @@ export function Alunos() {
   function abrirNovo() {
     if (turmasDaEscola.length === 0) return
     const turmaInicial =
-      turmaFiltro !== 'todas' ? turmas.find((t) => t.id === turmaFiltro) : turmasDaEscola[0]
+      turmaFiltro !== 'todas' ? turmasDoAno.find((t) => t.id === turmaFiltro) : turmasDaEscola[0]
     setEditando(null)
     setErroForm('')
     setForm({
@@ -108,6 +116,7 @@ export function Alunos() {
       matricula: '',
       dataNascimento: '',
       situacao: 'ativo',
+      dificuldades: '',
       escolaId: turmaInicial?.escola ?? '',
       turmaId: turmaInicial?.id ?? '',
     })
@@ -125,6 +134,7 @@ export function Alunos() {
       matricula: a.matricula ?? '',
       dataNascimento: a.dataNascimento ?? '',
       situacao: a.situacao,
+      dificuldades: a.dificuldades ?? '',
       escolaId: turmaAtual?.escola ?? '',
       turmaId: a.turmaId,
     })
@@ -132,19 +142,20 @@ export function Alunos() {
   }
 
   function trocarEscolaForm(escolaId: string) {
-    const primeiraTurma = turmas.find((t) => t.escola === escolaId)
+    const primeiraTurma = turmasDoAno.find((t) => t.escola === escolaId)
     setForm({ ...form, escolaId, turmaId: primeiraTurma?.id ?? '' })
   }
 
   const turmasDaEscolaImportar = useMemo(
-    () => (importar.escolaId ? turmas.filter((t) => t.escola === importar.escolaId) : turmas),
-    [turmas, importar.escolaId],
+    () =>
+      importar.escolaId ? turmasDoAno.filter((t) => t.escola === importar.escolaId) : turmasDoAno,
+    [turmasDoAno, importar.escolaId],
   )
 
   function abrirModalImportar() {
     if (turmasDaEscola.length === 0) return
     const turmaInicial =
-      turmaFiltro !== 'todas' ? turmas.find((t) => t.id === turmaFiltro) : turmasDaEscola[0]
+      turmaFiltro !== 'todas' ? turmasDoAno.find((t) => t.id === turmaFiltro) : turmasDaEscola[0]
     setAlunosImportados([])
     setErroImportar('')
     setImportar({
@@ -155,7 +166,7 @@ export function Alunos() {
   }
 
   function trocarEscolaImportar(escolaId: string) {
-    const primeiraTurma = turmas.find((t) => t.escola === escolaId)
+    const primeiraTurma = turmasDoAno.find((t) => t.escola === escolaId)
     setImportar({ escolaId, turmaId: primeiraTurma?.id ?? '' })
   }
 
@@ -216,6 +227,7 @@ export function Alunos() {
       matricula: form.matricula.trim() || undefined,
       dataNascimento: form.dataNascimento || undefined,
       situacao: form.situacao,
+      dificuldades: form.dificuldades.trim() || undefined,
       turmaId: form.turmaId,
     }
     if (editando) {
@@ -244,22 +256,24 @@ export function Alunos() {
           <h1>Alunos</h1>
           <p className="pagina-sub">Cadastre e consulte seus alunos por turma.</p>
         </div>
-        <div className="grupo-botoes">
-          <button
-            className="btn btn-fantasma"
-            onClick={abrirModalImportar}
-            disabled={turmasDaEscola.length === 0}
-          >
-            Importar Excel
-          </button>
-          <button
-            className="btn btn-primario"
-            onClick={abrirNovo}
-            disabled={turmasDaEscola.length === 0}
-          >
-            Novo aluno
-          </button>
-        </div>
+        {!somenteLeitura && (
+          <div className="grupo-botoes">
+            <button
+              className="btn btn-fantasma"
+              onClick={abrirModalImportar}
+              disabled={turmasDaEscola.length === 0}
+            >
+              Importar Excel
+            </button>
+            <button
+              className="btn btn-primario"
+              onClick={abrirNovo}
+              disabled={turmasDaEscola.length === 0}
+            >
+              Novo aluno
+            </button>
+          </div>
+        )}
       </header>
 
       {escolas.length > 1 && (
@@ -276,9 +290,13 @@ export function Alunos() {
         </div>
       )}
 
-      {turmas.length === 0 ? (
+      {turmasDoAno.length === 0 ? (
         <div className="vazio painel">
-          <p>Cadastre uma turma antes de adicionar alunos.</p>
+          <p>
+            {somenteLeitura
+              ? `Nenhuma turma cadastrada no ano letivo ${anoAtivo}.`
+              : 'Cadastre uma turma antes de adicionar alunos.'}
+          </p>
         </div>
       ) : turmasDaEscola.length === 0 ? (
         <div className="vazio painel">
@@ -316,13 +334,13 @@ export function Alunos() {
                   <th>Turma</th>
                   <th>Data de nascimento</th>
                   <th>Situação</th>
-                  <th className="col-acoes">Ações</th>
+                  {!somenteLeitura && <th className="col-acoes">Ações</th>}
                 </tr>
               </thead>
               <tbody>
                 {lista.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="celula-vazia">
+                    <td colSpan={somenteLeitura ? 5 : 6} className="celula-vazia">
                       Nenhum aluno encontrado.
                     </td>
                   </tr>
@@ -350,20 +368,22 @@ export function Alunos() {
                           {situacaoInfo(a.situacao).rotulo}
                         </span>
                       </td>
-                      <td className="col-acoes">
-                        <button
-                          className="btn btn-fantasma btn-pequeno"
-                          onClick={() => abrirEdicao(a)}
-                        >
-                          Editar
-                        </button>
-                        <button
-                          className="btn btn-perigo-fantasma btn-pequeno"
-                          onClick={() => excluir(a)}
-                        >
-                          Excluir
-                        </button>
-                      </td>
+                      {!somenteLeitura && (
+                        <td className="col-acoes">
+                          <button
+                            className="btn btn-fantasma btn-pequeno"
+                            onClick={() => abrirEdicao(a)}
+                          >
+                            Editar
+                          </button>
+                          <button
+                            className="btn btn-perigo-fantasma btn-pequeno"
+                            onClick={() => excluir(a)}
+                          >
+                            Excluir
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}
@@ -474,6 +494,19 @@ export function Alunos() {
                 </option>
               ))}
             </select>
+          </label>
+          <label className="campo campo-largo">
+            <span>Observação pedagógica (opcional)</span>
+            <textarea
+              rows={3}
+              value={form.dificuldades}
+              onChange={(e) => setForm({ ...form, dificuldades: e.target.value })}
+              placeholder="Ex.: tem dificuldade em frações, mas vai bem em geometria"
+            />
+            <p className="texto-suave">
+              Usada como contexto quando você gerar exercícios personalizados pra esse aluno
+              no Assistente IA.
+            </p>
           </label>
           {erroForm && <div className="alerta-erro campo-largo">{erroForm}</div>}
         </div>

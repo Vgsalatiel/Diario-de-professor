@@ -15,7 +15,7 @@ function serializar(plano: PlanoDeAula) {
 // Todos os planos de aula de todas as turmas do professor.
 export async function listarTodos(professorId: string) {
   const planos = await prisma.planoDeAula.findMany({
-    where: { turma: { professorId } },
+    where: { turma: { professorId, excluidoEm: null } },
     orderBy: { dataInicio: 'desc' },
   })
   return planos.map(serializar)

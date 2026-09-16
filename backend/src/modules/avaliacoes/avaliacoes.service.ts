@@ -5,7 +5,7 @@ import type { AtualizarAvaliacaoDto, CriarAvaliacaoDto } from './avaliacoes.dto'
 // Todas as avaliações de todas as turmas do professor.
 export function listarTodas(professorId: string) {
   return prisma.avaliacao.findMany({
-    where: { turma: { professorId } },
+    where: { turma: { professorId, excluidoEm: null } },
     orderBy: { nome: 'asc' },
   })
 }

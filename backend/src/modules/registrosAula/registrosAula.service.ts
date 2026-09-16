@@ -13,7 +13,7 @@ function serializar(registro: RegistroAula) {
 // combinação turma + data.
 export async function listarTodos(professorId: string) {
   const registros = await prisma.registroAula.findMany({
-    where: { turma: { professorId } },
+    where: { turma: { professorId, excluidoEm: null } },
   })
   return registros.map(serializar)
 }

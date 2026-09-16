@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
+import { useAnoLetivo } from '../context/AnoLetivoContext'
 import type { DuracaoPlano, Periodo, PlanoDeAula, SistemaPeriodo } from '../types'
 import { opcoesPeriodo, turmaInicial } from '../lib/periodos'
 import { formatarData } from '../lib/eventos'
@@ -89,6 +90,7 @@ export function PlanoDeAulaPage() {
     definirRegistroAula,
   } = useData()
   const { notificar } = useToast()
+  const { anoAtivo, somenteLeitura } = useAnoLetivo()
 
   const [turmaFiltro, setTurmaFiltro] = useState<string>(() => turmaInicial(turmas))
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null)
@@ -117,6 +119,11 @@ export function PlanoDeAulaPage() {
       setTurmaFiltro(turmaInicial(turmas))
     }
   }, [turmas, turmaFiltro])
+
+  const turmasDoAno = useMemo(
+    () => turmas.filter((t) => t.anoLetivo === anoAtivo),
+    [turmas, anoAtivo],
+  )
 
   const turmaAtual = turmas.find((t) => t.id === turmaFiltro) ?? null
 
@@ -528,16 +535,18 @@ export function PlanoDeAulaPage() {
             Planeje o conteúdo de cada turma, cadastre provas e registre o que foi aplicado em cada aula.
           </p>
         </div>
-        <button className="btn btn-primario" onClick={abrirNovo}>
-          Novo plano
-        </button>
+        {!somenteLeitura && (
+          <button className="btn btn-primario" onClick={abrirNovo}>
+            Novo plano
+          </button>
+        )}
       </header>
 
       <div className="barra-config">
         <label className="campo-inline">
           <span>Turma</span>
           <select className="select" value={turmaFiltro} onChange={(e) => trocarTurma(e.target.value)}>
-            {turmas.map((t) => (
+            {turmasDoAno.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.nome} — {t.escola}
               </option>
@@ -546,12 +555,18 @@ export function PlanoDeAulaPage() {
         </label>
       </div>
 
-      {planosDaTurma.length === 0 ? (
+      {turmasDoAno.length === 0 ? (
+        <div className="vazio painel">
+          <p>Nenhuma turma cadastrada no ano letivo {anoAtivo}.</p>
+        </div>
+      ) : planosDaTurma.length === 0 ? (
         <div className="vazio painel">
           <p>Nenhum plano de aula para esta turma ainda.</p>
-          <button className="btn btn-primario" onClick={abrirNovo}>
-            Criar plano de aula
-          </button>
+          {!somenteLeitura && (
+            <button className="btn btn-primario" onClick={abrirNovo}>
+              Criar plano de aula
+            </button>
+          )}
         </div>
       ) : (
         <div className="stack-lg">
@@ -588,17 +603,19 @@ export function PlanoDeAulaPage() {
                 {turmaAtual?.nome} · {ROTULO_DURACAO[selecionado.duracao]} ·{' '}
                 {formatarData(selecionado.dataInicio)} até {formatarData(selecionado.dataFim)}
               </span>
-              <div className="grupo-botoes">
-                <button className="btn btn-fantasma btn-pequeno" onClick={() => abrirEdicao(selecionado)}>
-                  Editar
-                </button>
-                <button
-                  className="btn btn-perigo-fantasma btn-pequeno"
-                  onClick={() => excluirPlano(selecionado)}
-                >
-                  Excluir
-                </button>
-              </div>
+              {!somenteLeitura && (
+                <div className="grupo-botoes">
+                  <button className="btn btn-fantasma btn-pequeno" onClick={() => abrirEdicao(selecionado)}>
+                    Editar
+                  </button>
+                  <button
+                    className="btn btn-perigo-fantasma btn-pequeno"
+                    onClick={() => excluirPlano(selecionado)}
+                  >
+                    Excluir
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="abas">
@@ -637,7 +654,7 @@ export function PlanoDeAulaPage() {
                   onChange={setConteudoEditado}
                   placeholder="Tópicos e conteúdos que pretende dar neste plano..."
                 />
-                {conteudoSujo && (
+                {conteudoSujo && !somenteLeitura && (
                   <div className="acoes-fim">
                     <span className="texto-suave aviso-nao-salvo">Alterações não salvas</span>
                     <button className="btn btn-primario btn-pequeno" onClick={salvarConteudo}>
@@ -660,13 +677,17 @@ export function PlanoDeAulaPage() {
                         <span>
                           <strong>{formatarData(e.data)}</strong> — {e.titulo}
                         </span>
-                        <button className="icon-btn" aria-label="Excluir prova" onClick={() => excluirProva(e.id)}>
-                          ✕
-                        </button>
+                        {!somenteLeitura && (
+                          <button className="icon-btn" aria-label="Excluir prova" onClick={() => excluirProva(e.id)}>
+                            ✕
+                          </button>
+                        )}
                       </li>
                     ))}
                   </ul>
                 )}
+                {!somenteLeitura && (
+                  <>
                 <hr className="divisor" />
 
                 <h3 className="titulo-secao">Nova prova</h3>
@@ -732,6 +753,8 @@ export function PlanoDeAulaPage() {
                     {salvandoProva ? 'Adicionando...' : '+ Adicionar prova'}
                   </button>
                 </div>
+                  </>
+                )}
               </div>
             )}
 
@@ -748,17 +771,21 @@ export function PlanoDeAulaPage() {
                           <strong>{formatarData(e.data)}</strong> — {e.titulo}
                           {e.prazo && <> · prazo {formatarData(e.prazo)}</>}
                         </span>
-                        <button
-                          className="icon-btn"
-                          aria-label="Excluir atividade"
-                          onClick={() => excluirAtividade(e.id)}
-                        >
-                          ✕
-                        </button>
+                        {!somenteLeitura && (
+                          <button
+                            className="icon-btn"
+                            aria-label="Excluir atividade"
+                            onClick={() => excluirAtividade(e.id)}
+                          >
+                            ✕
+                          </button>
+                        )}
                       </li>
                     ))}
                   </ul>
                 )}
+                {!somenteLeitura && (
+                  <>
                 <hr className="divisor" />
 
                 <h3 className="titulo-secao">Nova atividade</h3>
@@ -826,6 +853,8 @@ export function PlanoDeAulaPage() {
                     {salvandoAtividade ? 'Adicionando...' : '+ Adicionar atividade'}
                   </button>
                 </div>
+                  </>
+                )}
               </div>
             )}
 
@@ -847,6 +876,8 @@ export function PlanoDeAulaPage() {
                     ))}
                   </ul>
                 )}
+                {!somenteLeitura && (
+                  <>
                 <hr className="divisor" />
 
                 <h3 className="titulo-secao">Novo registro</h3>
@@ -875,6 +906,8 @@ export function PlanoDeAulaPage() {
                     {salvandoRegistro ? 'Salvando...' : '+ Registrar aula'}
                   </button>
                 </div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -914,7 +947,7 @@ export function PlanoDeAulaPage() {
               onChange={(e) => setForm({ ...form, turmaId: e.target.value })}
             >
               <option value="">— Selecione —</option>
-              {turmas.map((t) => (
+              {turmasDoAno.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.nome} — {t.escola}
                 </option>

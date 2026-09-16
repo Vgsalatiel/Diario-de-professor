@@ -25,6 +25,11 @@ model Professor {
   materia String
   fotoUrl String?
 
+  // Recuperação de senha: guardamos o hash do token (nunca o token em si)
+  // e a validade — um link de redefinição vale por 1 hora e uso único.
+  resetSenhaTokenHash String?
+  resetSenhaExpiraEm  DateTime?
+
   criadoEm DateTime @default(now())
 
   turmas  Turma[]
@@ -51,6 +56,11 @@ model Turma {
 
   professorId String
   professor   Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+
+  // Soft delete: "excluir" turma só marca essa data — os dados continuam no
+  // banco, só somem das telas. Sem isso, apagar por engano perde tudo (alunos,
+  // notas, frequência...) sem chance de recuperar.
+  excluidoEm DateTime?
 
   alunos        Aluno[]
   avaliacoes    Avaliacao[]
@@ -79,8 +89,15 @@ model Aluno {
   dataNascimento DateTime?
   situacao       SituacaoMatricula @default(ativo)
 
+  // Observação pedagógica livre — dificuldades/facilidades do aluno,
+  // usada como contexto pro Assistente IA gerar exercícios sob medida.
+  dificuldades String?
+
   turmaId String
   turma   Turma  @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+
+  // Soft delete: mesma lógica da turma — excluir só marca a data.
+  excluidoEm DateTime?
 
   notas       Nota[]
   frequencias Frequencia[]

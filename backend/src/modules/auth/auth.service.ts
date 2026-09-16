@@ -1,9 +1,23 @@
+import { randomBytes, createHash } from 'node:crypto'
 import type { Professor } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { hashSenha, compararSenha } from '../../lib/hash'
 import { gerarToken } from '../../lib/jwt'
+import { enviarEmailRedefinicaoSenha } from '../../lib/email'
 import { AppError } from '../../utils/AppError'
-import type { AtualizarPerfilDto, CadastroDto, LoginDto } from './auth.dto'
+import type {
+  AtualizarPerfilDto,
+  CadastroDto,
+  EsqueciSenhaDto,
+  LoginDto,
+  RedefinirSenhaDto,
+} from './auth.dto'
+
+const VALIDADE_RESET_MS = 60 * 60 * 1000 // 1 hora
+
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex')
+}
 
 // Nunca devolver o hash da senha pro frontend.
 function semSenha(professor: Professor) {
@@ -38,6 +52,42 @@ export async function login(dados: LoginDto) {
   }
 
   return { token: gerarToken({ professorId: professor.id }), professor: semSenha(professor) }
+}
+
+export async function esqueciSenha(dados: EsqueciSenhaDto) {
+  const professor = await prisma.professor.findUnique({ where: { email: dados.email } })
+
+  // Sempre responde "sucesso" mesmo se o e-mail não existir — senão dá
+  // pra descobrir quais e-mails estão cadastrados só tentando aqui.
+  if (!professor) return
+
+  const token = randomBytes(32).toString('hex')
+  await prisma.professor.update({
+    where: { id: professor.id },
+    data: {
+      resetSenhaTokenHash: hashToken(token),
+      resetSenhaExpiraEm: new Date(Date.now() + VALIDADE_RESET_MS),
+    },
+  })
+
+  const baseUrl = (process.env.FRONTEND_URL ?? 'http://localhost:5173').split(',')[0].trim()
+  const link = `${baseUrl}/redefinir-senha?token=${token}`
+  await enviarEmailRedefinicaoSenha(professor.email, link)
+}
+
+export async function redefinirSenha(dados: RedefinirSenhaDto) {
+  const tokenHash = hashToken(dados.token)
+  const professor = await prisma.professor.findFirst({ where: { resetSenhaTokenHash: tokenHash } })
+
+  if (!professor || !professor.resetSenhaExpiraEm || professor.resetSenhaExpiraEm < new Date()) {
+    throw AppError.requisicaoInvalida('Link inválido ou expirado. Peça uma nova redefinição.')
+  }
+
+  const senhaHash = await hashSenha(dados.novaSenha)
+  await prisma.professor.update({
+    where: { id: professor.id },
+    data: { senha: senhaHash, resetSenhaTokenHash: null, resetSenhaExpiraEm: null },
+  })
 }
 
 export async function buscarPerfil(professorId: string) {

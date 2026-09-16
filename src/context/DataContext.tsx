@@ -30,11 +30,19 @@ interface DataContextValue {
   criarTurma: (dados: Omit<Turma, 'id'>) => void
   atualizarTurma: (id: string, dados: Partial<Turma>) => void
   removerTurma: (id: string) => void
+  promoverTurma: (
+    id: string,
+    dados: { anoLetivo: string; nome: string; serie: string },
+  ) => Promise<{ turma: Turma; alunosPromovidos: number }>
 
   // Alunos
   criarAluno: (dados: Omit<Aluno, 'id'>) => void
   atualizarAluno: (id: string, dados: Partial<Aluno>) => void
   removerAluno: (id: string) => void
+  gerarExerciciosPersonalizados: (
+    alunoId: string,
+    dados: { assunto: string; dificuldade?: string; quantidade: number },
+  ) => Promise<{ titulo: string; questoes: { enunciado: string; gabarito: string }[] }>
 
   // Avaliações
   criarAvaliacao: (dados: Omit<Avaliacao, 'id'>) => void
@@ -319,6 +327,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
           })
           .catch((erro) => notificar(mensagemErro(erro)))
       },
+      promoverTurma: (id, dados) => {
+        return api
+          .post<{ turma: TurmaApi; alunos: AlunoApi[] }>(`/turmas/${id}/promover`, dados)
+          .then(({ turma: turmaApi, alunos: novosAlunos }) => {
+            const { config, ...turma } = turmaApi
+            setTurmasBrutas((ts) => [...ts, turma])
+            setConfigs((cs) => [...cs, config])
+            setAlunos((as) => [...as, ...novosAlunos.map(normalizarAluno)])
+            return { turma, alunosPromovidos: novosAlunos.length }
+          })
+          .catch((erro) => {
+            notificar(mensagemErro(erro))
+            throw erro
+          })
+      },
 
       criarAluno: (dados) => {
         api
@@ -333,6 +356,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
             setAlunos((as) => as.map((a) => (a.id === id ? normalizarAluno(aluno) : a))),
           )
           .catch((erro) => notificar(mensagemErro(erro)))
+      },
+      gerarExerciciosPersonalizados: (alunoId, dados) => {
+        return api
+          .post<{ titulo: string; questoes: { enunciado: string; gabarito: string }[] }>(
+            `/alunos/${alunoId}/exercicios-personalizados`,
+            dados,
+          )
+          .catch((erro) => {
+            notificar(mensagemErro(erro))
+            throw erro
+          })
       },
       removerAluno: (id) => {
         api

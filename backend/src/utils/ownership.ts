@@ -6,9 +6,13 @@
 import { prisma } from '../lib/prisma'
 import { AppError } from './AppError'
 
+// Turma/aluno excluídos (soft delete) contam como "não encontrados" pra
+// qualquer operação — igual seriam se tivessem sido apagados de verdade.
 export async function turmaDoProfessor(turmaId: string, professorId: string) {
   const turma = await prisma.turma.findUnique({ where: { id: turmaId } })
-  if (!turma || turma.professorId !== professorId) throw AppError.naoEncontrado('Turma')
+  if (!turma || turma.professorId !== professorId || turma.excluidoEm) {
+    throw AppError.naoEncontrado('Turma')
+  }
   return turma
 }
 
@@ -17,7 +21,14 @@ export async function alunoDoProfessor(alunoId: string, professorId: string) {
     where: { id: alunoId },
     include: { turma: true },
   })
-  if (!aluno || aluno.turma.professorId !== professorId) throw AppError.naoEncontrado('Aluno')
+  if (
+    !aluno ||
+    aluno.turma.professorId !== professorId ||
+    aluno.excluidoEm ||
+    aluno.turma.excluidoEm
+  ) {
+    throw AppError.naoEncontrado('Aluno')
+  }
   return aluno
 }
 
@@ -26,7 +37,11 @@ export async function avaliacaoDoProfessor(avaliacaoId: string, professorId: str
     where: { id: avaliacaoId },
     include: { turma: true },
   })
-  if (!avaliacao || avaliacao.turma.professorId !== professorId) {
+  if (
+    !avaliacao ||
+    avaliacao.turma.professorId !== professorId ||
+    avaliacao.turma.excluidoEm
+  ) {
     throw AppError.naoEncontrado('Avaliação')
   }
   return avaliacao
@@ -37,7 +52,11 @@ export async function dataAulaDoProfessor(dataAulaId: string, professorId: strin
     where: { id: dataAulaId },
     include: { turma: true },
   })
-  if (!dataAula || dataAula.turma.professorId !== professorId) {
+  if (
+    !dataAula ||
+    dataAula.turma.professorId !== professorId ||
+    dataAula.turma.excluidoEm
+  ) {
     throw AppError.naoEncontrado('Data de aula')
   }
   return dataAula
@@ -54,7 +73,7 @@ export async function planoDoProfessor(planoId: string, professorId: string) {
     where: { id: planoId },
     include: { turma: true },
   })
-  if (!plano || plano.turma.professorId !== professorId) {
+  if (!plano || plano.turma.professorId !== professorId || plano.turma.excluidoEm) {
     throw AppError.naoEncontrado('Plano de aula')
   }
   return plano

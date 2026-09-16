@@ -35,6 +35,7 @@ export interface Aluno {
   matricula?: string
   dataNascimento?: string // ISO: "2012-05-20"
   situacao: SituacaoMatricula
+  dificuldades?: string // observação livre: dificuldades/facilidades do aluno
 }
 
 // Número do período dentro do ano letivo: "1"/"2" (semestre) ou "1".."4" (bimestre)

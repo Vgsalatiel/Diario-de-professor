@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTema } from '../context/ThemeContext'
+import { useAnoLetivo } from '../context/AnoLetivoContext'
+import { useData } from '../context/DataContext'
 
 const LINKS = [
   { to: '/', rotulo: 'Início', icone: '◧', exato: true },
@@ -18,8 +20,18 @@ const LINKS = [
 export function Layout() {
   const { professora, sair } = useAuth()
   const { tema, alternarTema } = useTema()
+  const { turmas } = useData()
+  const { anoAtivo, anoAtual, somenteLeitura, definirAnoAtivo } = useAnoLetivo()
   const navigate = useNavigate()
   const [menuAberto, setMenuAberto] = useState(false)
+
+  // Lista de anos letivos pra escolher: os que já têm turma cadastrada,
+  // sempre incluindo o ano atual (mesmo sem nenhuma turma nele ainda).
+  const anosLetivos = useMemo(() => {
+    const anos = new Set(turmas.map((t) => t.anoLetivo).filter(Boolean))
+    anos.add(anoAtual)
+    return Array.from(anos).sort((a, b) => b.localeCompare(a))
+  }, [turmas, anoAtual])
 
   const iniciais = professora.nome
     .split(' ')
@@ -91,6 +103,20 @@ export function Layout() {
             ☰
           </button>
           <div className="topbar-titulo">Gestão de Notas e Aulas</div>
+          <label className="ano-letivo-seletor" title="Ano letivo">
+            <span className="sr-only">Ano letivo</span>
+            <select
+              className="select"
+              value={anoAtivo}
+              onChange={(e) => definirAnoAtivo(e.target.value)}
+            >
+              {anosLetivos.map((ano) => (
+                <option key={ano} value={ano}>
+                  {ano === anoAtual ? `${ano} (atual)` : ano}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             className="icon-btn tema-toggle"
             onClick={alternarTema}
@@ -100,6 +126,12 @@ export function Layout() {
             {tema === 'escuro' ? '☀' : '☾'}
           </button>
         </header>
+        {somenteLeitura && (
+          <div className="aviso-somente-leitura">
+            Visualizando o ano letivo {anoAtivo} — modo somente leitura. Volte pro ano{' '}
+            {anoAtual} pra editar normalmente.
+          </div>
+        )}
         <main className="pagina">
           <Outlet />
         </main>

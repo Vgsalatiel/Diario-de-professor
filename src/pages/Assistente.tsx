@@ -1,4 +1,5 @@
-import { useState, type ChangeEvent } from 'react'
+import { useMemo, useState, type ChangeEvent } from 'react'
+import { useData } from '../context/DataContext'
 import { imprimirHTML } from '../lib/export'
 import {
   gerarCorrecaoSimulada,
@@ -9,7 +10,55 @@ import {
 } from '../lib/assistenteIA'
 
 export function Assistente() {
-  const [aba, setAba] = useState<'corrigir' | 'gerar'>('corrigir')
+  const { alunos, gerarExerciciosPersonalizados } = useData()
+  const [aba, setAba] = useState<'corrigir' | 'gerar' | 'personalizado'>('corrigir')
+
+  const alunosOrdenados = useMemo(
+    () => [...alunos].sort((a, b) => a.nome.localeCompare(b.nome)),
+    [alunos],
+  )
+
+  const [alunoId, setAlunoId] = useState('')
+  const [assunto, setAssunto] = useState('')
+  const [dificuldade, setDificuldade] = useState('')
+  const [quantidade, setQuantidade] = useState(5)
+  const [gerandoPersonalizado, setGerandoPersonalizado] = useState(false)
+  const [erroPersonalizado, setErroPersonalizado] = useState('')
+  const [exercicioPersonalizado, setExercicioPersonalizado] = useState<ResultadoExercicio | null>(
+    null,
+  )
+  const [mostrarGabaritoPersonalizado, setMostrarGabaritoPersonalizado] = useState(false)
+
+  function selecionarAluno(id: string) {
+    setAlunoId(id)
+    const aluno = alunos.find((a) => a.id === id)
+    setDificuldade(aluno?.dificuldades ?? '')
+  }
+
+  async function gerarPersonalizado() {
+    if (!alunoId || !assunto.trim()) return
+    setErroPersonalizado('')
+    setGerandoPersonalizado(true)
+    setExercicioPersonalizado(null)
+    setMostrarGabaritoPersonalizado(false)
+    try {
+      const resultado = await gerarExerciciosPersonalizados(alunoId, {
+        assunto: assunto.trim(),
+        dificuldade: dificuldade.trim() || undefined,
+        quantidade,
+      })
+      setExercicioPersonalizado(resultado)
+    } catch {
+      setErroPersonalizado('Não foi possível gerar os exercícios agora. Tente de novo.')
+    } finally {
+      setGerandoPersonalizado(false)
+    }
+  }
+
+  function baixarExercicioPersonalizado() {
+    if (!exercicioPersonalizado) return
+    imprimirHTML(gerarHTMLExercicio(exercicioPersonalizado))
+  }
 
   const [arquivo, setArquivo] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState('')
@@ -66,8 +115,8 @@ export function Assistente() {
         <div>
           <h1>Assistente de IA</h1>
           <p className="pagina-sub">
-            Protótipo — os resultados abaixo são simulados, sem chamada a
-            nenhuma IA real ainda.
+            "Corrigir" e "Criar exercício" ainda são protótipos simulados —
+            "Exercício personalizado" já usa IA de verdade.
           </p>
         </div>
       </header>
@@ -84,6 +133,12 @@ export function Assistente() {
           onClick={() => setAba('gerar')}
         >
           Criar exercício
+        </button>
+        <button
+          className={`aba ${aba === 'personalizado' ? 'ativa' : ''}`}
+          onClick={() => setAba('personalizado')}
+        >
+          Exercício personalizado
         </button>
       </div>
 
@@ -223,6 +278,119 @@ export function Assistente() {
 
                 <div className="acoes-fim">
                   <button className="btn btn-fantasma" onClick={baixarExercicio}>
+                    Baixar em PDF
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
+      {aba === 'personalizado' && (
+        <div className="grid-perfil">
+          <section className="painel">
+            <h2>Exercício personalizado</h2>
+            <p className="texto-suave">
+              Gera uma lista de exercícios sob medida pro aluno, com base no assunto e na
+              observação de dificuldade/facilidade dele.
+            </p>
+            <div className="form-grid">
+              <label className="campo campo-largo">
+                <span>Aluno</span>
+                <select
+                  className="select"
+                  value={alunoId}
+                  onChange={(e) => selecionarAluno(e.target.value)}
+                >
+                  <option value="">— Selecione —</option>
+                  {alunosOrdenados.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.nome}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="campo campo-largo">
+                <span>Assunto</span>
+                <input
+                  value={assunto}
+                  onChange={(e) => setAssunto(e.target.value)}
+                  placeholder="Ex.: frações, verbos irregulares em inglês"
+                />
+              </label>
+              <label className="campo campo-largo">
+                <span>Dificuldade/facilidade do aluno</span>
+                <textarea
+                  rows={3}
+                  value={dificuldade}
+                  onChange={(e) => setDificuldade(e.target.value)}
+                  placeholder="Ex.: tem dificuldade em somar frações com denominadores diferentes, mas vai bem em multiplicação"
+                />
+                <p className="texto-suave">
+                  Vem preenchido com a observação salva no cadastro do aluno — dá pra editar só
+                  pra essa geração, sem alterar o cadastro.
+                </p>
+              </label>
+              <label className="campo">
+                <span>Quantidade de questões</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={quantidade}
+                  onChange={(e) => setQuantidade(Number(e.target.value) || 1)}
+                />
+              </label>
+            </div>
+            {erroPersonalizado && <div className="alerta-erro">{erroPersonalizado}</div>}
+            <div className="acoes-fim">
+              <button
+                className="btn btn-primario"
+                onClick={gerarPersonalizado}
+                disabled={!alunoId || !assunto.trim() || gerandoPersonalizado}
+              >
+                {gerandoPersonalizado ? 'Gerando…' : 'Gerar exercícios com IA'}
+              </button>
+            </div>
+          </section>
+
+          <section className="painel">
+            <h2>Exercícios gerados</h2>
+            {!exercicioPersonalizado && !gerandoPersonalizado && (
+              <p className="texto-suave">
+                Escolha o aluno e o assunto ao lado e clique em "Gerar exercícios com IA".
+              </p>
+            )}
+            {gerandoPersonalizado && (
+              <p className="texto-suave">Gerando questões personalizadas…</p>
+            )}
+            {exercicioPersonalizado && (
+              <div className="stack-md">
+                <h3 className="titulo-secao">{exercicioPersonalizado.titulo}</h3>
+                <ol className="lista-exercicio">
+                  {exercicioPersonalizado.questoes.map((q, i) => (
+                    <li key={i}>{q.enunciado}</li>
+                  ))}
+                </ol>
+
+                <button
+                  className="btn btn-fantasma btn-pequeno"
+                  onClick={() => setMostrarGabaritoPersonalizado((v) => !v)}
+                >
+                  {mostrarGabaritoPersonalizado ? 'Esconder gabarito' : 'Mostrar gabarito'}
+                </button>
+
+                {mostrarGabaritoPersonalizado && (
+                  <ol className="lista-exercicio">
+                    {exercicioPersonalizado.questoes.map((q, i) => (
+                      <li key={i}>{q.gabarito}</li>
+                    ))}
+                  </ol>
+                )}
+
+                <div className="acoes-fim">
+                  <button className="btn btn-fantasma" onClick={baixarExercicioPersonalizado}>
                     Baixar em PDF
                   </button>
                 </div>

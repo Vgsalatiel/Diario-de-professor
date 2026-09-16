@@ -11,12 +11,16 @@ function serializarDataAula(dataAula: DataAula) {
 // Todas as datas de aula / frequência do professor — o frontend calcula
 // presença e falta em cima dessas listas planas.
 export async function listarDatasAula(professorId: string) {
-  const datas = await prisma.dataAula.findMany({ where: { turma: { professorId } } })
+  const datas = await prisma.dataAula.findMany({
+    where: { turma: { professorId, excluidoEm: null } },
+  })
   return datas.map(serializarDataAula)
 }
 
 export function listarFrequencia(professorId: string) {
-  return prisma.frequencia.findMany({ where: { aluno: { turma: { professorId } } } })
+  return prisma.frequencia.findMany({
+    where: { aluno: { excluidoEm: null, turma: { professorId, excluidoEm: null } } },
+  })
 }
 
 // find-or-create — equivalente ao garantirDataAula() do frontend.

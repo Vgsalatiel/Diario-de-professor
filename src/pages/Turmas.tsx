@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
+import { useAnoLetivo } from '../context/AnoLetivoContext'
 import type { SistemaPeriodo, Turma } from '../types'
 import { Modal } from '../components/Modal'
 
@@ -36,27 +37,56 @@ function diasAulaResumo(dias: number[]): string {
     .join(', ')
 }
 
+// Tenta incrementar o primeiro número que aparecer no texto — "1°D" vira
+// "2°D", "9º Ano" vira "10º Ano". Sem número nenhum (ex.: "Turma Verde"),
+// devolve vazio pra o professor digitar o nome novo do zero.
+function sugerirProximoTexto(texto: string): string {
+  const m = texto.match(/\d+/)
+  if (!m || m.index == null) return ''
+  const numero = String(Number(m[0]) + 1)
+  return texto.slice(0, m.index) + numero + texto.slice(m.index + m[0].length)
+}
+
+function proximoAnoLetivo(ano: string): string {
+  const n = Number(ano)
+  return Number.isFinite(n) && ano.trim() !== '' ? String(n + 1) : ano
+}
+
 export function Turmas() {
-  const { turmas, alunos, removerTurma, criarTurma, atualizarTurma } = useData()
+  const { turmas, alunos, removerTurma, criarTurma, atualizarTurma, promoverTurma } = useData()
   const { notificar } = useToast()
+  const { anoAtivo, somenteLeitura } = useAnoLetivo()
   const [modal, setModal] = useState(false)
   const [editando, setEditando] = useState<Turma | null>(null)
   const [erroForm, setErroForm] = useState('')
   const [form, setForm] = useState(VAZIO)
   const [escolaFiltro, setEscolaFiltro] = useState('todas')
 
+  const [modalPromover, setModalPromover] = useState(false)
+  const [turmaParaPromover, setTurmaParaPromover] = useState<Turma | null>(null)
+  const [formPromover, setFormPromover] = useState({ anoLetivo: '', nome: '', serie: '' })
+  const [erroPromover, setErroPromover] = useState('')
+  const [promovendo, setPromovendo] = useState(false)
+
+  const turmasDoAno = useMemo(
+    () => turmas.filter((t) => t.anoLetivo === anoAtivo),
+    [turmas, anoAtivo],
+  )
+
   const escolas = useMemo(
     () =>
-      Array.from(new Set(turmas.map((t) => t.escola).filter(Boolean))).sort((a, b) =>
+      Array.from(new Set(turmasDoAno.map((t) => t.escola).filter(Boolean))).sort((a, b) =>
         a.localeCompare(b),
       ),
-    [turmas],
+    [turmasDoAno],
   )
 
   const turmasFiltradas = useMemo(
     () =>
-      escolaFiltro === 'todas' ? turmas : turmas.filter((t) => t.escola === escolaFiltro),
-    [turmas, escolaFiltro],
+      escolaFiltro === 'todas'
+        ? turmasDoAno
+        : turmasDoAno.filter((t) => t.escola === escolaFiltro),
+    [turmasDoAno, escolaFiltro],
   )
 
   function abrirNova() {
@@ -138,6 +168,52 @@ export function Turmas() {
     if (confirm(msg)) removerTurma(t.id)
   }
 
+  function abrirPromocao(t: Turma) {
+    setTurmaParaPromover(t)
+    setFormPromover({
+      anoLetivo: proximoAnoLetivo(t.anoLetivo),
+      nome: sugerirProximoTexto(t.nome),
+      serie: sugerirProximoTexto(t.serie),
+    })
+    setErroPromover('')
+    setModalPromover(true)
+  }
+
+  async function confirmarPromocao() {
+    if (!turmaParaPromover) return
+    if (!formPromover.nome.trim()) {
+      setErroPromover('Informe o nome da turma nova.')
+      return
+    }
+    if (!formPromover.anoLetivo.trim()) {
+      setErroPromover('Informe o ano letivo da turma nova.')
+      return
+    }
+    setErroPromover('')
+    setPromovendo(true)
+    try {
+      const { alunosPromovidos } = await promoverTurma(turmaParaPromover.id, {
+        anoLetivo: formPromover.anoLetivo.trim(),
+        nome: formPromover.nome.trim(),
+        serie: formPromover.serie.trim(),
+      })
+      notificar(
+        alunosPromovidos > 0
+          ? `Turma "${formPromover.nome.trim()}" criada — ${alunosPromovidos} aluno(s) levado(s) para o novo ano.`
+          : `Turma "${formPromover.nome.trim()}" criada.`,
+      )
+      setModalPromover(false)
+    } catch {
+      // erro já notificado pelo DataContext
+    } finally {
+      setPromovendo(false)
+    }
+  }
+
+  const alunosAtivosDaTurmaParaPromover = turmaParaPromover
+    ? alunos.filter((a) => a.turmaId === turmaParaPromover.id && a.situacao === 'ativo').length
+    : 0
+
   return (
     <div className="stack-lg">
       <header className="pagina-head">
@@ -145,9 +221,11 @@ export function Turmas() {
           <h1>Turmas</h1>
           <p className="pagina-sub">Organize suas turmas por série e ano letivo.</p>
         </div>
-        <button className="btn btn-primario" onClick={abrirNova}>
-          Nova turma
-        </button>
+        {!somenteLeitura && (
+          <button className="btn btn-primario" onClick={abrirNova}>
+            Nova turma
+          </button>
+        )}
       </header>
 
       {escolas.length > 1 && (
@@ -170,12 +248,18 @@ export function Turmas() {
         </div>
       )}
 
-      {turmas.length === 0 ? (
+      {turmasDoAno.length === 0 ? (
         <div className="vazio painel">
-          <p>Você ainda não tem turmas.</p>
-          <button className="btn btn-primario" onClick={abrirNova}>
-            Criar primeira turma
-          </button>
+          <p>
+            {somenteLeitura
+              ? `Nenhuma turma cadastrada no ano letivo ${anoAtivo}.`
+              : 'Você ainda não tem turmas.'}
+          </p>
+          {!somenteLeitura && (
+            <button className="btn btn-primario" onClick={abrirNova}>
+              Criar primeira turma
+            </button>
+          )}
         </div>
       ) : turmasFiltradas.length === 0 ? (
         <div className="vazio painel">
@@ -206,18 +290,28 @@ export function Turmas() {
                   >
                     Ver alunos
                   </Link>
-                  <button
-                    className="btn btn-fantasma btn-pequeno"
-                    onClick={() => abrirEdicao(t)}
-                  >
-                    Editar
-                  </button>
-                  <button
-                    className="btn btn-perigo-fantasma btn-pequeno"
-                    onClick={() => excluir(t)}
-                  >
-                    Excluir
-                  </button>
+                  {!somenteLeitura && (
+                    <>
+                      <button
+                        className="btn btn-fantasma btn-pequeno"
+                        onClick={() => abrirPromocao(t)}
+                      >
+                        Promover para o próximo ano
+                      </button>
+                      <button
+                        className="btn btn-fantasma btn-pequeno"
+                        onClick={() => abrirEdicao(t)}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        className="btn btn-perigo-fantasma btn-pequeno"
+                        onClick={() => excluir(t)}
+                      >
+                        Excluir
+                      </button>
+                    </>
+                  )}
                 </div>
               </article>
             )
@@ -323,6 +417,70 @@ export function Turmas() {
           </div>
           {erroForm && <div className="alerta-erro campo-largo">{erroForm}</div>}
         </div>
+      </Modal>
+
+      <Modal
+        aberto={modalPromover}
+        titulo="Promover para o próximo ano"
+        onFechar={() => setModalPromover(false)}
+        rodape={
+          <>
+            <button className="btn btn-fantasma" onClick={() => setModalPromover(false)}>
+              Cancelar
+            </button>
+            <button
+              className="btn btn-primario"
+              onClick={confirmarPromocao}
+              disabled={promovendo}
+            >
+              {promovendo ? 'Criando...' : 'Criar turma nova'}
+            </button>
+          </>
+        }
+      >
+        {turmaParaPromover && (
+          <div className="form-grid">
+            <p className="texto-suave campo-largo">
+              Cria uma turma nova a partir de <strong>{turmaParaPromover.nome}</strong> (
+              {turmaParaPromover.anoLetivo}) — a turma atual não é alterada, continua como
+              histórico desse ano.{' '}
+              {alunosAtivosDaTurmaParaPromover > 0
+                ? `${alunosAtivosDaTurmaParaPromover} aluno(s) ativo(s) vão junto para a turma nova.`
+                : 'Não há alunos ativos nessa turma para levar.'}
+            </p>
+            <label className="campo">
+              <span>Ano letivo da turma nova</span>
+              <input
+                value={formPromover.anoLetivo}
+                onChange={(e) =>
+                  setFormPromover({ ...formPromover, anoLetivo: e.target.value })
+                }
+                autoFocus
+              />
+            </label>
+            <label className="campo">
+              <span>Nome da turma nova</span>
+              <input
+                value={formPromover.nome}
+                onChange={(e) => setFormPromover({ ...formPromover, nome: e.target.value })}
+                placeholder="Ex.: 2°D"
+              />
+            </label>
+            <label className="campo campo-largo">
+              <span>Série da turma nova (opcional)</span>
+              <input
+                value={formPromover.serie}
+                onChange={(e) => setFormPromover({ ...formPromover, serie: e.target.value })}
+                placeholder="Ex.: 2º Ano Ensino Médio"
+              />
+            </label>
+            <p className="texto-suave campo-largo">
+              Escola, sistema de avaliação, cor e dias de aula são copiados da turma atual — dá
+              pra ajustar depois em "Editar", se precisar.
+            </p>
+            {erroPromover && <div className="alerta-erro campo-largo">{erroPromover}</div>}
+          </div>
+        )}
       </Modal>
     </div>
   )

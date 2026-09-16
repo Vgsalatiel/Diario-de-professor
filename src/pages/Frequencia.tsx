@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
+import { useAnoLetivo } from '../context/AnoLetivoContext'
 import type { Periodo, SistemaPeriodo } from '../types'
 import { calcularFrequencia, chavePresenca, proximoEstado } from '../lib/frequencia'
 import { opcoesPeriodo, rotuloSistema, turmaInicial } from '../lib/periodos'
@@ -31,6 +32,7 @@ export function Frequencia() {
     definirRegistroAula,
   } = useData()
   const { notificar } = useToast()
+  const { anoAtivo, somenteLeitura } = useAnoLetivo()
 
   const [escolaFiltro, setEscolaFiltro] = useState('todas')
   const [turmaId, setTurmaId] = useState<string>(() => turmaInicial(turmas))
@@ -52,12 +54,17 @@ export function Frequencia() {
     }
   }, [turmas, turmaId])
 
+  const turmasDoAno = useMemo(
+    () => turmas.filter((t) => t.anoLetivo === anoAtivo),
+    [turmas, anoAtivo],
+  )
+
   const escolas = useMemo(
     () =>
-      Array.from(new Set(turmas.map((t) => t.escola).filter(Boolean))).sort((a, b) =>
+      Array.from(new Set(turmasDoAno.map((t) => t.escola).filter(Boolean))).sort((a, b) =>
         a.localeCompare(b),
       ),
-    [turmas],
+    [turmasDoAno],
   )
 
   // Sem opção "todas" aqui: com mais de uma escola, sempre uma fica ativa.
@@ -65,13 +72,13 @@ export function Frequencia() {
 
   const turmasDaEscola = useMemo(
     () =>
-      escolaAtiva === 'todas' ? turmas : turmas.filter((t) => t.escola === escolaAtiva),
-    [turmas, escolaAtiva],
+      escolaAtiva === 'todas' ? turmasDoAno : turmasDoAno.filter((t) => t.escola === escolaAtiva),
+    [turmasDoAno, escolaAtiva],
   )
 
   function trocarEscola(e: string) {
     setEscolaFiltro(e)
-    const disponiveis = turmas.filter((t) => t.escola === e)
+    const disponiveis = turmasDoAno.filter((t) => t.escola === e)
     const novaTurma = disponiveis[0]
     setTurmaId(novaTurma?.id ?? '')
     setPeriodo('1')
@@ -274,7 +281,11 @@ export function Frequencia() {
         </label>
       </div>
 
-      {turmasDaEscola.length === 0 ? (
+      {turmasDoAno.length === 0 ? (
+        <div className="vazio painel">
+          <p>Nenhuma turma cadastrada no ano letivo {anoAtivo}.</p>
+        </div>
+      ) : turmasDaEscola.length === 0 ? (
         <div className="vazio painel">
           <p>Nenhuma turma nesta escola.</p>
         </div>
@@ -297,13 +308,15 @@ export function Frequencia() {
                 >
                   {registroDoDia ? '✎ Aula deste dia' : 'Aula deste dia'}
                 </button>
-                <button
-                  type="button"
-                  className={`btn btn-pequeno ${semAulaHoje ? 'btn-primario' : 'btn-fantasma'}`}
-                  onClick={onSemAula}
-                >
-                  {semAulaHoje ? '✕ Sem aula neste dia' : 'Não houve aula neste dia'}
-                </button>
+                {!somenteLeitura && (
+                  <button
+                    type="button"
+                    className={`btn btn-pequeno ${semAulaHoje ? 'btn-primario' : 'btn-fantasma'}`}
+                    onClick={onSemAula}
+                  >
+                    {semAulaHoje ? '✕ Sem aula neste dia' : 'Não houve aula neste dia'}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -347,7 +360,7 @@ export function Frequencia() {
                           type="button"
                           className={`pill pill-btn ${classe}`}
                           onClick={() => onCelula(aluno.id)}
-                          disabled={semAulaHoje}
+                          disabled={semAulaHoje || somenteLeitura}
                         >
                           {rotulo}
                         </button>
@@ -410,13 +423,15 @@ export function Frequencia() {
             <button className="btn btn-fantasma" onClick={() => setModalAula(false)}>
               Cancelar
             </button>
-            <button
-              className="btn btn-primario"
-              onClick={salvarAulaDoDia}
-              disabled={salvandoAula || !resumoAula.trim()}
-            >
-              {salvandoAula ? 'Salvando...' : 'Salvar'}
-            </button>
+            {!somenteLeitura && (
+              <button
+                className="btn btn-primario"
+                onClick={salvarAulaDoDia}
+                disabled={salvandoAula || !resumoAula.trim()}
+              >
+                {salvandoAula ? 'Salvando...' : 'Salvar'}
+              </button>
+            )}
           </>
         }
       >
@@ -431,6 +446,7 @@ export function Frequencia() {
                 className="select"
                 value={planoAula}
                 onChange={(e) => setPlanoAula(e.target.value)}
+                disabled={somenteLeitura}
               >
                 <option value="">— Sem plano vinculado —</option>
                 {planosAtivosNoDia.map((p) => (

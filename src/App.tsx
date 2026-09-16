@@ -3,9 +3,12 @@ import { ThemeProvider } from './context/ThemeContext'
 import { AuthProvider } from './context/AuthContext'
 import { DataProvider } from './context/DataContext'
 import { ToastProvider } from './context/ToastContext'
+import { AnoLetivoProvider } from './context/AnoLetivoContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
 import { Login } from './pages/Login'
+import { EsqueciSenha } from './pages/EsqueciSenha'
+import { RedefinirSenha } from './pages/RedefinirSenha'
 import { CadastroProfessor } from './pages/CadastroProfessor'
 import { Dashboard } from './pages/Dashboard'
 import { Turmas } from './pages/Turmas'
@@ -23,30 +26,34 @@ export default function App() {
       <AuthProvider>
         <ToastProvider>
           <DataProvider>
-            <BrowserRouter>
-              <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route path="/cadastro" element={<CadastroProfessor />} />
-                <Route
-                  element={
-                    <ProtectedRoute>
-                      <Layout />
-                    </ProtectedRoute>
-                  }
-                >
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/turmas" element={<Turmas />} />
-                  <Route path="/alunos" element={<Alunos />} />
-                  <Route path="/notas" element={<Notas />} />
-                  <Route path="/frequencia" element={<Frequencia />} />
-                  <Route path="/plano-de-aula" element={<PlanoDeAulaPage />} />
-                  <Route path="/agenda" element={<Agenda />} />
-                  <Route path="/assistente" element={<Assistente />} />
-                  <Route path="/perfil" element={<Perfil />} />
-                </Route>
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </BrowserRouter>
+            <AnoLetivoProvider>
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/esqueci-senha" element={<EsqueciSenha />} />
+                  <Route path="/redefinir-senha" element={<RedefinirSenha />} />
+                  <Route path="/cadastro" element={<CadastroProfessor />} />
+                  <Route
+                    element={
+                      <ProtectedRoute>
+                        <Layout />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/turmas" element={<Turmas />} />
+                    <Route path="/alunos" element={<Alunos />} />
+                    <Route path="/notas" element={<Notas />} />
+                    <Route path="/frequencia" element={<Frequencia />} />
+                    <Route path="/plano-de-aula" element={<PlanoDeAulaPage />} />
+                    <Route path="/agenda" element={<Agenda />} />
+                    <Route path="/assistente" element={<Assistente />} />
+                    <Route path="/perfil" element={<Perfil />} />
+                  </Route>
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </BrowserRouter>
+            </AnoLetivoProvider>
           </DataProvider>
         </ToastProvider>
       </AuthProvider>

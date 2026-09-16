@@ -4,7 +4,9 @@ import { alunoDoProfessor, avaliacaoDoProfessor } from '../../utils/ownership'
 // Todas as notas de todos os alunos do professor — o frontend monta o
 // "mapa" (aluno::avaliação -> valor) a partir dessa lista.
 export function listarTodas(professorId: string) {
-  return prisma.nota.findMany({ where: { aluno: { turma: { professorId } } } })
+  return prisma.nota.findMany({
+    where: { aluno: { excluidoEm: null, turma: { professorId, excluidoEm: null } } },
+  })
 }
 
 export async function definir(

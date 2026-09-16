@@ -10,7 +10,7 @@ function serializar(evento: Evento) {
 
 export async function listarTodos(professorId: string) {
   const eventos = await prisma.evento.findMany({
-    where: { professorId },
+    where: { professorId, OR: [{ turmaId: null }, { turma: { excluidoEm: null } }] },
     orderBy: { data: 'asc' },
   })
   return eventos.map(serializar)

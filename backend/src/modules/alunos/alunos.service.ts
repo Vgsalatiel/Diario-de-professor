@@ -2,7 +2,8 @@ import type { Aluno } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { alunoDoProfessor, turmaDoProfessor } from '../../utils/ownership'
 import { paraDataISO } from '../../utils/serializers'
-import type { AtualizarAlunoDto, CriarAlunoDto } from './alunos.dto'
+import { gerarExerciciosPersonalizados } from '../../lib/gemini'
+import type { AtualizarAlunoDto, CriarAlunoDto, GerarExerciciosDto } from './alunos.dto'
 
 function serializar(aluno: Aluno) {
   return { ...aluno, dataNascimento: paraDataISO(aluno.dataNascimento) }
@@ -12,7 +13,7 @@ function serializar(aluno: Aluno) {
 // frontend carrega tudo de uma vez e filtra por escola/turma no cliente.
 export async function listarTodos(professorId: string) {
   const alunos = await prisma.aluno.findMany({
-    where: { turma: { professorId } },
+    where: { excluidoEm: null, turma: { professorId, excluidoEm: null } },
     orderBy: { nome: 'asc' },
   })
   return alunos.map(serializar)
@@ -42,8 +43,23 @@ export async function atualizar(alunoId: string, professorId: string, dados: Atu
   return serializar(aluno)
 }
 
+export async function gerarExercicios(
+  alunoId: string,
+  professorId: string,
+  dados: GerarExerciciosDto,
+) {
+  const aluno = await alunoDoProfessor(alunoId, professorId)
+  return gerarExerciciosPersonalizados({
+    nomeAluno: aluno.nome,
+    assunto: dados.assunto,
+    dificuldade: dados.dificuldade,
+    quantidade: dados.quantidade,
+  })
+}
+
 export async function remover(alunoId: string, professorId: string) {
   await alunoDoProfessor(alunoId, professorId)
-  // Notas e frequência desse aluno somem junto (cascade do schema).
-  await prisma.aluno.delete({ where: { id: alunoId } })
+  // Soft delete — notas e frequência desse aluno continuam no banco, só
+  // somem das telas.
+  await prisma.aluno.update({ where: { id: alunoId }, data: { excluidoEm: new Date() } })
 }

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
+import { useAnoLetivo } from '../context/AnoLetivoContext'
 import type { Evento, TipoEvento } from '../types'
 import { corTipo, formatarData, rotuloTipo } from '../lib/eventos'
 import { Modal } from '../components/Modal'
@@ -23,6 +24,7 @@ type Filtro = 'proximos' | 'todos' | 'concluidos'
 export function Agenda() {
   const { eventos, turmas, criarEvento, atualizarEvento, removerEvento } = useData()
   const { notificar } = useToast()
+  const { anoAtivo } = useAnoLetivo()
   const [modal, setModal] = useState(false)
   const [editando, setEditando] = useState<Evento | null>(null)
   const [form, setForm] = useState(VAZIO)
@@ -112,6 +114,11 @@ export function Agenda() {
 
   const nomeTurma = (id?: string) =>
     id ? (turmas.find((t) => t.id === id)?.nome ?? '') : ''
+
+  const turmasDoAno = useMemo(
+    () => turmas.filter((t) => t.anoLetivo === anoAtivo),
+    [turmas, anoAtivo],
+  )
 
   return (
     <div className="stack-lg">
@@ -308,7 +315,7 @@ export function Agenda() {
               onChange={(e) => setForm({ ...form, turmaId: e.target.value })}
             >
               <option value="">— Nenhuma —</option>
-              {turmas.map((t) => (
+              {turmasDoAno.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.nome}
                 </option>
