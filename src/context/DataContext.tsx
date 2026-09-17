@@ -167,7 +167,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const { notificar } = useToast()
 
   const [turmasBrutas, setTurmasBrutas] = useState<Turma[]>([])
-  const [alunos, setAlunos] = useState<Aluno[]>([])
+  const [alunosBrutos, setAlunos] = useState<Aluno[]>([])
   const [avaliacoes, setAvaliacoes] = useState<Avaliacao[]>([])
   const [notas, setNotas] = useState<MapaDeNotas>({})
   const [configs, setConfigs] = useState<ConfigCalculo[]>([])
@@ -180,12 +180,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // Turmas salvas antes do campo "dias de aula" existir não têm esse dado —
   // preenche com segunda a sexta pra não quebrar as telas que dependem dele.
+  // Sempre em ordem alfabética por nome — criar/promover turma só anexa no
+  // fim do array local, então sem isso a lista ficaria fora de ordem até
+  // recarregar a página.
   const turmas = useMemo(
     () =>
-      turmasBrutas.map((t) =>
-        Array.isArray(t.diasAula) ? t : { ...t, diasAula: [1, 2, 3, 4, 5] },
-      ),
+      turmasBrutas
+        .map((t) => (Array.isArray(t.diasAula) ? t : { ...t, diasAula: [1, 2, 3, 4, 5] }))
+        .sort((a, b) => a.nome.localeCompare(b.nome)),
     [turmasBrutas],
+  )
+
+  // Mesma lógica: sempre em ordem alfabética, não importa a ordem de
+  // criação/importação.
+  const alunos = useMemo(
+    () => [...alunosBrutos].sort((a, b) => a.nome.localeCompare(b.nome)),
+    [alunosBrutos],
   )
 
   useEffect(() => {
