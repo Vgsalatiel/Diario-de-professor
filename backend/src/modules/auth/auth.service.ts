@@ -3,7 +3,7 @@ import type { Professor } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { hashSenha, compararSenha } from '../../lib/hash'
 import { gerarToken } from '../../lib/jwt'
-import { enviarEmailRedefinicaoSenha } from '../../lib/email'
+import { enviarEmailRedefinicaoSenha, enviarEmailVerificacao } from '../../lib/email'
 import { AppError } from '../../utils/AppError'
 import type {
   AtualizarPerfilDto,
@@ -11,9 +11,28 @@ import type {
   EsqueciSenhaDto,
   LoginDto,
   RedefinirSenhaDto,
+  VerificarEmailDto,
 } from './auth.dto'
 
 const VALIDADE_RESET_MS = 60 * 60 * 1000 // 1 hora
+const VALIDADE_VERIFICACAO_MS = 24 * 60 * 60 * 1000 // 24 horas
+
+function baseUrlFrontend(): string {
+  return (process.env.FRONTEND_URL ?? 'http://localhost:5173').split(',')[0].trim()
+}
+
+async function dispararVerificacao(professorId: string, email: string) {
+  const token = randomBytes(32).toString('hex')
+  await prisma.professor.update({
+    where: { id: professorId },
+    data: {
+      verificacaoTokenHash: hashToken(token),
+      verificacaoExpiraEm: new Date(Date.now() + VALIDADE_VERIFICACAO_MS),
+    },
+  })
+  const link = `${baseUrlFrontend()}/verificar-email?token=${token}`
+  await enviarEmailVerificacao(email, link)
+}
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')
@@ -39,6 +58,9 @@ export async function cadastrar(dados: CadastroDto) {
       fotoUrl: dados.fotoUrl,
     },
   })
+
+  // Não trava o cadastro se o envio falhar — o professor pode pedir reenvio depois.
+  await dispararVerificacao(professor.id, professor.email).catch(() => {})
 
   return { token: gerarToken({ professorId: professor.id }), professor: semSenha(professor) }
 }
@@ -70,8 +92,7 @@ export async function esqueciSenha(dados: EsqueciSenhaDto) {
     },
   })
 
-  const baseUrl = (process.env.FRONTEND_URL ?? 'http://localhost:5173').split(',')[0].trim()
-  const link = `${baseUrl}/redefinir-senha?token=${token}`
+  const link = `${baseUrlFrontend()}/redefinir-senha?token=${token}`
   await enviarEmailRedefinicaoSenha(professor.email, link)
 }
 
@@ -90,6 +111,28 @@ export async function redefinirSenha(dados: RedefinirSenhaDto) {
   })
 }
 
+export async function verificarEmail(dados: VerificarEmailDto) {
+  const tokenHash = hashToken(dados.token)
+  const professor = await prisma.professor.findFirst({ where: { verificacaoTokenHash: tokenHash } })
+
+  if (!professor || !professor.verificacaoExpiraEm || professor.verificacaoExpiraEm < new Date()) {
+    throw AppError.requisicaoInvalida('Link inválido ou expirado. Peça um novo e-mail de confirmação.')
+  }
+
+  await prisma.professor.update({
+    where: { id: professor.id },
+    data: { emailVerificado: true, verificacaoTokenHash: null, verificacaoExpiraEm: null },
+  })
+}
+
+export async function reenviarVerificacao(professorId: string) {
+  const professor = await prisma.professor.findUnique({ where: { id: professorId } })
+  if (!professor) throw AppError.naoEncontrado('Professor')
+  if (professor.emailVerificado) return // nada a fazer, já confirmado
+
+  await dispararVerificacao(professor.id, professor.email)
+}
+
 export async function buscarPerfil(professorId: string) {
   const professor = await prisma.professor.findUnique({ where: { id: professorId } })
   if (!professor) throw AppError.naoEncontrado('Professor')
@@ -97,6 +140,9 @@ export async function buscarPerfil(professorId: string) {
 }
 
 export async function atualizarPerfil(professorId: string, dados: AtualizarPerfilDto) {
+  const atual = await prisma.professor.findUnique({ where: { id: professorId } })
+  if (!atual) throw AppError.naoEncontrado('Professor')
+
   if (dados.email) {
     const emEmUso = await prisma.professor.findUnique({ where: { email: dados.email } })
     if (emEmUso && emEmUso.id !== professorId) {
@@ -104,10 +150,17 @@ export async function atualizarPerfil(professorId: string, dados: AtualizarPerfi
     }
   }
 
+  // Trocou de e-mail? Precisa confirmar de novo — senão o novo endereço
+  // fica marcado como "verificado" sem nunca ter provado que é dele.
+  const trocouEmail = dados.email != null && dados.email !== atual.email
+
   const senha = dados.senha ? await hashSenha(dados.senha) : undefined
   const professor = await prisma.professor.update({
     where: { id: professorId },
-    data: { ...dados, senha },
+    data: { ...dados, senha, emailVerificado: trocouEmail ? false : undefined },
   })
+
+  if (trocouEmail) await dispararVerificacao(professor.id, professor.email).catch(() => {})
+
   return semSenha(professor)
 }

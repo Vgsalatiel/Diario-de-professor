@@ -10,6 +10,10 @@ import {
   type ResultadoExercicio,
 } from '../lib/assistenteIA'
 
+function formatarDataSimples(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString('pt-BR')
+}
+
 function formatarDataHora(iso: string): string {
   return new Date(iso).toLocaleString('pt-BR', {
     day: '2-digit',
@@ -33,9 +37,11 @@ export function Assistente() {
   const [assunto, setAssunto] = useState('')
   const [dificuldade, setDificuldade] = useState('')
   const [quantidade, setQuantidade] = useState(5)
+  const [nomeProva, setNomeProva] = useState('')
+  const [dataProva, setDataProva] = useState('')
   const [gerandoPersonalizado, setGerandoPersonalizado] = useState(false)
   const [erroPersonalizado, setErroPersonalizado] = useState('')
-  const [exercicioPersonalizado, setExercicioPersonalizado] = useState<ResultadoExercicio | null>(
+  const [exercicioPersonalizado, setExercicioPersonalizado] = useState<ExercicioGerado | null>(
     null,
   )
   const [mostrarGabaritoPersonalizado, setMostrarGabaritoPersonalizado] = useState(false)
@@ -62,6 +68,8 @@ export function Assistente() {
     setAlunoId(id)
     const aluno = alunos.find((a) => a.id === id)
     setDificuldade(aluno?.dificuldades ?? '')
+    setNomeProva('')
+    setDataProva('')
     setExercicioPersonalizado(null)
     setHistoricoExpandidoId(null)
   }
@@ -77,6 +85,8 @@ export function Assistente() {
         assunto: assunto.trim(),
         dificuldade: dificuldade.trim() || undefined,
         quantidade,
+        nomeProva: nomeProva.trim() || undefined,
+        dataProva: dataProva || undefined,
       })
       setExercicioPersonalizado(resultado)
       setHistorico((h) => [resultado, ...h])
@@ -377,6 +387,22 @@ export function Assistente() {
                   onChange={(e) => setQuantidade(Number(e.target.value) || 1)}
                 />
               </label>
+              <label className="campo">
+                <span>Nome da prova (opcional)</span>
+                <input
+                  value={nomeProva}
+                  onChange={(e) => setNomeProva(e.target.value)}
+                  placeholder="Ex.: Prova bimestral de Matemática"
+                />
+              </label>
+              <label className="campo">
+                <span>Data da prova (opcional)</span>
+                <input
+                  type="date"
+                  value={dataProva}
+                  onChange={(e) => setDataProva(e.target.value)}
+                />
+              </label>
             </div>
             {erroPersonalizado && <div className="alerta-erro">{erroPersonalizado}</div>}
             <div className="acoes-fim">
@@ -403,6 +429,16 @@ export function Assistente() {
             {exercicioPersonalizado && (
               <div className="stack-md">
                 <h3 className="titulo-secao">{exercicioPersonalizado.titulo}</h3>
+                {(exercicioPersonalizado.nomeProva || exercicioPersonalizado.dataProva) && (
+                  <p className="texto-suave">
+                    {exercicioPersonalizado.nomeProva && (
+                      <strong>{exercicioPersonalizado.nomeProva}</strong>
+                    )}
+                    {exercicioPersonalizado.nomeProva && exercicioPersonalizado.dataProva && ' — '}
+                    {exercicioPersonalizado.dataProva &&
+                      formatarDataSimples(exercicioPersonalizado.dataProva)}
+                  </p>
+                )}
                 <ol className="lista-exercicio">
                   {exercicioPersonalizado.questoes.map((q, i) => (
                     <li key={i}>{q.enunciado}</li>
@@ -455,7 +491,11 @@ export function Assistente() {
                       onClick={() => setHistoricoExpandidoId(aberto ? null : item.id)}
                     >
                       <span>
-                        <strong>{item.assunto}</strong> — {formatarDataHora(item.criadoEm)}
+                        <strong>{item.assunto}</strong>
+                        {item.nomeProva && <> · {item.nomeProva}</>}
+                        {item.dataProva && <> ({formatarDataSimples(item.dataProva)})</>}
+                        {' — '}
+                        {formatarDataHora(item.criadoEm)}
                       </span>
                       <span aria-hidden>{aberto ? '▲' : '▼'}</span>
                     </button>

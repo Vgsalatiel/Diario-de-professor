@@ -62,11 +62,19 @@ export async function gerarExercicios(
       titulo: resultado.titulo,
       assunto: dados.assunto,
       dificuldade: dados.dificuldade,
+      nomeProva: dados.nomeProva,
+      dataProva: dados.dataProva ? new Date(dados.dataProva) : undefined,
       questoes: resultado.questoes as unknown as Prisma.InputJsonValue,
     },
   })
 
-  return { ...resultado, id: salvo.id, criadoEm: salvo.criadoEm.toISOString() }
+  return {
+    ...resultado,
+    id: salvo.id,
+    criadoEm: salvo.criadoEm.toISOString(),
+    nomeProva: salvo.nomeProva,
+    dataProva: paraDataISO(salvo.dataProva),
+  }
 }
 
 export async function listarExerciciosGerados(alunoId: string, professorId: string) {
@@ -75,7 +83,11 @@ export async function listarExerciciosGerados(alunoId: string, professorId: stri
     where: { alunoId },
     orderBy: { criadoEm: 'desc' },
   })
-  return lista.map((e) => ({ ...e, criadoEm: e.criadoEm.toISOString() }))
+  return lista.map((e) => ({
+    ...e,
+    criadoEm: e.criadoEm.toISOString(),
+    dataProva: paraDataISO(e.dataProva),
+  }))
 }
 
 export async function remover(alunoId: string, professorId: string) {

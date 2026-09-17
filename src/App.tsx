@@ -9,6 +9,7 @@ import { Layout } from './components/Layout'
 import { Login } from './pages/Login'
 import { EsqueciSenha } from './pages/EsqueciSenha'
 import { RedefinirSenha } from './pages/RedefinirSenha'
+import { VerificarEmail } from './pages/VerificarEmail'
 import { CadastroProfessor } from './pages/CadastroProfessor'
 import { Dashboard } from './pages/Dashboard'
 import { Turmas } from './pages/Turmas'
@@ -32,6 +33,7 @@ export default function App() {
                   <Route path="/login" element={<Login />} />
                   <Route path="/esqueci-senha" element={<EsqueciSenha />} />
                   <Route path="/redefinir-senha" element={<RedefinirSenha />} />
+                  <Route path="/verificar-email" element={<VerificarEmail />} />
                   <Route path="/cadastro" element={<CadastroProfessor />} />
                   <Route
                     element={

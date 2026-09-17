@@ -6,6 +6,7 @@ export interface Professora {
   email: string
   materia: string
   fotoUrl?: string
+  emailVerificado: boolean
 }
 
 // Cada escola tem seu próprio jeito de dividir o ano letivo
@@ -47,6 +48,8 @@ export interface ExercicioGerado {
   dificuldade?: string
   questoes: { enunciado: string; gabarito: string }[]
   criadoEm: string // ISO datetime
+  nomeProva?: string
+  dataProva?: string // ISO: "2026-10-15"
 }
 
 // Número do período dentro do ano letivo: "1"/"2" (semestre) ou "1".."4" (bimestre)

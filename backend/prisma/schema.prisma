@@ -30,6 +30,12 @@ model Professor {
   resetSenhaTokenHash String?
   resetSenhaExpiraEm  DateTime?
 
+  // Verificação de e-mail: mesmo esquema do reset de senha, mas não
+  // bloqueia o uso do sistema — só mostra um aviso até confirmar.
+  emailVerificado          Boolean   @default(false)
+  verificacaoTokenHash     String?
+  verificacaoExpiraEm      DateTime?
+
   criadoEm DateTime @default(now())
 
   turmas  Turma[]
@@ -111,12 +117,17 @@ model Aluno {
 // guardada pra o professor poder consultar depois, sem depender de ter
 // baixado o PDF na hora.
 model ExercicioGerado {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   titulo      String
   assunto     String
   dificuldade String?
   questoes    Json // array de { enunciado, gabarito }
-  criadoEm    DateTime @default(now())
+  criadoEm    DateTime  @default(now())
+
+  // Opcional — quando esse exercício é preparo pra uma prova específica,
+  // o professor pode anotar o nome dela e o dia em que será aplicada.
+  nomeProva String?
+  dataProva DateTime? @db.Date
 
   alunoId String
   aluno   Aluno  @relation(fields: [alunoId], references: [id], onDelete: Cascade)

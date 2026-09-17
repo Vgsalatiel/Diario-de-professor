@@ -6,6 +6,7 @@ import {
   esqueciSenhaDto,
   loginDto,
   redefinirSenhaDto,
+  verificarEmailDto,
 } from './auth.dto'
 
 export async function registrar(req: Request, res: Response) {
@@ -29,6 +30,17 @@ export async function esqueciSenha(req: Request, res: Response) {
 export async function redefinirSenha(req: Request, res: Response) {
   const dados = redefinirSenhaDto.parse(req.body)
   await authService.redefinirSenha(dados)
+  res.json({ ok: true })
+}
+
+export async function verificarEmail(req: Request, res: Response) {
+  const dados = verificarEmailDto.parse(req.body)
+  await authService.verificarEmail(dados)
+  res.json({ ok: true })
+}
+
+export async function reenviarVerificacao(req: Request, res: Response) {
+  await authService.reenviarVerificacao(req.professorId)
   res.json({ ok: true })
 }
 

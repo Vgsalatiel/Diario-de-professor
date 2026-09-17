@@ -37,11 +37,18 @@ interface AuthContextValue {
   sair: () => void
   atualizarPerfil: (dados: DadosAtualizacao) => Promise<Resultado>
   criarPerfil: (dados: DadosCadastro) => Promise<Resultado>
+  reenviarVerificacao: () => Promise<Resultado>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-const PROFESSORA_VAZIA: Professora = { id: '', nome: '', email: '', materia: '' }
+const PROFESSORA_VAZIA: Professora = {
+  id: '',
+  nome: '',
+  email: '',
+  materia: '',
+  emailVerificado: false,
+}
 
 function mensagemErro(erro: unknown): string {
   if (erro instanceof ApiError) return erro.message
@@ -120,6 +127,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           )
           definirToken(resposta.token)
           setProfessora(resposta.professor)
+          return { ok: true }
+        } catch (erro) {
+          return { ok: false, erro: mensagemErro(erro) }
+        }
+      },
+      reenviarVerificacao: async () => {
+        try {
+          await api.post('/auth/reenviar-verificacao')
           return { ok: true }
         } catch (erro) {
           return { ok: false, erro: mensagemErro(erro) }

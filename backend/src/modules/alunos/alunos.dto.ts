@@ -25,5 +25,11 @@ export const gerarExerciciosDto = z.object({
   assunto: z.string().trim().min(1, 'Informe o assunto do exercício.').max(300),
   dificuldade: z.string().trim().max(2000).optional(),
   quantidade: z.number().int().min(1).max(10).default(5),
+  nomeProva: z.string().trim().max(200, 'Máximo de 200 caracteres.').optional(),
+  dataProva: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data da prova inválida.')
+    .optional(),
 })
 export type GerarExerciciosDto = z.infer<typeof gerarExerciciosDto>

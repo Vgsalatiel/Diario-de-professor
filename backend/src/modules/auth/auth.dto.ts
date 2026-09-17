@@ -27,6 +27,11 @@ export const redefinirSenhaDto = z.object({
 })
 export type RedefinirSenhaDto = z.infer<typeof redefinirSenhaDto>
 
+export const verificarEmailDto = z.object({
+  token: z.string().trim().min(1, 'Token inválido.'),
+})
+export type VerificarEmailDto = z.infer<typeof verificarEmailDto>
+
 export const atualizarPerfilDto = z.object({
   nome: nomeSchema.optional(),
   email: z.string().trim().toLowerCase().email('E-mail inválido.').optional(),

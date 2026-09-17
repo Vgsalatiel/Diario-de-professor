@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useTema } from '../context/ThemeContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
 import { useData } from '../context/DataContext'
+import { useToast } from '../context/ToastContext'
 
 const LINKS = [
   { to: '/', rotulo: 'Início', icone: '◧', exato: true },
@@ -18,12 +19,21 @@ const LINKS = [
 ]
 
 export function Layout() {
-  const { professora, sair } = useAuth()
+  const { professora, sair, reenviarVerificacao } = useAuth()
   const { tema, alternarTema } = useTema()
   const { turmas } = useData()
   const { anoAtivo, anoAtual, somenteLeitura, definirAnoAtivo } = useAnoLetivo()
+  const { notificar } = useToast()
   const navigate = useNavigate()
   const [menuAberto, setMenuAberto] = useState(false)
+  const [reenviando, setReenviando] = useState(false)
+
+  async function onReenviarVerificacao() {
+    setReenviando(true)
+    const r = await reenviarVerificacao()
+    notificar(r.ok ? 'E-mail de confirmação reenviado — confira sua caixa de entrada.' : (r.erro ?? 'Não foi possível reenviar.'))
+    setReenviando(false)
+  }
 
   // Lista de anos letivos pra escolher: os que já têm turma cadastrada,
   // sempre incluindo o ano atual (mesmo sem nenhuma turma nele ainda).
@@ -130,6 +140,18 @@ export function Layout() {
           <div className="aviso-somente-leitura">
             Visualizando o ano letivo {anoAtivo} — modo somente leitura. Volte pro ano{' '}
             {anoAtual} pra editar normalmente.
+          </div>
+        )}
+        {!professora.emailVerificado && (
+          <div className="aviso-somente-leitura aviso-email">
+            <span>Confirme seu e-mail ({professora.email}) — enviamos um link pra sua caixa de entrada.</span>
+            <button
+              className="btn btn-fantasma btn-pequeno"
+              onClick={onReenviarVerificacao}
+              disabled={reenviando}
+            >
+              {reenviando ? 'Reenviando...' : 'Reenviar e-mail'}
+            </button>
           </div>
         )}
         <main className="pagina">

@@ -42,7 +42,13 @@ interface DataContextValue {
   removerAluno: (id: string) => void
   gerarExerciciosPersonalizados: (
     alunoId: string,
-    dados: { assunto: string; dificuldade?: string; quantidade: number },
+    dados: {
+      assunto: string
+      dificuldade?: string
+      quantidade: number
+      nomeProva?: string
+      dataProva?: string
+    },
   ) => Promise<ExercicioGerado>
   listarExerciciosGerados: (alunoId: string) => Promise<ExercicioGerado[]>
 
