@@ -371,6 +371,10 @@ input:focus, select:focus, textarea:focus {
   box-shadow: var(--sombra-sm);
 }
 .painel.sem-padding { padding: 0; overflow: hidden; }
+/* .rolagem-x precisa vencer o overflow-x aqui — sem essa regra mais
+   específica, o "overflow: hidden" acima trava a rolagem horizontal
+   por completo (bug real: travava a rolagem de notas no celular). */
+.painel.sem-padding.rolagem-x { overflow-x: auto; }
 .painel-head {
   display: flex;
   justify-content: space-between;
