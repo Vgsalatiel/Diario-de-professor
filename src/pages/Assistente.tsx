@@ -323,7 +323,7 @@ export function Assistente() {
 
       {aba === 'personalizado' && (
         <div className="stack-lg">
-        <div className="grid-perfil">
+        <div className="grid-perfil grid-perfil-largo">
           <section className="painel">
             <h2>Exercício personalizado</h2>
             <p className="texto-suave">
