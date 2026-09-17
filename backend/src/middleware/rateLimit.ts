@@ -1,5 +1,5 @@
 import type { Request } from 'express'
-import rateLimit from 'express-rate-limit'
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 
 // O Render coloca a API atrás da própria Cloudflare antes de chegar no
 // nosso proxy — dois saltos, não um. Com "trust proxy" contando só um
@@ -9,7 +9,11 @@ import rateLimit from 'express-rate-limit'
 // nunca deixa o cliente falsificar) o cabeçalho CF-Connecting-IP com o IP
 // de verdade — usamos ele como chave sempre que presente.
 function chaveDoCliente(req: Request): string {
-  return (req.headers['cf-connecting-ip'] as string | undefined) ?? req.ip ?? 'sem-ip'
+  const cfIp = req.headers['cf-connecting-ip'] as string | undefined
+  // ipKeyGenerator normaliza IPv6 (agrupa por /64, como recomenda o próprio
+  // express-rate-limit) — sem isso, cada IPv6 "quase igual" viraria uma
+  // chave diferente, e a lib lança erro se detectar um IPv6 crudo aqui.
+  return ipKeyGenerator(cfIp ?? req.ip ?? '0.0.0.0')
 }
 
 // Login: impede força bruta de senha — poucas tentativas por IP a cada
