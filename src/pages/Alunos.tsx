@@ -325,7 +325,7 @@ export function Alunos() {
             />
           </div>
 
-          <div className="painel sem-padding">
+          <div className="painel sem-padding rolagem-x">
             <table className="tabela">
               <thead>
                 <tr>

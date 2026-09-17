@@ -286,10 +286,20 @@ input:focus, select:focus, textarea:focus {
   top: 0;
   z-index: 20;
 }
-.topbar-titulo { font-weight: 600; color: var(--ink-suave); font-size: 15px; }
+.topbar-titulo {
+  font-weight: 600;
+  color: var(--ink-suave);
+  font-size: 15px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .menu-toggle { display: none; }
+.menu-toggle, .tema-toggle { flex-shrink: 0; }
 .tema-toggle { font-size: 17px; }
-.ano-letivo-seletor { margin-left: auto; }
+.ano-letivo-seletor { margin-left: auto; flex-shrink: 0; }
 .ano-letivo-seletor .select { width: auto; min-width: 110px; padding: 6px 10px; font-size: 13px; }
 .sr-only {
   position: absolute;
@@ -1009,7 +1019,9 @@ input:focus, select:focus, textarea:focus {
     z-index: 40;
   }
   .pagina { padding: 24px 18px 56px; }
-  .topbar { padding: 0 18px; }
+  .topbar { padding: 0 12px; gap: 8px; }
+  .ano-letivo-seletor .select { min-width: 84px; font-size: 12px; padding: 6px 6px; }
+  .topbar-titulo { font-size: 13px; }
   .form-grid { grid-template-columns: 1fr; }
   .pagina-head h1 { font-size: 24px; }
   .hero-titulo { font-size: 24px; }
