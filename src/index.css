@@ -543,6 +543,7 @@ input:focus, select:focus, textarea:focus {
   align-items: start;
 }
 .grid-perfil-largo { grid-template-columns: 420px 1fr; }
+.grid-perfil-media { grid-template-columns: 340px 1fr; }
 .perfil-cartao { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .perfil-cartao h2 { font-size: 20px; margin-top: 6px; }
 .perfil-materia { color: var(--indigo); font-weight: 600; margin: 0; }

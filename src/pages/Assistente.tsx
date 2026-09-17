@@ -175,7 +175,7 @@ export function Assistente() {
       </div>
 
       {aba === 'corrigir' ? (
-        <div className="grid-perfil">
+        <div className="grid-perfil grid-perfil-media">
           <section className="painel">
             <h2>Enviar exercício</h2>
             <p className="texto-suave">
