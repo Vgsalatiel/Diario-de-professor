@@ -19,6 +19,7 @@ import {
   registrosAulaRouter,
   turmaRegistrosAulaRouter,
 } from './modules/registrosAula/registrosAula.routes'
+import { jobsRouter } from './modules/jobs/jobs.routes'
 
 export const app = express()
 
@@ -39,20 +40,12 @@ app.use(express.json())
 
 app.get('/saude', (_req, res) => res.json({ ok: true }))
 
-// TEMPORÁRIO — diagnóstico do rate limit atrás do proxy do Render/Cloudflare.
-// Remover depois de confirmar qual cabeçalho identifica o cliente de forma estável.
-app.get('/debug-ip', (req, res) => {
-  res.json({
-    reqIp: req.ip,
-    ips: req.ips,
-    cfConnectingIp: req.headers['cf-connecting-ip'] ?? null,
-    xForwardedFor: req.headers['x-forwarded-for'] ?? null,
-    xRealIp: req.headers['x-real-ip'] ?? null,
-  })
-})
-
 // Público: cadastro e login. As demais rotas de /auth exigem token.
 app.use('/auth', authRouter)
+
+// Chamado só pela automação diária (GitHub Actions) — protegido por senha
+// compartilhada em vez de JWT, já que não tem um professor logado por trás.
+app.use('/jobs', jobsRouter)
 
 // Rotas aninhadas (mais específicas) primeiro, senão o Express cai na
 // rota genérica de /turmas ou /alunos antes de chegar nelas.

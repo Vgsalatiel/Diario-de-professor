@@ -48,3 +48,29 @@ export async function enviarEmailVerificacao(destino: string, link: string) {
     'link de verificação de e-mail',
   )
 }
+
+export interface ItemAvisoDiario {
+  titulo: string
+  tipoRotulo: string
+  hora: string | null
+  turmaNome: string | null
+}
+
+export async function enviarAvisoDiario(destino: string, itens: ItemAvisoDiario[]) {
+  const linhas = itens
+    .map((i) => {
+      const partes = [i.tipoRotulo, i.hora ? `às ${i.hora}` : null, i.turmaNome].filter(Boolean)
+      return `<li><strong>${i.titulo}</strong> — ${partes.join(' · ')}</li>`
+    })
+    .join('')
+
+  await enviar(
+    destino,
+    itens.length === 1 ? 'Você tem 1 compromisso hoje — Diário' : `Você tem ${itens.length} compromissos hoje — Diário`,
+    `
+      <p>Bom dia! Hoje tem isso marcado na sua Agenda:</p>
+      <ul>${linhas}</ul>
+    `,
+    'aviso diário de agenda',
+  )
+}

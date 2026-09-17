@@ -1,0 +1,17 @@
+name: Aviso diário de agenda
+
+on:
+  schedule:
+    # 10:00 UTC = 07:00 no horário de Brasília (sem horário de verão desde 2019)
+    - cron: '0 10 * * *'
+  workflow_dispatch: {} # permite disparar manualmente pela aba Actions, pra testar
+
+jobs:
+  disparar-aviso:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Chamar o endpoint de avisos diários
+        run: |
+          curl --fail --show-error --silent \
+            -X POST "https://diario-de-professor.onrender.com/jobs/avisos-diarios" \
+            -H "X-Job-Secret: ${{ secrets.JOBS_SECRET }}"

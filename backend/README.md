@@ -67,6 +67,33 @@ API do Gemini de verdade (`src/lib/gemini.ts`).
    algumas vezes antes de desistir, então isso raramente chega a aparecer pro
    professor.
 
+## Aviso diário de agenda (por e-mail)
+
+Todo dia, um e-mail é mandado pra cada professor que tenha prova, trabalho,
+reunião ou outro evento marcado pra aquele dia (pula os já concluídos, e não
+manda nada pra quem não tem nada marcado). Como o Render não tem um "relógio"
+próprio pra tarefas agendadas no plano gratuito, isso é disparado por um
+workflow do GitHub Actions (`.github/workflows/aviso-diario.yml`), que roda
+todo dia às 7h (horário de Brasília) e chama `POST /jobs/avisos-diarios`.
+
+1. Gere uma senha aleatória:
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+2. Coloque essa mesma senha em **dois lugares**:
+   - `JOBS_SECRET` nas variáveis de ambiente do Render.
+   - Um secret chamado `JOBS_SECRET` no GitHub: **Settings → Secrets and
+     variables → Actions → New repository secret**.
+3. O endpoint só aceita a chamada se o cabeçalho `X-Job-Secret` bater com essa
+   senha — sem isso, qualquer pessoa na internet poderia forçar o envio de
+   e-mails repetidamente.
+4. Pra testar sem esperar o horário agendado: na aba **Actions** do repositório
+   no GitHub, abra o workflow "Aviso diário de agenda" e clique em **Run
+   workflow** (isso só funciona depois que o arquivo `.github/workflows/
+   aviso-diario.yml` estiver no branch principal).
+5. Se um dia trocar a URL do backend no Render, atualize a URL fixa dentro de
+   `.github/workflows/aviso-diario.yml`.
+
 ## Rate limiting
 
 Login, cadastro e "esqueci minha senha" têm limite de tentativas por IP
