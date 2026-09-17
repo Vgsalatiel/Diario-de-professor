@@ -1043,6 +1043,27 @@ input:focus, select:focus, textarea:focus {
   font-size: 13.5px;
 }
 
+.lista-simples li.historico-exercicio-item {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+}
+.historico-exercicio-cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.historico-exercicio-item .stack-md { padding: 0 10px 12px; }
+
 /* Editor de texto rico (Quill) — combina com o resto do app */
 .ql-toolbar.ql-snow {
   font-family: var(--fonte-corpo);

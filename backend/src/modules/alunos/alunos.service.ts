@@ -1,4 +1,4 @@
-import type { Aluno } from '@prisma/client'
+import type { Aluno, Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { alunoDoProfessor, turmaDoProfessor } from '../../utils/ownership'
 import { paraDataISO } from '../../utils/serializers'
@@ -49,12 +49,33 @@ export async function gerarExercicios(
   dados: GerarExerciciosDto,
 ) {
   const aluno = await alunoDoProfessor(alunoId, professorId)
-  return gerarExerciciosPersonalizados({
+  const resultado = await gerarExerciciosPersonalizados({
     nomeAluno: aluno.nome,
     assunto: dados.assunto,
     dificuldade: dados.dificuldade,
     quantidade: dados.quantidade,
   })
+
+  const salvo = await prisma.exercicioGerado.create({
+    data: {
+      alunoId,
+      titulo: resultado.titulo,
+      assunto: dados.assunto,
+      dificuldade: dados.dificuldade,
+      questoes: resultado.questoes as unknown as Prisma.InputJsonValue,
+    },
+  })
+
+  return { ...resultado, id: salvo.id, criadoEm: salvo.criadoEm.toISOString() }
+}
+
+export async function listarExerciciosGerados(alunoId: string, professorId: string) {
+  await alunoDoProfessor(alunoId, professorId)
+  const lista = await prisma.exercicioGerado.findMany({
+    where: { alunoId },
+    orderBy: { criadoEm: 'desc' },
+  })
+  return lista.map((e) => ({ ...e, criadoEm: e.criadoEm.toISOString() }))
 }
 
 export async function remover(alunoId: string, professorId: string) {

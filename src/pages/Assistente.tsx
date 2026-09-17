@@ -1,6 +1,7 @@
-import { useMemo, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { useData } from '../context/DataContext'
 import { imprimirHTML } from '../lib/export'
+import type { ExercicioGerado } from '../types'
 import {
   gerarCorrecaoSimulada,
   gerarExercicioSimulado,
@@ -9,8 +10,18 @@ import {
   type ResultadoExercicio,
 } from '../lib/assistenteIA'
 
+function formatarDataHora(iso: string): string {
+  return new Date(iso).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 export function Assistente() {
-  const { alunos, gerarExerciciosPersonalizados } = useData()
+  const { alunos, gerarExerciciosPersonalizados, listarExerciciosGerados } = useData()
   const [aba, setAba] = useState<'corrigir' | 'gerar' | 'personalizado'>('corrigir')
 
   const alunosOrdenados = useMemo(
@@ -29,10 +40,30 @@ export function Assistente() {
   )
   const [mostrarGabaritoPersonalizado, setMostrarGabaritoPersonalizado] = useState(false)
 
+  const [historico, setHistorico] = useState<ExercicioGerado[]>([])
+  const [carregandoHistorico, setCarregandoHistorico] = useState(false)
+  const [historicoExpandidoId, setHistoricoExpandidoId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!alunoId) {
+      setHistorico([])
+      return
+    }
+    setCarregandoHistorico(true)
+    listarExerciciosGerados(alunoId)
+      .then(setHistorico)
+      .catch(() => {
+        // erro já notificado pelo DataContext
+      })
+      .finally(() => setCarregandoHistorico(false))
+  }, [alunoId, listarExerciciosGerados])
+
   function selecionarAluno(id: string) {
     setAlunoId(id)
     const aluno = alunos.find((a) => a.id === id)
     setDificuldade(aluno?.dificuldades ?? '')
+    setExercicioPersonalizado(null)
+    setHistoricoExpandidoId(null)
   }
 
   async function gerarPersonalizado() {
@@ -48,6 +79,7 @@ export function Assistente() {
         quantidade,
       })
       setExercicioPersonalizado(resultado)
+      setHistorico((h) => [resultado, ...h])
     } catch {
       setErroPersonalizado('Não foi possível gerar os exercícios agora. Tente de novo.')
     } finally {
@@ -288,6 +320,7 @@ export function Assistente() {
       )}
 
       {aba === 'personalizado' && (
+        <div className="stack-lg">
         <div className="grid-perfil">
           <section className="painel">
             <h2>Exercício personalizado</h2>
@@ -397,6 +430,68 @@ export function Assistente() {
               </div>
             )}
           </section>
+        </div>
+
+        <section className="painel">
+          <h2>Histórico deste aluno</h2>
+          {!alunoId && <p className="texto-suave">Escolha um aluno pra ver o histórico dele.</p>}
+          {alunoId && carregandoHistorico && (
+            <p className="texto-suave">Carregando histórico…</p>
+          )}
+          {alunoId && !carregandoHistorico && historico.length === 0 && (
+            <p className="texto-suave">Nenhuma lista gerada ainda pra esse aluno.</p>
+          )}
+          {historico.length > 0 && (
+            <ul className="lista-simples">
+              {historico.map((item) => {
+                const aberto = historicoExpandidoId === item.id
+                return (
+                  <li key={item.id} className="historico-exercicio-item">
+                    <button
+                      type="button"
+                      className="historico-exercicio-cabecalho"
+                      onClick={() => setHistoricoExpandidoId(aberto ? null : item.id)}
+                    >
+                      <span>
+                        <strong>{item.assunto}</strong> — {formatarDataHora(item.criadoEm)}
+                      </span>
+                      <span aria-hidden>{aberto ? '▲' : '▼'}</span>
+                    </button>
+                    {aberto && (
+                      <div className="stack-md">
+                        <h3 className="titulo-secao">{item.titulo}</h3>
+                        <ol className="lista-exercicio">
+                          {item.questoes.map((q, i) => (
+                            <li key={i}>
+                              {q.enunciado}
+                              <br />
+                              <em className="texto-suave">Gabarito: {q.gabarito}</em>
+                            </li>
+                          ))}
+                        </ol>
+                        <div className="acoes-fim">
+                          <button
+                            className="btn btn-fantasma btn-pequeno"
+                            onClick={() =>
+                              imprimirHTML(
+                                gerarHTMLExercicio({
+                                  titulo: item.titulo,
+                                  questoes: item.questoes,
+                                }),
+                              )
+                            }
+                          >
+                            Baixar em PDF
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </section>
         </div>
       )}
     </div>

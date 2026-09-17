@@ -30,6 +30,14 @@ export async function gerarExercicios(req: Request, res: Response) {
   res.json(resultado)
 }
 
+export async function listarExerciciosGerados(req: Request, res: Response) {
+  const lista = await alunosService.listarExerciciosGerados(
+    paramId(req.params.alunoId),
+    req.professorId,
+  )
+  res.json(lista)
+}
+
 export async function remover(req: Request, res: Response) {
   await alunosService.remover(paramId(req.params.alunoId), req.professorId)
   res.status(204).send()

@@ -38,6 +38,17 @@ export interface Aluno {
   dificuldades?: string // observação livre: dificuldades/facilidades do aluno
 }
 
+// Uma lista de exercícios que o Assistente IA gerou pra um aluno específico.
+export interface ExercicioGerado {
+  id: string
+  alunoId: string
+  titulo: string
+  assunto: string
+  dificuldade?: string
+  questoes: { enunciado: string; gabarito: string }[]
+  criadoEm: string // ISO datetime
+}
+
 // Número do período dentro do ano letivo: "1"/"2" (semestre) ou "1".."4" (bimestre)
 export type Periodo = '1' | '2' | '3' | '4'
 

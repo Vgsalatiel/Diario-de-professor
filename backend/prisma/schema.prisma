@@ -99,11 +99,30 @@ model Aluno {
   // Soft delete: mesma lógica da turma — excluir só marca a data.
   excluidoEm DateTime?
 
-  notas       Nota[]
-  frequencias Frequencia[]
+  notas              Nota[]
+  frequencias        Frequencia[]
+  exerciciosGerados  ExercicioGerado[]
 
   @@index([turmaId])
   @@map("alunos")
+}
+
+// Lista de exercícios que o Assistente IA gerou pra um aluno específico —
+// guardada pra o professor poder consultar depois, sem depender de ter
+// baixado o PDF na hora.
+model ExercicioGerado {
+  id          String   @id @default(cuid())
+  titulo      String
+  assunto     String
+  dificuldade String?
+  questoes    Json // array de { enunciado, gabarito }
+  criadoEm    DateTime @default(now())
+
+  alunoId String
+  aluno   Aluno  @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+
+  @@index([alunoId])
+  @@map("exercicios_gerados")
 }
 
 model Avaliacao {

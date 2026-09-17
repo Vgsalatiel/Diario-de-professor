@@ -5,6 +5,7 @@ import type {
   ConfigCalculo,
   DataAula,
   Evento,
+  ExercicioGerado,
   MapaDeFrequencia,
   MapaDeNotas,
   PlanoDeAula,
@@ -42,7 +43,8 @@ interface DataContextValue {
   gerarExerciciosPersonalizados: (
     alunoId: string,
     dados: { assunto: string; dificuldade?: string; quantidade: number },
-  ) => Promise<{ titulo: string; questoes: { enunciado: string; gabarito: string }[] }>
+  ) => Promise<ExercicioGerado>
+  listarExerciciosGerados: (alunoId: string) => Promise<ExercicioGerado[]>
 
   // Avaliações
   criarAvaliacao: (dados: Omit<Avaliacao, 'id'>) => void
@@ -359,10 +361,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
       },
       gerarExerciciosPersonalizados: (alunoId, dados) => {
         return api
-          .post<{ titulo: string; questoes: { enunciado: string; gabarito: string }[] }>(
-            `/alunos/${alunoId}/exercicios-personalizados`,
-            dados,
-          )
+          .post<ExercicioGerado>(`/alunos/${alunoId}/exercicios-personalizados`, dados)
+          .catch((erro) => {
+            notificar(mensagemErro(erro))
+            throw erro
+          })
+      },
+      listarExerciciosGerados: (alunoId) => {
+        return api
+          .get<ExercicioGerado[]>(`/alunos/${alunoId}/exercicios-personalizados`)
           .catch((erro) => {
             notificar(mensagemErro(erro))
             throw erro

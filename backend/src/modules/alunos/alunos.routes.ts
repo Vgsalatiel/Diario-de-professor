@@ -8,6 +8,7 @@ alunosRouter.get('/', alunosController.listarTodos)
 alunosRouter.patch('/:alunoId', alunosController.atualizar)
 alunosRouter.delete('/:alunoId', alunosController.remover)
 alunosRouter.post('/:alunoId/exercicios-personalizados', limitadorIA, alunosController.gerarExercicios)
+alunosRouter.get('/:alunoId/exercicios-personalizados', alunosController.listarExerciciosGerados)
 
 // Montado em /turmas/:turmaId/alunos — só a criação, que precisa da turma
 export const turmaAlunosRouter = Router({ mergeParams: true })
