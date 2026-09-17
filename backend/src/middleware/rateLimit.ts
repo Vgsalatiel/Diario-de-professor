@@ -17,7 +17,7 @@ function chaveDoCliente(req: Request): string {
 // só errou a senha algumas vezes.
 export const limitadorLogin = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 10,
+  limit: 5,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: chaveDoCliente,
