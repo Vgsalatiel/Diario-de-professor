@@ -251,7 +251,9 @@ export function Assistente() {
             )}
           </section>
         </div>
-      ) : (
+      ) : null}
+
+      {aba === 'gerar' && (
         <div className="grid-perfil">
           <section className="painel">
             <h2>O que você precisa?</h2>
