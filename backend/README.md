@@ -50,15 +50,22 @@ API do Gemini de verdade (`src/lib/gemini.ts`).
 
 1. Gere uma API key em [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
    e coloque em `GEMINI_API_KEY`.
-2. `GEMINI_MODEL` é opcional (padrão `gemini-3.6-flash`) — o Google
+2. `GEMINI_MODEL` é opcional (padrão `gemini-3.5-flash-lite`) — o Google
    descontinua modelos de tempos em tempos; se a geração começar a falhar
    com erro 404 "model ... no longer available", a própria resposta de erro
    já diz qual modelo novo usar.
-3. Sem `GEMINI_API_KEY` configurada, o endpoint responde com erro em vez de
+3. **Cota do plano gratuito**: os modelos "flash" cheios (ex.: `gemini-3.6-flash`)
+   têm cota diária baixíssima (~20 requisições/dia em set/2026) — inviável pra
+   uso real. Os modelos **"flash-lite"** têm cota bem maior (~500/dia) e dão
+   conta numa boa de gerar exercícios, que não exige o modelo mais potente da
+   linha. Se um dia isso não for suficiente (uso com vários professores),
+   ativar cobrança (pay-as-you-go) no Google AI Studio remove o limite diário.
+4. Sem `GEMINI_API_KEY` configurada, o endpoint responde com erro em vez de
    gerar — o resto do app continua funcionando normalmente.
-4. O Gemini responde `503` (alta demanda) com alguma frequência mesmo em uso
-   normal — o código já tenta de novo automaticamente algumas vezes antes de
-   desistir, então isso raramente chega a aparecer pro professor.
+5. O Gemini responde `503` (alta demanda) ou `429` (cota) com alguma
+   frequência mesmo em uso normal — o código já tenta de novo automaticamente
+   algumas vezes antes de desistir, então isso raramente chega a aparecer pro
+   professor.
 
 ## Rate limiting
 

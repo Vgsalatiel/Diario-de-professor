@@ -1,6 +1,9 @@
 import { AppError } from '../utils/AppError'
 
-const MODELO = process.env.GEMINI_MODEL ?? 'gemini-3.6-flash'
+// "flash-lite" tem cota gratuita bem maior que o "flash" cheio (500/dia
+// contra 20/dia, em set/2026) — mais que suficiente pra gerar exercícios,
+// que não exige o modelo mais potente da linha.
+const MODELO = process.env.GEMINI_MODEL ?? 'gemini-3.5-flash-lite'
 
 export interface QuestaoGerada {
   enunciado: string
@@ -40,8 +43,16 @@ function esperar(ms: number) {
 // O Gemini responde 503 ("alta demanda") com alguma frequência mesmo em
 // uso normal — tenta de novo algumas vezes com um pequeno intervalo antes
 // de desistir, em vez de já devolver erro pro professor na primeira falha.
+// 429 é limite de cota (plano gratuito: poucas requisições por minuto) —
+// a própria resposta costuma dizer quantos segundos esperar.
 const TENTATIVAS = 3
 const ESPERA_ENTRE_TENTATIVAS_MS = 1500
+const ESPERA_PADRAO_COTA_MS = 12_000
+
+function extrairEsperaSugerida(corpo: string): number | null {
+  const m = corpo.match(/"retryDelay":\s*"(\d+)s"/)
+  return m ? Number(m[1]) * 1000 : null
+}
 
 export async function gerarExerciciosPersonalizados(params: {
   nomeAluno: string
@@ -88,16 +99,29 @@ Responda em português do Brasil.`
     }
 
     if (resposta.ok) break
-    // 503 costuma ser sobrecarga temporária do lado do Gemini — vale tentar
-    // de novo. Outros erros (chave inválida, requisição malformada) não se
-    // resolvem tentando de novo, então desiste na hora.
-    if (resposta.status !== 503 || tentativa === TENTATIVAS) break
-    await esperar(ESPERA_ENTRE_TENTATIVAS_MS)
+
+    // 503 costuma ser sobrecarga temporária do lado do Gemini; 429 é limite
+    // de cota (mais comum no plano gratuito). Outros erros (chave inválida,
+    // requisição malformada) não se resolvem tentando de novo.
+    if (resposta.status !== 503 && resposta.status !== 429) break
+    if (tentativa === TENTATIVAS) break
+
+    if (resposta.status === 429) {
+      const corpo = await resposta.text().catch(() => '')
+      await esperar(extrairEsperaSugerida(corpo) ?? ESPERA_PADRAO_COTA_MS)
+    } else {
+      await esperar(ESPERA_ENTRE_TENTATIVAS_MS)
+    }
   }
 
   if (!resposta || !resposta.ok) {
     const detalhe = resposta ? await resposta.text().catch(() => '') : ''
     console.error('[gemini] erro na API:', resposta?.status, detalhe)
+    if (resposta?.status === 429) {
+      throw AppError.requisicaoInvalida(
+        'O serviço de IA atingiu o limite de uso do momento. Aguarde um minuto e tente de novo.',
+      )
+    }
     throw AppError.requisicaoInvalida('O serviço de IA não conseguiu gerar os exercícios agora.')
   }
 
