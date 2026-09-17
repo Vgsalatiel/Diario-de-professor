@@ -925,7 +925,9 @@ input:focus, select:focus, textarea:focus {
   pointer-events: none;
 }
 .toast {
-  background: var(--ink);
+  /* Cor fixa (não usa --ink) de propósito — --ink vira quase branco no modo
+     escuro, o que deixava o toast com fundo claro e texto branco, ilegível. */
+  background: #1f2433;
   color: #fff;
   padding: 12px 18px;
   border-radius: var(--raio-sm);
