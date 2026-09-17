@@ -4,7 +4,7 @@ export interface Professora {
   id: string
   nome: string
   email: string
-  materia: string
+  materias: string[]
   fotoUrl?: string
   emailVerificado: boolean
 }

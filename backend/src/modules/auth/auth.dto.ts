@@ -1,11 +1,15 @@
 import { z } from 'zod'
 import { nomeSchema } from '../../utils/validators'
 
+const materiasSchema = z
+  .array(z.string().trim().min(1))
+  .min(1, 'Informe pelo menos uma matéria.')
+
 export const cadastroDto = z.object({
   nome: nomeSchema,
   email: z.string().trim().toLowerCase().email('E-mail inválido.'),
   senha: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres.'),
-  materia: z.string().trim().min(1, 'Informe a matéria.'),
+  materias: materiasSchema,
   fotoUrl: z.string().optional(),
 })
 export type CadastroDto = z.infer<typeof cadastroDto>
@@ -35,7 +39,7 @@ export type VerificarEmailDto = z.infer<typeof verificarEmailDto>
 export const atualizarPerfilDto = z.object({
   nome: nomeSchema.optional(),
   email: z.string().trim().toLowerCase().email('E-mail inválido.').optional(),
-  materia: z.string().trim().min(1).optional(),
+  materias: materiasSchema.optional(),
   fotoUrl: z.string().optional(),
   senha: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres.').optional(),
 })

@@ -191,6 +191,50 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px rgba(71, 89, 168, 0.15);
 }
 
+.campo-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line-forte);
+  border-radius: var(--raio-sm);
+  padding: 6px 8px;
+  background: var(--surface);
+}
+.campo-tags:focus-within {
+  border-color: var(--indigo);
+  box-shadow: 0 0 0 3px rgba(71, 89, 168, 0.15);
+}
+.tag-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--indigo-claro);
+  color: var(--indigo-escuro);
+  border-radius: 16px;
+  padding: 4px 6px 4px 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.tag-item button {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 4px;
+  display: inline-flex;
+}
+.campo-tags-input {
+  border: none !important;
+  padding: 4px 2px !important;
+  flex: 1 1 100px;
+  min-width: 100px;
+  width: auto !important;
+}
+.campo-tags-input:focus { box-shadow: none !important; }
+
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

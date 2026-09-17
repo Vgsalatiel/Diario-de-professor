@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { CampoTags } from '../components/CampoTags'
 import { lerImagemComprimida } from '../lib/imagem'
 import { normalizarNome, validarNome } from '../lib/validarNome'
 
@@ -11,7 +12,7 @@ export function CadastroProfessor() {
 
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
-  const [materia, setMateria] = useState('')
+  const [materias, setMaterias] = useState<string[]>([])
   const [senha, setSenha] = useState('')
   const [confirmarSenha, setConfirmarSenha] = useState('')
   const [fotoUrl, setFotoUrl] = useState('')
@@ -37,8 +38,8 @@ export function CadastroProfessor() {
       setErro(erroNome)
       return
     }
-    if (!email.trim() || !materia.trim()) {
-      setErro('Preencha e-mail e matéria.')
+    if (!email.trim() || materias.length === 0) {
+      setErro('Preencha e-mail e pelo menos uma matéria.')
       return
     }
     if (senha.length < 6) {
@@ -55,7 +56,7 @@ export function CadastroProfessor() {
       nome: normalizarNome(nome),
       email: email.trim(),
       senha,
-      materia: materia.trim(),
+      materias,
       fotoUrl,
     })
     setEnviando(false)
@@ -142,12 +143,11 @@ export function CadastroProfessor() {
           </label>
 
           <label className="campo">
-            <span>Matéria</span>
-            <input
-              value={materia}
-              onChange={(e) => setMateria(e.target.value)}
-              placeholder="ex.: Matemática"
-              required
+            <span>Matéria(s)</span>
+            <CampoTags
+              valores={materias}
+              onChange={setMaterias}
+              placeholder="ex.: Matemática — aperte Enter pra adicionar"
             />
           </label>
 

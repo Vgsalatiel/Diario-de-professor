@@ -88,7 +88,7 @@ export function Layout() {
             </div>
             <div className="mini-perfil-txt">
               <strong>{professora.nome}</strong>
-              <span>{professora.materia}</span>
+              <span>{professora.materias.join(', ')}</span>
             </div>
           </div>
           <button

@@ -21,9 +21,9 @@ model Professor {
   id      String  @id @default(cuid())
   nome    String
   email   String  @unique
-  senha   String // hash da senha — nunca texto puro
-  materia String
-  fotoUrl String?
+  senha    String // hash da senha — nunca texto puro
+  materias String[] // um professor pode dar aula de mais de uma matéria
+  fotoUrl  String?
 
   // Recuperação de senha: guardamos o hash do token (nunca o token em si)
   // e a validade — um link de redefinição vale por 1 hora e uso único.

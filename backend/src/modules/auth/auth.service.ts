@@ -54,7 +54,7 @@ export async function cadastrar(dados: CadastroDto) {
       nome: dados.nome,
       email: dados.email,
       senha: senhaHash,
-      materia: dados.materia,
+      materias: dados.materias,
       fotoUrl: dados.fotoUrl,
     },
   })

@@ -12,14 +12,14 @@ interface DadosCadastro {
   nome: string
   email: string
   senha: string
-  materia: string
+  materias: string[]
   fotoUrl?: string
 }
 
 interface DadosAtualizacao {
   nome?: string
   email?: string
-  materia?: string
+  materias?: string[]
   fotoUrl?: string
   senha?: string
 }
@@ -46,7 +46,7 @@ const PROFESSORA_VAZIA: Professora = {
   id: '',
   nome: '',
   email: '',
-  materia: '',
+  materias: [],
   emailVerificado: false,
 }
 

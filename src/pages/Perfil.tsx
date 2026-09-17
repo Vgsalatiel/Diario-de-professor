@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
+import { CampoTags } from '../components/CampoTags'
 import { lerImagemComprimida } from '../lib/imagem'
 import { normalizarNome, validarNome } from '../lib/validarNome'
 
@@ -10,9 +11,9 @@ export function Perfil() {
   const [form, setForm] = useState({
     nome: professora.nome,
     email: professora.email,
-    materia: professora.materia,
     fotoUrl: professora.fotoUrl ?? '',
   })
+  const [materias, setMaterias] = useState<string[]>(professora.materias)
   const [salvo, setSalvo] = useState(false)
   const [erro, setErro] = useState('')
   const [salvando, setSalvando] = useState(false)
@@ -20,6 +21,11 @@ export function Perfil() {
 
   function set<K extends keyof typeof form>(campo: K, valor: string) {
     setForm((f) => ({ ...f, [campo]: valor }))
+    setSalvo(false)
+  }
+
+  function setMateriasEMarcarSujo(valores: string[]) {
+    setMaterias(valores)
     setSalvo(false)
   }
 
@@ -38,7 +44,7 @@ export function Perfil() {
     }
     setErro('')
     setSalvando(true)
-    const r = await atualizarPerfil({ ...form, nome: normalizarNome(form.nome) })
+    const r = await atualizarPerfil({ ...form, nome: normalizarNome(form.nome), materias })
     setSalvando(false)
     if (r.ok) {
       setSalvo(true)
@@ -73,7 +79,7 @@ export function Perfil() {
             )}
           </div>
           <h2>{form.nome || 'Sem nome'}</h2>
-          <p className="perfil-materia">{form.materia}</p>
+          <p className="perfil-materia">{materias.join(', ')}</p>
           <button
             className="btn btn-fantasma"
             onClick={() => fileRef.current?.click()}
@@ -108,11 +114,8 @@ export function Perfil() {
               <input value={form.nome} onChange={(e) => set('nome', e.target.value)} />
             </label>
             <label className="campo">
-              <span>Matéria</span>
-              <input
-                value={form.materia}
-                onChange={(e) => set('materia', e.target.value)}
-              />
+              <span>Matéria(s)</span>
+              <CampoTags valores={materias} onChange={setMateriasEMarcarSujo} />
             </label>
             <label className="campo campo-largo">
               <span>E-mail</span>
