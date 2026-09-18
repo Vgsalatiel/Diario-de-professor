@@ -30,16 +30,19 @@ export function Frequencia() {
     planosDeAula,
     registrosAula,
     definirRegistroAula,
+    feriados,
   } = useData()
   const { notificar } = useToast()
   const { anoAtivo, somenteLeitura } = useAnoLetivo()
+
+  const feriadosSet = useMemo(() => new Set(feriados.map((f) => f.data)), [feriados])
 
   const [escolaFiltro, setEscolaFiltro] = useState('todas')
   const [turmaId, setTurmaId] = useState<string>(() => turmaInicial(turmas))
   const [periodo, setPeriodo] = useState<Periodo>('1')
   const [data, setData] = useState<string>(() => {
     const turma = turmas.find((t) => t.id === turmaId)
-    return diaValidoMaisProximo(hojeISO(), turma?.diasAula ?? DIAS_UTEIS_PADRAO)
+    return diaValidoMaisProximo(hojeISO(), turma?.diasAula ?? DIAS_UTEIS_PADRAO, feriadosSet)
   })
 
   // As turmas chegam da API de forma assíncrona — se a página monta antes
@@ -50,9 +53,9 @@ export function Frequencia() {
       const id = turmaInicial(turmas)
       const turma = turmas.find((t) => t.id === id)
       setTurmaId(id)
-      setData((d) => diaValidoMaisProximo(d, turma?.diasAula ?? DIAS_UTEIS_PADRAO))
+      setData((d) => diaValidoMaisProximo(d, turma?.diasAula ?? DIAS_UTEIS_PADRAO, feriadosSet))
     }
-  }, [turmas, turmaId])
+  }, [turmas, turmaId, feriadosSet])
 
   const turmasDoAno = useMemo(
     () => turmas.filter((t) => t.anoLetivo === anoAtivo),
@@ -82,14 +85,14 @@ export function Frequencia() {
     const novaTurma = disponiveis[0]
     setTurmaId(novaTurma?.id ?? '')
     setPeriodo('1')
-    setData((d) => diaValidoMaisProximo(d, novaTurma?.diasAula ?? DIAS_UTEIS_PADRAO))
+    setData((d) => diaValidoMaisProximo(d, novaTurma?.diasAula ?? DIAS_UTEIS_PADRAO, feriadosSet))
   }
 
   function trocarTurma(id: string) {
     setTurmaId(id)
     setPeriodo('1')
     const turma = turmas.find((t) => t.id === id)
-    setData((d) => diaValidoMaisProximo(d, turma?.diasAula ?? DIAS_UTEIS_PADRAO))
+    setData((d) => diaValidoMaisProximo(d, turma?.diasAula ?? DIAS_UTEIS_PADRAO, feriadosSet))
   }
 
   const turmaAtual = turmas.find((t) => t.id === turmaId) ?? null
@@ -115,8 +118,10 @@ export function Frequencia() {
   const semAulaHoje = dataAulaHoje?.semAula ?? false
 
   function mudarData(novaData: string) {
-    setData(novaData ? diaValidoMaisProximo(novaData, diasAulaAtual) : novaData)
+    setData(novaData ? diaValidoMaisProximo(novaData, diasAulaAtual, feriadosSet) : novaData)
   }
+
+  const feriadoHoje = feriados.find((f) => f.data === data)
 
   async function onCelula(alunoId: string) {
     if (!turmaId || semAulaHoje) return
@@ -259,7 +264,7 @@ export function Frequencia() {
             <button
               type="button"
               className="btn btn-fantasma btn-pequeno"
-              onClick={() => setData((d) => passoDiaValido(d, -1, diasAulaAtual))}
+              onClick={() => setData((d) => passoDiaValido(d, -1, diasAulaAtual, feriadosSet))}
               aria-label="Dia de aula anterior"
             >
               ‹
@@ -272,7 +277,7 @@ export function Frequencia() {
             <button
               type="button"
               className="btn btn-fantasma btn-pequeno"
-              onClick={() => setData((d) => passoDiaValido(d, 1, diasAulaAtual))}
+              onClick={() => setData((d) => passoDiaValido(d, 1, diasAulaAtual, feriadosSet))}
               aria-label="Próximo dia de aula"
             >
               ›
@@ -319,6 +324,12 @@ export function Frequencia() {
                 )}
               </div>
             </div>
+
+            {feriadoHoje && (
+              <p className="aviso-somente-leitura" style={{ textAlign: 'left' }}>
+                📅 {feriadoHoje.titulo} — feriado/dia sem aula pra escola inteira.
+              </p>
+            )}
 
             {semAulaHoje && (
               <p className="texto-suave">

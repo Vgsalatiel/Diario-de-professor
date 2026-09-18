@@ -6,6 +6,7 @@ import type {
   DataAula,
   Evento,
   ExercicioGerado,
+  Feriado,
   MapaDeFrequencia,
   MapaDeNotas,
   PlanoDeAula,
@@ -92,6 +93,11 @@ interface DataContextValue {
   definirPresenca: (alunoId: string, dataAulaId: string, valor: boolean | null) => void
   // Alterna se um dia conta como "sem aula" (não entra na frequência de ninguém)
   alternarSemAula: (turmaId: string, data: string, periodo: DataAula['periodo']) => Promise<void>
+
+  // Feriados/dias sem aula pra escola inteira (todas as turmas)
+  feriados: Feriado[]
+  criarFeriado: (data: string, titulo: string) => Promise<void>
+  removerFeriado: (id: string) => Promise<void>
 }
 
 const DataContext = createContext<DataContextValue | null>(null)
@@ -176,6 +182,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [frequencia, setFrequencia] = useState<MapaDeFrequencia>({})
   const [planosDeAula, setPlanosDeAula] = useState<PlanoDeAula[]>([])
   const [registrosAula, setRegistrosAula] = useState<RegistroAula[]>([])
+  const [feriados, setFeriados] = useState<Feriado[]>([])
   const [carregando, setCarregando] = useState(true)
 
   // Turmas salvas antes do campo "dias de aula" existir não têm esse dado —
@@ -210,6 +217,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setFrequencia({})
       setPlanosDeAula([])
       setRegistrosAula([])
+      setFeriados([])
       setCarregando(false)
       return
     }
@@ -227,6 +235,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       api.get<FrequenciaApi[]>('/frequencia'),
       api.get<PlanoApi[]>('/planos-de-aula'),
       api.get<RegistroAulaApi[]>('/registros-aula'),
+      api.get<Feriado[]>('/feriados'),
     ])
       .then(
         ([
@@ -239,6 +248,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           frequenciaApi,
           planosApi,
           registrosAulaApi,
+          feriadosApi,
         ]) => {
           if (cancelado) return
           setTurmasBrutas(turmasApi.map(({ config: _config, ...t }) => t))
@@ -259,6 +269,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           )
           setPlanosDeAula(planosApi.map(normalizarPlano))
           setRegistrosAula(registrosAulaApi.map(normalizarRegistroAula))
+          setFeriados(feriadosApi)
         },
       )
       .catch((erro) => {
@@ -594,6 +605,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
           notificar(mensagemErro(erro))
         }
       },
+
+      feriados,
+      criarFeriado: async (data, titulo) => {
+        try {
+          const criado = await api.post<Feriado>('/feriados', { data, titulo })
+          setFeriados((fs) => [...fs, criado].sort((a, b) => a.data.localeCompare(b.data)))
+        } catch (erro) {
+          notificar(mensagemErro(erro))
+          throw erro
+        }
+      },
+      removerFeriado: async (id) => {
+        try {
+          await api.delete(`/feriados/${id}`)
+          setFeriados((fs) => fs.filter((f) => f.id !== id))
+        } catch (erro) {
+          notificar(mensagemErro(erro))
+          throw erro
+        }
+      },
     }
   }, [
     turmas,
@@ -606,6 +637,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     frequencia,
     planosDeAula,
     registrosAula,
+    feriados,
     carregando,
     notificar,
   ])

@@ -85,6 +85,16 @@ export interface ConfigCalculo {
   mediaAprovacao: number
 }
 
+// Dia sem aula pra toda a escola (feriado, recesso, ponto facultativo) —
+// marcado na Agenda, vale pra todas as turmas, ao contrário do "sem aula"
+// da tela de Frequência (que é só de uma turma numa data).
+export interface Feriado {
+  id: string | null // null = feriado nacional calculado, não dá pra excluir
+  data: string // ISO: "2026-09-07"
+  titulo: string
+  origemAutomatica: boolean
+}
+
 export type TipoEvento = 'prova' | 'trabalho' | 'reuniao' | 'outro'
 
 export interface Evento {

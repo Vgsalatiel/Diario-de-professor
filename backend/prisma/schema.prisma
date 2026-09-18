@@ -42,10 +42,28 @@ model Professor {
 
   criadoEm DateTime @default(now())
 
-  turmas  Turma[]
-  eventos Evento[]
+  turmas   Turma[]
+  eventos  Evento[]
+  feriados Feriado[]
 
   @@map("professores")
+}
+
+// Dia sem aula pra todas as turmas do professor — feriado, recesso, ponto
+// facultativo etc. Marcado na Agenda, vale pra escola inteira (todas as
+// turmas daquele professor/diretor), diferente do "sem aula" da tela de
+// Frequência, que é só pra uma turma numa data específica.
+model Feriado {
+  id     String @id @default(cuid())
+  data   DateTime @db.Date
+  titulo String
+
+  professorId String
+  professor   Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+
+  @@unique([professorId, data])
+  @@index([professorId])
+  @@map("feriados")
 }
 
 enum SistemaPeriodo {

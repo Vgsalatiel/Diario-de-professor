@@ -20,16 +20,57 @@ const VAZIO = {
 }
 
 type Filtro = 'proximos' | 'todos' | 'concluidos'
+type Secao = 'eventos' | 'feriados'
+
+const FERIADO_VAZIO = { data: hojeISO(), titulo: '' }
 
 export function Agenda() {
-  const { eventos, turmas, criarEvento, atualizarEvento, removerEvento } = useData()
+  const { eventos, turmas, criarEvento, atualizarEvento, removerEvento, feriados, criarFeriado, removerFeriado } =
+    useData()
   const { notificar } = useToast()
   const { anoAtivo } = useAnoLetivo()
+  const [secao, setSecao] = useState<Secao>('eventos')
   const [modal, setModal] = useState(false)
   const [editando, setEditando] = useState<Evento | null>(null)
   const [form, setForm] = useState(VAZIO)
   const [filtro, setFiltro] = useState<Filtro>('proximos')
   const [diaFiltro, setDiaFiltro] = useState('')
+
+  const [modalFeriado, setModalFeriado] = useState(false)
+  const [formFeriado, setFormFeriado] = useState(FERIADO_VAZIO)
+  const [salvandoFeriado, setSalvandoFeriado] = useState(false)
+
+  const feriadosFuturos = useMemo(
+    () => [...feriados].filter((f) => f.data >= hojeISO()).sort((a, b) => a.data.localeCompare(b.data)),
+    [feriados],
+  )
+
+  function abrirNovoFeriado() {
+    setFormFeriado(FERIADO_VAZIO)
+    setModalFeriado(true)
+  }
+
+  async function salvarFeriado() {
+    if (!formFeriado.data || !formFeriado.titulo.trim()) return
+    setSalvandoFeriado(true)
+    try {
+      await criarFeriado(formFeriado.data, formFeriado.titulo.trim())
+      notificar('Feriado/dia sem aula adicionado.')
+      setModalFeriado(false)
+    } catch {
+      // erro já notificado pelo DataContext
+    } finally {
+      setSalvandoFeriado(false)
+    }
+  }
+
+  function excluirFeriado(id: string, titulo: string) {
+    if (confirm(`Remover "${titulo}" da lista de feriados/dias sem aula?`)) {
+      removerFeriado(id).catch(() => {
+        // erro já notificado pelo DataContext
+      })
+    }
+  }
 
   function trocarFiltro(f: Filtro) {
     setFiltro(f)
@@ -126,14 +167,37 @@ export function Agenda() {
         <div>
           <h1>Agenda</h1>
           <p className="pagina-sub">
-            Provas, trabalhos, reuniões e outros compromissos.
+            Provas, trabalhos, reuniões, outros compromissos e feriados/dias sem aula.
           </p>
         </div>
-        <button className="btn btn-primario" onClick={abrirNovo}>
-          Novo evento
-        </button>
+        {secao === 'eventos' ? (
+          <button className="btn btn-primario" onClick={abrirNovo}>
+            Novo evento
+          </button>
+        ) : (
+          <button className="btn btn-primario" onClick={abrirNovoFeriado}>
+            + Feriado/dia sem aula
+          </button>
+        )}
       </header>
 
+      <div className="abas">
+        <button
+          className={`aba ${secao === 'eventos' ? 'ativa' : ''}`}
+          onClick={() => setSecao('eventos')}
+        >
+          Eventos
+        </button>
+        <button
+          className={`aba ${secao === 'feriados' ? 'ativa' : ''}`}
+          onClick={() => setSecao('feriados')}
+        >
+          Feriados e dias sem aula
+        </button>
+      </div>
+
+      {secao === 'eventos' ? (
+        <>
       <div className="barra-config">
         <div className="abas">
           <button
@@ -265,6 +329,41 @@ export function Agenda() {
           ))}
         </div>
       )}
+        </>
+      ) : (
+        <>
+          {feriadosFuturos.length === 0 ? (
+            <div className="vazio painel">
+              <p>Nenhum feriado ou dia sem aula cadastrado a partir de hoje.</p>
+              <button className="btn btn-primario" onClick={abrirNovoFeriado}>
+                Adicionar feriado/dia sem aula
+              </button>
+            </div>
+          ) : (
+            <ul className="lista-simples">
+              {feriadosFuturos.map((f) => (
+                <li key={f.id ?? f.data}>
+                  <span>
+                    <strong>{formatarData(f.data)}</strong> — {f.titulo}
+                    {f.origemAutomatica && (
+                      <span className="texto-suave"> (feriado nacional)</span>
+                    )}
+                  </span>
+                  {!f.origemAutomatica && f.id && (
+                    <button
+                      className="icon-btn"
+                      aria-label="Remover"
+                      onClick={() => excluirFeriado(f.id!, f.titulo)}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
 
       <Modal
         aberto={modal}
@@ -347,6 +446,45 @@ export function Agenda() {
               placeholder="Assuntos que serão cobrados, instruções, etc."
             />
           </label>
+        </div>
+      </Modal>
+
+      <Modal
+        aberto={modalFeriado}
+        titulo="Novo feriado/dia sem aula"
+        onFechar={() => setModalFeriado(false)}
+        rodape={
+          <>
+            <button className="btn btn-fantasma" onClick={() => setModalFeriado(false)}>
+              Cancelar
+            </button>
+            <button className="btn btn-primario" onClick={salvarFeriado} disabled={salvandoFeriado}>
+              {salvandoFeriado ? 'Salvando...' : 'Adicionar'}
+            </button>
+          </>
+        }
+      >
+        <div className="form-grid">
+          <label className="campo">
+            <span>Data</span>
+            <input
+              type="date"
+              value={formFeriado.data}
+              onChange={(e) => setFormFeriado((f) => ({ ...f, data: e.target.value }))}
+            />
+          </label>
+          <label className="campo campo-largo">
+            <span>Título</span>
+            <input
+              value={formFeriado.titulo}
+              onChange={(e) => setFormFeriado((f) => ({ ...f, titulo: e.target.value }))}
+              placeholder="Ex.: Recesso escolar, Feriado municipal, Ponto facultativo"
+              autoFocus
+            />
+          </label>
+          <p className="texto-suave campo-largo">
+            Vale pra todas as turmas — nenhum aluno conta falta nesse dia.
+          </p>
         </div>
       </Modal>
     </div>

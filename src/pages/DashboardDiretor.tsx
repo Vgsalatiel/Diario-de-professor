@@ -13,6 +13,7 @@ interface EventoResumo {
 
 interface DadosDashboard {
   data: string
+  feriadoHoje: string | null
   totais: { professores: number; turmas: number; alunos: number }
   hoje: { aulasPrevistas: number; provas: number; reunioes: number; eventos: number }
   proximasProvas: EventoResumo[]
@@ -88,6 +89,9 @@ export function DashboardDiretor() {
           {saudacao()}, {primeiroNome}!
         </p>
         <h1 className="hero-titulo">Hoje: {formatarData(dados.data)}</h1>
+        {dados.feriadoHoje && (
+          <p className="texto-suave">📅 Hoje é feriado: {dados.feriadoHoje} — sem aula.</p>
+        )}
       </section>
 
       <section className="cards-numero">

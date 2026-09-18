@@ -22,13 +22,18 @@ function paraISO(d: Date): string {
   return `${ano}-${mes}-${dia}`
 }
 
-// Se o dia não estiver entre os dias de aula da turma, avança até achar
-// um que esteja (no máximo uma volta de semana, pra nunca travar).
-export function diaValidoMaisProximo(iso: string, diasAula: number[]): string {
+// Se o dia não estiver entre os dias de aula da turma (ou for feriado),
+// avança até achar um que esteja (no máximo duas voltas de semana, pra
+// nunca travar mesmo com vários feriados seguidos).
+export function diaValidoMaisProximo(
+  iso: string,
+  diasAula: number[],
+  feriados: ReadonlySet<string> = new Set(),
+): string {
   const dias = diasAula.length > 0 ? diasAula : DIAS_UTEIS_PADRAO
   const d = paraDate(iso)
   let tentativas = 0
-  while (!dias.includes(d.getDay()) && tentativas < 14) {
+  while ((!dias.includes(d.getDay()) || feriados.has(paraISO(d))) && tentativas < 28) {
     d.setDate(d.getDate() + 1)
     tentativas++
   }
@@ -36,15 +41,20 @@ export function diaValidoMaisProximo(iso: string, diasAula: number[]): string {
 }
 
 // Anda um dia de aula para frente (1) ou para trás (-1), pulando os dias
-// em que essa turma não tem aula.
-export function passoDiaValido(iso: string, direcao: 1 | -1, diasAula: number[]): string {
+// em que essa turma não tem aula ou que são feriado.
+export function passoDiaValido(
+  iso: string,
+  direcao: 1 | -1,
+  diasAula: number[],
+  feriados: ReadonlySet<string> = new Set(),
+): string {
   const dias = diasAula.length > 0 ? diasAula : DIAS_UTEIS_PADRAO
   const d = paraDate(iso)
   let tentativas = 0
   do {
     d.setDate(d.getDate() + direcao)
     tentativas++
-  } while (!dias.includes(d.getDay()) && tentativas < 14)
+  } while ((!dias.includes(d.getDay()) || feriados.has(paraISO(d))) && tentativas < 28)
   return paraISO(d)
 }
 

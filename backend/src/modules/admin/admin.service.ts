@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../utils/AppError'
 import { hojeNoBrasil } from '../../utils/serializers'
+import { feriadosNacionais } from '../../lib/feriadosNacionais'
 
 function diaAnterior(dataISO: string): string {
   const d = new Date(`${dataISO}T00:00:00.000Z`)
@@ -13,12 +14,19 @@ function diaDaSemana(dataISO: string): number {
   return new Date(`${dataISO}T00:00:00.000Z`).getUTCDay()
 }
 
+function ehFeriadoNacional(dataISO: string): boolean {
+  const ano = Number(dataISO.slice(0, 4))
+  return feriadosNacionais(ano).some((f) => f.data === dataISO)
+}
+
 export async function obterDashboard() {
   const hoje = hojeNoBrasil()
   const ontem = diaAnterior(hoje)
   const anoAtual = hoje.slice(0, 4)
   const weekdayHoje = diaDaSemana(hoje)
   const weekdayOntem = diaDaSemana(ontem)
+  const hojeEhFeriado = ehFeriadoNacional(hoje)
+  const ontemEhFeriado = ehFeriadoNacional(ontem)
 
   const [totalProfessores, totalTurmas, totalAlunos] = await Promise.all([
     prisma.professor.count(),
@@ -26,11 +34,13 @@ export async function obterDashboard() {
     prisma.aluno.count({ where: { excluidoEm: null, turma: { excluidoEm: null } } }),
   ])
 
-  const [aulasPrevistasHoje, eventosHoje, proximasProvas, proximasReunioes, proximosOutros] =
+  const [aulasPrevistasHojeConta, eventosHoje, proximasProvas, proximasReunioes, proximosOutros] =
     await Promise.all([
-      prisma.turma.count({
-        where: { excluidoEm: null, anoLetivo: anoAtual, diasAula: { has: weekdayHoje } },
-      }),
+      hojeEhFeriado
+        ? Promise.resolve(0)
+        : prisma.turma.count({
+            where: { excluidoEm: null, anoLetivo: anoAtual, diasAula: { has: weekdayHoje } },
+          }),
       prisma.evento.groupBy({
         by: ['tipo'],
         where: { data: new Date(`${hoje}T00:00:00.000Z`) },
@@ -57,11 +67,14 @@ export async function obterDashboard() {
     ])
 
   // Pendência 1: turmas que tinham aula ontem (pelo dia da semana) mas
-  // ninguém registrou "o que foi aplicado" pra ontem.
-  const turmasComAulaOntem = await prisma.turma.findMany({
-    where: { excluidoEm: null, anoLetivo: anoAtual, diasAula: { has: weekdayOntem } },
-    select: { id: true },
-  })
+  // ninguém registrou "o que foi aplicado" pra ontem. Se ontem foi feriado
+  // nacional, ninguém tinha aula mesmo — nem verifica.
+  const turmasComAulaOntem = ontemEhFeriado
+    ? []
+    : await prisma.turma.findMany({
+        where: { excluidoEm: null, anoLetivo: anoAtual, diasAula: { has: weekdayOntem } },
+        select: { id: true },
+      })
   const idsComAulaOntem = turmasComAulaOntem.map((t) => t.id)
   const turmasComRegistroOntem = idsComAulaOntem.length
     ? await prisma.registroAula.count({
@@ -98,11 +111,16 @@ export async function obterDashboard() {
     }
   }
 
+  const nomeFeriadoHoje = hojeEhFeriado
+    ? feriadosNacionais(Number(anoAtual)).find((f) => f.data === hoje)?.titulo ?? null
+    : null
+
   return {
     data: hoje,
+    feriadoHoje: nomeFeriadoHoje,
     totais: { professores: totalProfessores, turmas: totalTurmas, alunos: totalAlunos },
     hoje: {
-      aulasPrevistas: aulasPrevistasHoje,
+      aulasPrevistas: aulasPrevistasHojeConta,
       provas: contarTipo('prova'),
       reunioes: contarTipo('reuniao'),
       eventos: contarTipo('outro'),
