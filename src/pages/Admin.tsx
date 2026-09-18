@@ -79,7 +79,7 @@ export function Admin() {
                 <tr key={p.id}>
                   <td className="celula-nome">
                     {p.nome}
-                    {p.isAdmin && <span className="badge-turma"> diretor(a)</span>}
+                    {p.isAdmin && <span className="badge-turma badge-diretor">diretor(a)</span>}
                   </td>
                   <td>{p.email}</td>
                   <td>{p.materias.join(', ')}</td>
