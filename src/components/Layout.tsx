@@ -18,6 +18,8 @@ const LINKS = [
   { to: '/perfil', rotulo: 'Perfil', icone: '◑' },
 ]
 
+const LINK_ADMIN = { to: '/admin', rotulo: 'Administração', icone: '⚙', exato: true }
+
 export function Layout() {
   const { professora, sair, reenviarVerificacao } = useAuth()
   const { tema, alternarTema } = useTema()
@@ -50,6 +52,8 @@ export function Layout() {
     .map((p) => p[0]?.toUpperCase())
     .join('')
 
+  const links = professora.isAdmin ? [...LINKS, LINK_ADMIN] : LINKS
+
   return (
     <div className="app">
       <aside className={`sidebar ${menuAberto ? 'aberta' : ''}`}>
@@ -61,7 +65,7 @@ export function Layout() {
         </div>
 
         <nav className="nav">
-          {LINKS.map((l) => (
+          {links.map((l) => (
             <NavLink
               key={l.to}
               to={l.to}

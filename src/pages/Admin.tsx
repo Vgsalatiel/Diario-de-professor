@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { api, ApiError } from '../lib/api'
 import type { ProfessorResumo } from '../types'
 
 export function Admin() {
-  const { professora, sair } = useAuth()
+  const { professora } = useAuth()
   const { notificar } = useToast()
-  const navigate = useNavigate()
 
   const [professores, setProfessores] = useState<ProfessorResumo[]>([])
   const [carregando, setCarregando] = useState(true)
@@ -47,84 +45,63 @@ export function Admin() {
   }
 
   return (
-    <div className="app">
-      <div className="conteudo" style={{ gridColumn: '1 / -1' }}>
-        <header className="topbar">
-          <div className="topbar-titulo">Painel do diretor(a)</div>
-          <button
-            className="btn btn-fantasma btn-pequeno"
-            onClick={() => {
-              sair()
-              navigate('/login')
-            }}
-          >
-            Sair
-          </button>
-        </header>
+    <div className="stack-lg">
+      <header className="pagina-head">
+        <div>
+          <h1>Administração</h1>
+          <p className="pagina-sub">Professores cadastrados no sistema.</p>
+        </div>
+      </header>
 
-        <main className="pagina">
-          <div className="stack-lg">
-            <header className="pagina-head">
-              <div>
-                <h1>Professores cadastrados</h1>
-                <p className="pagina-sub">
-                  Logado como {professora.nome} ({professora.email}) — conta de diretor(a).
-                </p>
-              </div>
-            </header>
+      {erro && <div className="alerta-erro">{erro}</div>}
 
-            {erro && <div className="alerta-erro">{erro}</div>}
-
-            {carregando ? (
-              <p className="texto-suave">Carregando…</p>
-            ) : professores.length === 0 ? (
-              <div className="vazio painel">
-                <p>Nenhum professor cadastrado ainda.</p>
-              </div>
-            ) : (
-              <div className="painel sem-padding rolagem-x">
-                <table className="tabela">
-                  <thead>
-                    <tr>
-                      <th>Nome</th>
-                      <th>E-mail</th>
-                      <th>Matéria(s)</th>
-                      <th>Turmas</th>
-                      <th>Cadastrado em</th>
-                      <th className="col-acoes">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {professores.map((p) => (
-                      <tr key={p.id}>
-                        <td className="celula-nome">
-                          {p.nome}
-                          {p.isAdmin && <span className="badge-turma"> diretor(a)</span>}
-                        </td>
-                        <td>{p.email}</td>
-                        <td>{p.materias.join(', ')}</td>
-                        <td>{p.totalTurmas}</td>
-                        <td>{new Date(p.criadoEm).toLocaleDateString('pt-BR')}</td>
-                        <td className="col-acoes">
-                          {p.id !== professora.id && (
-                            <button
-                              className="btn btn-perigo-fantasma btn-pequeno"
-                              onClick={() => excluir(p)}
-                              disabled={excluindoId === p.id}
-                            >
-                              {excluindoId === p.id ? 'Excluindo...' : 'Excluir'}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </main>
-      </div>
+      {carregando ? (
+        <p className="texto-suave">Carregando…</p>
+      ) : professores.length === 0 ? (
+        <div className="vazio painel">
+          <p>Nenhum professor cadastrado ainda.</p>
+        </div>
+      ) : (
+        <div className="painel sem-padding rolagem-x">
+          <table className="tabela">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>E-mail</th>
+                <th>Matéria(s)</th>
+                <th>Turmas</th>
+                <th>Cadastrado em</th>
+                <th className="col-acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {professores.map((p) => (
+                <tr key={p.id}>
+                  <td className="celula-nome">
+                    {p.nome}
+                    {p.isAdmin && <span className="badge-turma"> diretor(a)</span>}
+                  </td>
+                  <td>{p.email}</td>
+                  <td>{p.materias.join(', ')}</td>
+                  <td>{p.totalTurmas}</td>
+                  <td>{new Date(p.criadoEm).toLocaleDateString('pt-BR')}</td>
+                  <td className="col-acoes">
+                    {p.id !== professora.id && (
+                      <button
+                        className="btn btn-perigo-fantasma btn-pequeno"
+                        onClick={() => excluir(p)}
+                        disabled={excluindoId === p.id}
+                      >
+                        {excluindoId === p.id ? 'Excluindo...' : 'Excluir'}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

@@ -52,15 +52,15 @@ export default function App() {
                     <Route path="/agenda" element={<Agenda />} />
                     <Route path="/assistente" element={<Assistente />} />
                     <Route path="/perfil" element={<Perfil />} />
+                    <Route
+                      path="/admin"
+                      element={
+                        <ProtectedRoute somenteAdmin>
+                          <Admin />
+                        </ProtectedRoute>
+                      }
+                    />
                   </Route>
-                  <Route
-                    path="/admin"
-                    element={
-                      <ProtectedRoute somenteAdmin>
-                        <Admin />
-                      </ProtectedRoute>
-                    }
-                  />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </BrowserRouter>
