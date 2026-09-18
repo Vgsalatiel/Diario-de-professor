@@ -2,10 +2,13 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
 import { rotuloTipo, corTipo, formatarData } from '../lib/eventos'
+import { DashboardDiretor } from './DashboardDiretor'
 
 export function Dashboard() {
   const { professora } = useAuth()
   const { turmas, alunos, eventos } = useData()
+
+  if (professora.isAdmin) return <DashboardDiretor />
 
   const hoje = new Date()
   hoje.setHours(0, 0, 0, 0)
