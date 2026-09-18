@@ -25,6 +25,10 @@ model Professor {
   materias String[] // um professor pode dar aula de mais de uma matéria
   fotoUrl  String?
 
+  // Conta de diretor(a) — entra pelo mesmo login, mas cai no painel de
+  // administração em vez do painel de professor. Só concedido manualmente.
+  isAdmin Boolean @default(false)
+
   // Recuperação de senha: guardamos o hash do token (nunca o token em si)
   // e a validade — um link de redefinição vale por 1 hora e uso único.
   resetSenhaTokenHash String?

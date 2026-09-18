@@ -20,6 +20,7 @@ import {
   turmaRegistrosAulaRouter,
 } from './modules/registrosAula/registrosAula.routes'
 import { jobsRouter } from './modules/jobs/jobs.routes'
+import { adminRouter } from './modules/admin/admin.routes'
 
 export const app = express()
 
@@ -67,6 +68,9 @@ app.use('/datas-aula', autenticar, datasAulaRouter)
 app.use('/frequencia', autenticar, frequenciaRouter)
 app.use('/planos-de-aula', autenticar, planosRouter)
 app.use('/registros-aula', autenticar, registrosAulaRouter)
+
+// Painel de diretor(a) — exigirAdmin confere isAdmin depois de autenticar.
+app.use('/admin', autenticar, adminRouter)
 
 app.use(rotaNaoEncontrada)
 app.use(errorHandler)

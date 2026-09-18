@@ -7,6 +7,18 @@ export interface Professora {
   materias: string[]
   fotoUrl?: string
   emailVerificado: boolean
+  isAdmin: boolean
+}
+
+// Um professor visto pela conta de diretor(a) — resumo pra tela de administração.
+export interface ProfessorResumo {
+  id: string
+  nome: string
+  email: string
+  materias: string[]
+  isAdmin: boolean
+  criadoEm: string
+  totalTurmas: number
 }
 
 // Cada escola tem seu próprio jeito de dividir o ano letivo

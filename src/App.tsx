@@ -20,6 +20,7 @@ import { PlanoDeAulaPage } from './pages/PlanoDeAula'
 import { Agenda } from './pages/Agenda'
 import { Assistente } from './pages/Assistente'
 import { Perfil } from './pages/Perfil'
+import { Admin } from './pages/Admin'
 
 export default function App() {
   return (
@@ -52,6 +53,14 @@ export default function App() {
                     <Route path="/assistente" element={<Assistente />} />
                     <Route path="/perfil" element={<Perfil />} />
                   </Route>
+                  <Route
+                    path="/admin"
+                    element={
+                      <ProtectedRoute somenteAdmin>
+                        <Admin />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </BrowserRouter>
