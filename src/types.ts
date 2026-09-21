@@ -19,6 +19,35 @@ export interface ProfessorResumo {
   isAdmin: boolean
   criadoEm: string
   totalTurmas: number
+  aulasRegistradasHoje: number
+  pendencias: number
+}
+
+// Turma vista pelo painel do(a) diretor(a) — todas as turmas da escola,
+// não só as do professor logado.
+export interface TurmaResumoAdmin {
+  id: string
+  nome: string
+  escola: string
+  anoLetivo: string
+  professorId: string
+  professorNome: string
+  totalAlunos: number
+  frequenciaMedia: number | null
+  aulaRegistradaHoje: boolean
+  semRegistroOntem: boolean
+  avaliacaoPendente: boolean
+}
+
+// Aluno visto pelo painel do(a) diretor(a) — todos os alunos da escola.
+export interface AlunoResumoAdmin {
+  id: string
+  nome: string
+  situacao: SituacaoMatricula
+  turmaNome: string
+  escola: string
+  professorNome: string
+  frequenciaPercentual: number | null
 }
 
 // Cada escola tem seu próprio jeito de dividir o ano letivo

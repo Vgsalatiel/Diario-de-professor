@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { api, ApiError } from '../lib/api'
 import { formatarData } from '../lib/eventos'
@@ -14,8 +15,14 @@ interface EventoResumo {
 interface DadosDashboard {
   data: string
   feriadoHoje: string | null
-  totais: { professores: number; turmas: number; alunos: number }
-  hoje: { aulasPrevistas: number; provas: number; reunioes: number; eventos: number }
+  totais: {
+    professores: number
+    turmas: number
+    alunos: number
+    frequenciaMedia: number | null
+    alunosComBaixaFrequencia: number
+  }
+  hoje: { aulasPrevistas: number; aulasRegistradas: number; provas: number; reunioes: number; eventos: number }
   proximasProvas: EventoResumo[]
   proximasReunioes: EventoResumo[]
   proximosEventos: EventoResumo[]
@@ -95,28 +102,48 @@ export function DashboardDiretor() {
       </section>
 
       <section className="cards-numero">
-        <div className="card-numero">
+        <Link to="/admin?aba=professores" className="card-numero card-numero-clicavel">
           <span className="card-numero-valor">{dados.totais.professores}</span>
           <span className="card-numero-rotulo">Professores</span>
-        </div>
-        <div className="card-numero">
+        </Link>
+        <Link to="/admin?aba=turmas" className="card-numero card-numero-clicavel">
           <span className="card-numero-valor">{dados.totais.turmas}</span>
           <span className="card-numero-rotulo">Turmas</span>
-        </div>
-        <div className="card-numero">
+        </Link>
+        <Link to="/admin?aba=alunos" className="card-numero card-numero-clicavel">
           <span className="card-numero-valor">{dados.totais.alunos}</span>
           <span className="card-numero-rotulo">Alunos</span>
-        </div>
+        </Link>
+      </section>
+
+      <section className="cards-numero">
+        <Link to="/admin?aba=turmas" className="card-numero card-numero-clicavel">
+          <span className="card-numero-valor">
+            {dados.totais.frequenciaMedia == null ? '—' : `${dados.totais.frequenciaMedia}%`}
+          </span>
+          <span className="card-numero-rotulo">Frequência média da escola</span>
+        </Link>
+        <Link
+          to="/admin?aba=alunos"
+          className={`card-numero card-numero-clicavel ${dados.totais.alunosComBaixaFrequencia > 0 ? 'destaque' : ''}`}
+        >
+          <span className="card-numero-valor">{dados.totais.alunosComBaixaFrequencia}</span>
+          <span className="card-numero-rotulo">Alunos com baixa frequência</span>
+        </Link>
       </section>
 
       <section className="painel">
         <div className="painel-head">
           <h2>Hoje</h2>
         </div>
-        <div className="cards-numero cards-numero-4">
+        <div className="cards-numero cards-numero-5">
           <div className="card-numero card-numero-pequeno">
             <span className="card-numero-valor">{dados.hoje.aulasPrevistas}</span>
             <span className="card-numero-rotulo">Aulas previstas</span>
+          </div>
+          <div className="card-numero card-numero-pequeno">
+            <span className="card-numero-valor">{dados.hoje.aulasRegistradas}</span>
+            <span className="card-numero-rotulo">Aulas registradas</span>
           </div>
           <div className="card-numero card-numero-pequeno">
             <span className="card-numero-valor">{dados.hoje.provas}</span>
@@ -143,12 +170,16 @@ export function DashboardDiretor() {
           <ul className="lista-marcada">
             {dados.pendencias.turmasSemRegistroOntem > 0 && (
               <li>
-                {dados.pendencias.turmasSemRegistroOntem} turma(s) sem registro da aula de ontem.
+                <Link to="/admin?aba=turmas" className="link-acao">
+                  {dados.pendencias.turmasSemRegistroOntem} turma(s) sem registro da aula de ontem.
+                </Link>
               </li>
             )}
             {dados.pendencias.turmasComAvaliacaoPendente > 0 && (
               <li>
-                {dados.pendencias.turmasComAvaliacaoPendente} turma(s) com avaliação sem nenhuma nota lançada.
+                <Link to="/admin?aba=turmas" className="link-acao">
+                  {dados.pendencias.turmasComAvaliacaoPendente} turma(s) com avaliação sem nenhuma nota lançada.
+                </Link>
               </li>
             )}
           </ul>

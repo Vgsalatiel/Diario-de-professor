@@ -95,6 +95,7 @@ button { font-family: inherit; }
 /* ---------- utilidades ---------- */
 .stack-lg > * + * { margin-top: 24px; }
 .stack-md > * + * { margin-top: 14px; }
+.stack-xs { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 .texto-suave { color: var(--muted); }
 .divisor { border: none; border-top: 1px solid var(--line); margin: 24px 0; }
 
@@ -593,6 +594,7 @@ input:focus, select:focus, textarea:focus {
 .card-numero.destaque { border-color: var(--amber); }
 .card-numero.destaque .card-numero-valor { color: var(--amber); }
 .cards-numero-4 { grid-template-columns: repeat(4, 1fr); }
+.cards-numero-5 { grid-template-columns: repeat(5, 1fr); }
 .card-numero-pequeno { padding: 16px; }
 .card-numero-pequeno .card-numero-valor { font-size: 28px; }
 
