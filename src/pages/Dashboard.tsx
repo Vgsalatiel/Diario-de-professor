@@ -55,19 +55,31 @@ export function Dashboard() {
   )
   const feriadosSet = useMemo(() => new Set(feriados.map((f) => f.data)), [feriados])
 
-  const alunosComBaixaFrequencia = useMemo(() => {
-    let contagem = 0
+  // Lista de verdade (não só a contagem) — pra dar pra mostrar quem são,
+  // não só quantos são, direto no dashboard.
+  const alunosComBaixaFrequenciaLista = useMemo(() => {
+    const lista: { id: string; nome: string; turmaId: string; turmaNome: string; percentual: number }[] = []
     for (const turma of turmasDoAno) {
       const datasDaTurma = datasAula.filter((d) => d.turmaId === turma.id)
       if (datasDaTurma.length === 0) continue
       const alunosDaTurma = alunos.filter((a) => a.turmaId === turma.id)
       for (const aluno of alunosDaTurma) {
         const resumo = calcularFrequencia(aluno.id, datasDaTurma, frequencia)
-        if (resumo.percentual != null && resumo.percentual < LIMIAR_BAIXA_FREQUENCIA) contagem++
+        if (resumo.percentual != null && resumo.percentual < LIMIAR_BAIXA_FREQUENCIA) {
+          lista.push({
+            id: aluno.id,
+            nome: aluno.nome,
+            turmaId: turma.id,
+            turmaNome: turma.nome,
+            percentual: resumo.percentual,
+          })
+        }
       }
     }
-    return contagem
+    return lista.sort((a, b) => a.percentual - b.percentual)
   }, [turmasDoAno, alunos, datasAula, frequencia])
+
+  const alunosComBaixaFrequencia = alunosComBaixaFrequenciaLista.length
 
   const turmasSemRegistroOntem = useMemo(() => {
     const ontemISO = diaAnteriorISO(hojeISO())
@@ -154,6 +166,30 @@ export function Dashboard() {
           <p className="texto-suave">Nenhuma pendência no momento. 🎉</p>
         )}
       </section>
+
+      {alunosComBaixaFrequenciaLista.length > 0 && (
+        <section className="painel">
+          <div className="painel-head">
+            <h2>Alunos com baixa frequência</h2>
+            <Link to="/frequencia" className="link-acao">
+              Ver presença
+            </Link>
+          </div>
+          <ul className="lista-eventos">
+            {alunosComBaixaFrequenciaLista.map((a) => (
+              <li key={a.id} className="evento-item">
+                <div className="evento-info">
+                  <Link to={`/alunos?turma=${a.turmaId}`} className="link-acao">
+                    <strong>{a.nome}</strong>
+                  </Link>
+                  <span className="evento-turma">{a.turmaNome}</span>
+                </div>
+                <span className="pill pill-recuperacao">{a.percentual}%</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="painel">
         <div className="painel-head">
