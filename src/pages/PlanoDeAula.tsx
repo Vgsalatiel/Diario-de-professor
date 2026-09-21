@@ -106,7 +106,7 @@ function atividadeNovaVazia() {
 }
 
 type DrawerAberto = 'ver' | 'form' | null
-type AbaVer = 'conteudo' | 'cronograma' | 'provas' | 'atividades' | 'registro'
+type AbaVer = 'conteudo' | 'provas' | 'atividades' | 'registro'
 
 export function PlanoDeAulaPage() {
   const {
@@ -244,6 +244,21 @@ export function PlanoDeAulaPage() {
             .sort((a, b) => a.data.localeCompare(b.data))
         : [],
     [registrosAula, selecionado],
+  )
+
+  const temCronograma = Boolean(selecionado?.cronograma && selecionado.cronograma.length > 0)
+
+  // Registro já feito pra cada aula do cronograma, pra mostrar inline em
+  // vez de o professor precisar ir na Frequência ver o que já passou.
+  const registroPorNumero = useMemo(
+    () => new Map(registrosDoPlano.filter((r) => r.planoItemNumero != null).map((r) => [r.planoItemNumero, r])),
+    [registrosDoPlano],
+  )
+  // Registros que não correspondem a nenhuma aula do cronograma (ex.:
+  // criados antes de existir cronograma, ou uma aula extra fora do plano).
+  const registrosForaDoCronograma = useMemo(
+    () => registrosDoPlano.filter((r) => r.planoItemNumero == null),
+    [registrosDoPlano],
   )
 
   const conteudoSujo =
@@ -569,6 +584,17 @@ export function PlanoDeAulaPage() {
     setFormRegistro((f) => ({ ...f, data, planoItemNumero: sugestao?.numero ?? '' }))
   }
 
+  // Clicar em "Registrar"/"Editar" numa aula do cronograma já preenche a
+  // data e a própria aula no formulário — o professor só escreve o resumo.
+  function abrirRegistroParaItem(item: CronogramaItem) {
+    const registro = registroPorNumero.get(item.numero)
+    setFormRegistro({ data: item.data, resumo: registro?.resumo ?? '', planoItemNumero: item.numero })
+  }
+
+  function abrirRegistroLivre() {
+    setFormRegistro(registroVazio())
+  }
+
   async function salvarRegistro() {
     if (!selecionado || !formRegistro.resumo.trim() || !formRegistro.data) return
     setSalvandoRegistro(true)
@@ -745,14 +771,6 @@ export function PlanoDeAulaPage() {
               >
                 Conteúdo
               </button>
-              {selecionado.cronograma && selecionado.cronograma.length > 0 && (
-                <button
-                  className={`aba ${abaVer === 'cronograma' ? 'ativa' : ''}`}
-                  onClick={() => setAbaVer('cronograma')}
-                >
-                  Cronograma ({selecionado.cronograma.length})
-                </button>
-              )}
               <button
                 className={`aba ${abaVer === 'provas' ? 'ativa' : ''}`}
                 onClick={() => setAbaVer('provas')}
@@ -769,7 +787,7 @@ export function PlanoDeAulaPage() {
                 className={`aba ${abaVer === 'registro' ? 'ativa' : ''}`}
                 onClick={() => setAbaVer('registro')}
               >
-                Registro de aula
+                {temCronograma ? `Cronograma (${selecionado.cronograma!.length})` : 'Registro de aula'}
               </button>
             </div>
 
@@ -790,28 +808,6 @@ export function PlanoDeAulaPage() {
                     </button>
                   </div>
                 )}
-              </div>
-            )}
-
-            {abaVer === 'cronograma' && selecionado.cronograma && (
-              <div>
-                <h3 className="titulo-secao">Aulas planejadas pra este período</h3>
-                <ul className="lista-simples">
-                  {selecionado.cronograma.map((item) => {
-                    const jaRegistrada = registrosDoPlano.some((r) => r.planoItemNumero === item.numero)
-                    return (
-                      <li key={item.numero}>
-                        <span>
-                          <strong>Aula {item.numero}</strong> · {formatarData(item.data)} — {item.subtema}{' '}
-                          <span className="pill pill-aprovado" title={item.habilidadeTexto}>
-                            {item.habilidadeCodigo}
-                          </span>
-                          {jaRegistrada && <span className="pill pill-sem-nota">Já registrada</span>}
-                        </span>
-                      </li>
-                    )
-                  })}
-                </ul>
               </div>
             )}
 
@@ -1008,34 +1004,92 @@ export function PlanoDeAulaPage() {
               </div>
             )}
 
-            {abaVer === 'registro' && (
+            {abaVer === 'registro' && selecionado && (
               <div>
-                <h3 className="titulo-secao">O que foi aplicado em cada aula</h3>
-                {registrosDoPlano.length === 0 ? (
-                  <p className="texto-suave">
-                    Nenhuma aula registrada ainda. Você também pode registrar direto na tela de Frequência.
-                  </p>
-                ) : (
-                  <ul className="lista-simples">
-                    {registrosDoPlano.map((r) => (
-                      <li key={r.id}>
-                        <span>
-                          <strong>{formatarData(r.data)}</strong> — {resumoTexto(r.resumo)}{' '}
-                          {r.bnccCodigo && (
-                            <span className="pill pill-aprovado" title={r.bnccTexto ?? undefined}>
-                              {r.bnccCodigo}
+                {temCronograma ? (
+                  <>
+                    <h3 className="titulo-secao">Aulas planejadas e o que já foi aplicado</h3>
+                    <ul className="lista-simples">
+                      {selecionado.cronograma!.map((item) => {
+                        const registro = registroPorNumero.get(item.numero)
+                        const emEdicao = formRegistro.planoItemNumero === item.numero
+                        return (
+                          <li key={item.numero} className="registro-cronograma-item">
+                            <span>
+                              <strong>Aula {item.numero}</strong> · {formatarData(item.data)} —{' '}
+                              {item.subtema}{' '}
+                              <span className="pill pill-aprovado" title={item.habilidadeTexto}>
+                                {item.habilidadeCodigo}
+                              </span>
                             </span>
-                          )}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                            {registro ? (
+                              <p className="texto-suave">✓ {resumoTexto(registro.resumo)}</p>
+                            ) : (
+                              <p className="texto-suave">Ainda não registrada.</p>
+                            )}
+                            {!somenteLeitura && (
+                              <button
+                                className={`btn btn-pequeno ${emEdicao ? 'btn-primario' : 'btn-fantasma'}`}
+                                onClick={() => abrirRegistroParaItem(item)}
+                              >
+                                {registro ? 'Editar registro' : 'Registrar essa aula'}
+                              </button>
+                            )}
+                          </li>
+                        )
+                      })}
+                    </ul>
+
+                    {registrosForaDoCronograma.length > 0 && (
+                      <>
+                        <h3 className="titulo-secao">Outros registros (fora do cronograma)</h3>
+                        <ul className="lista-simples">
+                          {registrosForaDoCronograma.map((r) => (
+                            <li key={r.id}>
+                              <span>
+                                <strong>{formatarData(r.data)}</strong> — {resumoTexto(r.resumo)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <h3 className="titulo-secao">O que foi aplicado em cada aula</h3>
+                    {registrosDoPlano.length === 0 ? (
+                      <p className="texto-suave">Nenhuma aula registrada ainda.</p>
+                    ) : (
+                      <ul className="lista-simples">
+                        {registrosDoPlano.map((r) => (
+                          <li key={r.id}>
+                            <span>
+                              <strong>{formatarData(r.data)}</strong> — {resumoTexto(r.resumo)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
                 )}
+
                 {!somenteLeitura && (
                   <>
                 <hr className="divisor" />
 
-                <h3 className="titulo-secao">Novo registro</h3>
+                <div className="painel-head">
+                  <h3 className="titulo-secao">
+                    {formRegistro.planoItemNumero !== ''
+                      ? `Registro da Aula ${formRegistro.planoItemNumero}`
+                      : 'Novo registro'}
+                  </h3>
+                  {temCronograma && (
+                    <button className="btn btn-fantasma btn-pequeno" onClick={abrirRegistroLivre}>
+                      Registrar aula fora do cronograma
+                    </button>
+                  )}
+                </div>
                 <label className="campo campo-data-curta">
                   <span>Data</span>
                   <input
@@ -1044,7 +1098,7 @@ export function PlanoDeAulaPage() {
                     onChange={(e) => mudarDataRegistro(e.target.value)}
                   />
                 </label>
-                {selecionado?.cronograma && selecionado.cronograma.length > 0 && (
+                {temCronograma && (
                   <label className="campo campo-largo">
                     <span>Aula do plano (BNCC)</span>
                     <select
@@ -1058,7 +1112,7 @@ export function PlanoDeAulaPage() {
                       }
                     >
                       <option value="">— Nenhuma (registro livre) —</option>
-                      {selecionado.cronograma.map((item) => (
+                      {selecionado.cronograma!.map((item) => (
                         <option key={item.numero} value={item.numero}>
                           Aula {item.numero} · {formatarData(item.data)} — {item.subtema} (
                           {item.habilidadeCodigo})
@@ -1073,6 +1127,7 @@ export function PlanoDeAulaPage() {
                 <div className="campo campo-espacosa">
                   <span>O que foi aplicado</span>
                   <EditorRico
+                    key={formRegistro.planoItemNumero}
                     value={formRegistro.resumo}
                     onChange={(html) => setFormRegistro((f) => ({ ...f, resumo: html }))}
                     placeholder="Resumo do que foi dado nesse dia..."
