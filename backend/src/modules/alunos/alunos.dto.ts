@@ -18,7 +18,13 @@ export const criarAlunoDto = z.object({
 })
 export type CriarAlunoDto = z.infer<typeof criarAlunoDto>
 
-export const atualizarAlunoDto = criarAlunoDto.partial()
+// .partial() sozinho não bastaria aqui: como "situacao" tem .default('ativo')
+// no schema de criação, um PATCH que não manda esse campo faria o Zod
+// aplicar o default e sobrescrever silenciosamente a situação atual do
+// aluno. O .extend() troca esse campo por uma versão sem default.
+export const atualizarAlunoDto = criarAlunoDto.partial().extend({
+  situacao: situacaoMatriculaEnum.optional(),
+})
 export type AtualizarAlunoDto = z.infer<typeof atualizarAlunoDto>
 
 export const gerarExerciciosDto = z.object({

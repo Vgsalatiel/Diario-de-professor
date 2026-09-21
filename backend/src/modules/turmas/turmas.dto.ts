@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 export const sistemaPeriodoEnum = z.enum(['bimestre', 'trimestre', 'semestre'])
+export const etapaBnccEnum = z.enum(['fundamental', 'medio'])
 
 export const criarTurmaDto = z.object({
   nome: z.string().trim().min(1, 'Informe o nome da turma.'),
@@ -12,10 +13,19 @@ export const criarTurmaDto = z.object({
   diasAula: z
     .array(z.number().int().min(0).max(6))
     .min(1, 'Marque pelo menos um dia de aula.'),
+  disciplina: z.string().trim().nullable().optional(),
+  etapaBncc: etapaBnccEnum.nullable().optional(),
+  anoSerieBncc: z.number().int().min(1).max(9).nullable().optional(),
 })
 export type CriarTurmaDto = z.infer<typeof criarTurmaDto>
 
-export const atualizarTurmaDto = criarTurmaDto.partial()
+// .partial() sozinho não bastaria: "serie" tem .default('') no schema de
+// criação, então um PATCH que não manda esse campo faria o Zod aplicar o
+// default e apagar a série já cadastrada. O .extend() troca por uma versão
+// sem default.
+export const atualizarTurmaDto = criarTurmaDto.partial().extend({
+  serie: z.string().trim().optional(),
+})
 export type AtualizarTurmaDto = z.infer<typeof atualizarTurmaDto>
 
 export const promoverTurmaDto = z.object({
