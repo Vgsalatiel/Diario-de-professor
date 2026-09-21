@@ -1,9 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
-import { useAuth } from '../context/AuthContext'
 import type { EtapaBncc, SistemaPeriodo, Turma } from '../types'
 import { Modal } from '../components/Modal'
 
@@ -62,8 +61,8 @@ function proximoAnoLetivo(ano: string): string {
 }
 
 export function Turmas() {
-  const { turmas, alunos, removerTurma, criarTurma, atualizarTurma, promoverTurma } = useData()
-  const { professora } = useAuth()
+  const { turmas, alunos, removerTurma, criarTurma, atualizarTurma, promoverTurma, listarComponentesBncc } =
+    useData()
   const { notificar } = useToast()
   const { anoAtivo, somenteLeitura } = useAnoLetivo()
   const [modal, setModal] = useState(false)
@@ -71,6 +70,33 @@ export function Turmas() {
   const [erroForm, setErroForm] = useState('')
   const [form, setForm] = useState(VAZIO)
   const [escolaFiltro, setEscolaFiltro] = useState('todas')
+  const [componentesBncc, setComponentesBncc] = useState<string[]>([])
+  const [carregandoComponentes, setCarregandoComponentes] = useState(false)
+
+  // Busca os nomes oficiais dos componentes curriculares assim que a
+  // etapa (BNCC) é escolhida — evita que o professor digite um nome que
+  // não bate com a base (foi isso que deixava o seletor de habilidades
+  // vazio na tela de Plano de aula).
+  useEffect(() => {
+    if (!modal || !form.etapaBncc) {
+      setComponentesBncc([])
+      return
+    }
+    let cancelado = false
+    setCarregandoComponentes(true)
+    listarComponentesBncc(form.etapaBncc)
+      .then((lista) => {
+        if (!cancelado) setComponentesBncc(lista)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelado) setCarregandoComponentes(false)
+      })
+    return () => {
+      cancelado = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modal, form.etapaBncc])
 
   const [modalPromover, setModalPromover] = useState(false)
   const [turmaParaPromover, setTurmaParaPromover] = useState<Turma | null>(null)
@@ -125,7 +151,7 @@ export function Turmas() {
   }
 
   function mudarEtapaBncc(etapa: EtapaBncc | '') {
-    setForm((f) => ({ ...f, etapaBncc: etapa, anoSerieBncc: '' }))
+    setForm((f) => ({ ...f, etapaBncc: etapa, anoSerieBncc: '', disciplina: '' }))
   }
 
   function alternarDia(dia: number) {
@@ -406,21 +432,6 @@ export function Turmas() {
             </select>
           </label>
           <label className="campo">
-            <span>Disciplina</span>
-            <select
-              className="select"
-              value={form.disciplina}
-              onChange={(e) => setForm({ ...form, disciplina: e.target.value })}
-            >
-              <option value="">— Não definida —</option>
-              {professora.materias.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="campo">
             <span>Etapa (BNCC)</span>
             <select
               className="select"
@@ -451,9 +462,34 @@ export function Turmas() {
                 ))}
             </select>
           </label>
+          <label className="campo">
+            <span>Disciplina</span>
+            <select
+              className="select"
+              value={form.disciplina}
+              disabled={!form.etapaBncc || carregandoComponentes}
+              onChange={(e) => setForm({ ...form, disciplina: e.target.value })}
+            >
+              <option value="">
+                {!form.etapaBncc
+                  ? '— Escolha a etapa primeiro —'
+                  : carregandoComponentes
+                    ? 'Carregando...'
+                    : '— Não definida —'}
+              </option>
+              {componentesBncc.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </label>
           <p className="texto-suave campo-largo">
-            Disciplina, etapa e ano habilitam o Assistente de planejamento contextual (IA) em
-            Plano de aula — sem eles, dá pra criar planos normalmente, só sem sugestão por IA.
+            Etapa, ano e disciplina (nomes oficiais da BNCC) habilitam o Assistente de
+            planejamento contextual (IA) em Plano de aula — sem eles, dá pra criar planos
+            normalmente, só sem sugestão por IA. Algumas disciplinas (ex.: Inglês no Ensino Médio)
+            não têm habilidades detalhadas na BNCC — nesses casos o assistente não terá o que
+            sugerir.
           </p>
           <div className="campo campo-largo">
             <span>Dias de aula dessa turma</span>

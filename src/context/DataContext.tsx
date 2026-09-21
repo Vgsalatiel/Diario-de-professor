@@ -5,6 +5,7 @@ import type {
   ConfigCalculo,
   DataAula,
   Evento,
+  EtapaBncc,
   ExercicioGerado,
   Feriado,
   HabilidadeBncc,
@@ -80,6 +81,10 @@ interface DataContextValue {
   // válidas pra turma (backend filtra por etapa/ano/componente dela) e gera
   // uma proposta de conteúdo a partir da habilidade escolhida.
   listarHabilidadesBncc: (turmaId: string) => Promise<HabilidadeBncc[]>
+  // Nomes oficiais dos componentes curriculares da etapa — usados pra
+  // preencher o campo "Disciplina" da turma sem risco de digitar um nome
+  // que não bate com a base da BNCC.
+  listarComponentesBncc: (etapa: EtapaBncc) => Promise<string[]>
   gerarPlanoComIA: (
     turmaId: string,
     dados: { tema: string; duracaoMinutos: number; habilidadeCodigo: string },
@@ -568,6 +573,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       gerarPlanoComIA: async (turmaId, dados) => {
         try {
           return await api.post(`/turmas/${turmaId}/planos-de-aula/gerar-ia`, dados)
+        } catch (erro) {
+          notificar(mensagemErro(erro))
+          throw erro
+        }
+      },
+      listarComponentesBncc: async (etapa) => {
+        try {
+          return await api.get<string[]>(`/bncc/componentes?etapa=${etapa}`)
         } catch (erro) {
           notificar(mensagemErro(erro))
           throw erro
