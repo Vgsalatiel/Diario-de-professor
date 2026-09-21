@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
@@ -150,6 +150,9 @@ export function PlanoDeAulaPage() {
   const [formAtividade, setFormAtividade] = useState(atividadeVazia)
   const [salvandoAtividade, setSalvandoAtividade] = useState(false)
   const [formRegistro, setFormRegistro] = useState(registroVazio)
+  const [resumoBaseRegistro, setResumoBaseRegistro] = useState('')
+  const [erroRegistro, setErroRegistro] = useState('')
+  const formRegistroRef = useRef<HTMLDivElement>(null)
   const [conteudoEditado, setConteudoEditado] = useState<string | null>(null)
   const [salvandoRegistro, setSalvandoRegistro] = useState(false)
 
@@ -305,6 +308,8 @@ export function PlanoDeAulaPage() {
     setFormProva(provaVazia())
     setFormAtividade(atividadeVazia())
     setFormRegistro({ ...vazio, planoItemNumero: sugestao?.numero ?? '' })
+    setResumoBaseRegistro('')
+    setErroRegistro('')
     setAbaVer('conteudo')
     setDrawer('ver')
   }
@@ -583,6 +588,13 @@ export function PlanoDeAulaPage() {
     if (confirm('Excluir esta atividade? Ela também some da Agenda.')) removerEvento(id)
   }
 
+  const registroSujo = formRegistro.resumo.trim() !== resumoBaseRegistro.trim()
+
+  function podeTrocarRegistro(): boolean {
+    if (!registroSujo) return true
+    return confirm('Você tem um resumo não salvo nesse registro. Trocar mesmo assim e perder o texto?')
+  }
+
   // Sugestão pré-marcada pela data (nunca salva sozinha — o professor
   // sempre confirma, podendo trocar, antes de clicar em "Registrar aula").
   function mudarDataRegistro(data: string) {
@@ -591,18 +603,34 @@ export function PlanoDeAulaPage() {
   }
 
   // Clicar em "Registrar"/"Editar" numa aula do cronograma já preenche a
-  // data e a própria aula no formulário — o professor só escreve o resumo.
+  // data e a própria aula no formulário, e rola até ele — sem isso, o
+  // clique parecia não fazer nada quando o formulário ficava fora da
+  // tela (cronograma com muitas aulas).
   function abrirRegistroParaItem(item: CronogramaItem) {
+    if (!podeTrocarRegistro()) return
     const registro = registroPorNumero.get(item.numero)
-    setFormRegistro({ data: item.data, resumo: registro?.resumo ?? '', planoItemNumero: item.numero })
+    const resumo = registro?.resumo ?? ''
+    setFormRegistro({ data: item.data, resumo, planoItemNumero: item.numero })
+    setResumoBaseRegistro(resumo)
+    setErroRegistro('')
+    formRegistroRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   function abrirRegistroLivre() {
+    if (!podeTrocarRegistro()) return
     setFormRegistro(registroVazio())
+    setResumoBaseRegistro('')
+    setErroRegistro('')
+    formRegistroRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   async function salvarRegistro() {
-    if (!selecionado || !formRegistro.resumo.trim() || !formRegistro.data) return
+    if (!selecionado || !formRegistro.data) return
+    if (!formRegistro.resumo.trim()) {
+      setErroRegistro('Escreva o que foi aplicado nessa aula antes de salvar.')
+      return
+    }
+    setErroRegistro('')
     setSalvandoRegistro(true)
     try {
       await definirRegistroAula(
@@ -614,6 +642,7 @@ export function PlanoDeAulaPage() {
       )
       notificar('Registro da aula salvo.')
       setFormRegistro(registroVazio())
+      setResumoBaseRegistro('')
     } catch {
       // erro já notificado pelo DataContext
     } finally {
@@ -1081,7 +1110,7 @@ export function PlanoDeAulaPage() {
                 )}
 
                 {!somenteLeitura && (
-                  <>
+                  <div ref={formRegistroRef}>
                 <hr className="divisor" />
 
                 <div className="painel-head">
@@ -1139,6 +1168,7 @@ export function PlanoDeAulaPage() {
                     placeholder="Resumo do que foi dado nesse dia..."
                   />
                 </div>
+                {erroRegistro && <div className="alerta-erro">{erroRegistro}</div>}
                 <div className="acoes-fim">
                   <button
                     className="btn btn-fantasma btn-pequeno"
@@ -1148,7 +1178,7 @@ export function PlanoDeAulaPage() {
                     {salvandoRegistro ? 'Salvando...' : '+ Registrar aula'}
                   </button>
                 </div>
-                  </>
+                  </div>
                 )}
               </div>
             )}
