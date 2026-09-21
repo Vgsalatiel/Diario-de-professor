@@ -3,8 +3,14 @@ import { Link } from 'react-router-dom'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
-import type { SistemaPeriodo, Turma } from '../types'
+import { useAuth } from '../context/AuthContext'
+import type { EtapaBncc, SistemaPeriodo, Turma } from '../types'
 import { Modal } from '../components/Modal'
+
+const ANOS_POR_ETAPA: Record<EtapaBncc, number[]> = {
+  fundamental: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+  medio: [1, 2, 3],
+}
 
 const CORES = ['#4759a8', '#2f9e6b', '#e8a33d', '#b05ac0', '#d05a5a', '#3aa0b5']
 
@@ -25,6 +31,9 @@ const VAZIO = {
   sistemaPeriodo: 'semestre' as SistemaPeriodo,
   cor: CORES[0],
   diasAula: [1, 2, 3, 4, 5] as number[],
+  disciplina: '',
+  etapaBncc: '' as EtapaBncc | '',
+  anoSerieBncc: '' as number | '',
 }
 
 function diasAulaResumo(dias: number[]): string {
@@ -54,6 +63,7 @@ function proximoAnoLetivo(ano: string): string {
 
 export function Turmas() {
   const { turmas, alunos, removerTurma, criarTurma, atualizarTurma, promoverTurma } = useData()
+  const { professora } = useAuth()
   const { notificar } = useToast()
   const { anoAtivo, somenteLeitura } = useAnoLetivo()
   const [modal, setModal] = useState(false)
@@ -107,8 +117,15 @@ export function Turmas() {
       sistemaPeriodo: t.sistemaPeriodo,
       cor: t.cor,
       diasAula: t.diasAula,
+      disciplina: t.disciplina ?? '',
+      etapaBncc: t.etapaBncc ?? '',
+      anoSerieBncc: t.anoSerieBncc ?? '',
     })
     setModal(true)
+  }
+
+  function mudarEtapaBncc(etapa: EtapaBncc | '') {
+    setForm((f) => ({ ...f, etapaBncc: etapa, anoSerieBncc: '' }))
   }
 
   function alternarDia(dia: number) {
@@ -149,7 +166,14 @@ export function Turmas() {
       return
     }
     setErroForm('')
-    const dados = { ...form, nome: form.nome.trim(), escola: form.escola.trim() }
+    const dados = {
+      ...form,
+      nome: form.nome.trim(),
+      escola: form.escola.trim(),
+      disciplina: form.disciplina.trim() || null,
+      etapaBncc: form.etapaBncc || null,
+      anoSerieBncc: form.anoSerieBncc === '' ? null : form.anoSerieBncc,
+    }
     if (editando) {
       atualizarTurma(editando.id, dados)
       notificar('Turma atualizada.')
@@ -381,6 +405,56 @@ export function Turmas() {
               <option value="bimestre">Bimestre (1º ao 4º)</option>
             </select>
           </label>
+          <label className="campo">
+            <span>Disciplina</span>
+            <select
+              className="select"
+              value={form.disciplina}
+              onChange={(e) => setForm({ ...form, disciplina: e.target.value })}
+            >
+              <option value="">— Não definida —</option>
+              {professora.materias.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="campo">
+            <span>Etapa (BNCC)</span>
+            <select
+              className="select"
+              value={form.etapaBncc}
+              onChange={(e) => mudarEtapaBncc(e.target.value as EtapaBncc | '')}
+            >
+              <option value="">— Não definida —</option>
+              <option value="fundamental">Ensino Fundamental</option>
+              <option value="medio">Ensino Médio</option>
+            </select>
+          </label>
+          <label className="campo">
+            <span>Ano/série (BNCC)</span>
+            <select
+              className="select"
+              value={form.anoSerieBncc}
+              disabled={!form.etapaBncc}
+              onChange={(e) =>
+                setForm({ ...form, anoSerieBncc: e.target.value ? Number(e.target.value) : '' })
+              }
+            >
+              <option value="">— Não definido —</option>
+              {form.etapaBncc &&
+                ANOS_POR_ETAPA[form.etapaBncc].map((ano) => (
+                  <option key={ano} value={ano}>
+                    {ano}º ano
+                  </option>
+                ))}
+            </select>
+          </label>
+          <p className="texto-suave campo-largo">
+            Disciplina, etapa e ano habilitam o Assistente de planejamento contextual (IA) em
+            Plano de aula — sem eles, dá pra criar planos normalmente, só sem sugestão por IA.
+          </p>
           <div className="campo campo-largo">
             <span>Dias de aula dessa turma</span>
             <div className="seletor-dias">

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
-import type { DuracaoPlano, Periodo, PlanoDeAula, SistemaPeriodo } from '../types'
+import type { DuracaoPlano, HabilidadeBncc, Periodo, PlanoDeAula, SistemaPeriodo } from '../types'
 import { opcoesPeriodo, turmaInicial } from '../lib/periodos'
 import { formatarData } from '../lib/eventos'
 import { Drawer } from '../components/Drawer'
@@ -62,6 +62,10 @@ function registroVazio() {
   return { data: hojeISO(), resumo: '' }
 }
 
+function assistenteIAVazio() {
+  return { tema: '', duracaoMinutos: '50', habilidadeCodigo: '' }
+}
+
 // "Quick add" de prova/atividade direto na criação do plano — campos
 // opcionais que, se preenchidos, viram um evento na Agenda ao salvar.
 function provaNovaVazia() {
@@ -88,6 +92,8 @@ export function PlanoDeAulaPage() {
     removerEvento,
     criarAvaliacao,
     definirRegistroAula,
+    listarHabilidadesBncc,
+    gerarPlanoComIA,
   } = useData()
   const { notificar } = useToast()
   const { anoAtivo, somenteLeitura } = useAnoLetivo()
@@ -112,6 +118,14 @@ export function PlanoDeAulaPage() {
   const [conteudoEditado, setConteudoEditado] = useState<string | null>(null)
   const [salvandoRegistro, setSalvandoRegistro] = useState(false)
 
+  // Assistente de planejamento contextual — gera o conteúdo do plano a
+  // partir de uma habilidade BNCC real da turma selecionada no formulário.
+  const [formIA, setFormIA] = useState(assistenteIAVazio)
+  const [habilidadesBncc, setHabilidadesBncc] = useState<HabilidadeBncc[]>([])
+  const [carregandoHabilidades, setCarregandoHabilidades] = useState(false)
+  const [gerandoIA, setGerandoIA] = useState(false)
+  const [bnccGerado, setBnccGerado] = useState<{ codigo: string; texto: string } | null>(null)
+
   // As turmas chegam da API de forma assíncrona — se a página monta antes
   // da primeira turma carregar, escolhe a turma inicial assim que chegar.
   useEffect(() => {
@@ -127,6 +141,34 @@ export function PlanoDeAulaPage() {
 
   const turmaAtual = turmas.find((t) => t.id === turmaFiltro) ?? null
 
+  const turmaDoFormulario = turmas.find((t) => t.id === form.turmaId) ?? null
+  const podeUsarAssistenteIA = Boolean(
+    turmaDoFormulario?.disciplina && turmaDoFormulario.etapaBncc && turmaDoFormulario.anoSerieBncc,
+  )
+
+  // Busca as habilidades BNCC válidas pra turma escolhida no formulário
+  // assim que ela muda — o backend já filtra por etapa/ano/componente dela.
+  useEffect(() => {
+    if (drawer !== 'form' || editando || !podeUsarAssistenteIA) {
+      setHabilidadesBncc([])
+      return
+    }
+    let cancelado = false
+    setCarregandoHabilidades(true)
+    listarHabilidadesBncc(form.turmaId)
+      .then((lista) => {
+        if (!cancelado) setHabilidadesBncc(lista)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelado) setCarregandoHabilidades(false)
+      })
+    return () => {
+      cancelado = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawer, editando, form.turmaId, podeUsarAssistenteIA])
+
   function sistemaDaTurma(turmaId: string): SistemaPeriodo {
     return turmas.find((t) => t.id === turmaId)?.sistemaPeriodo ?? 'semestre'
   }
@@ -135,7 +177,7 @@ export function PlanoDeAulaPage() {
     () =>
       planosDeAula
         .filter((p) => p.turmaId === turmaFiltro)
-        .sort((a, b) => b.dataInicio.localeCompare(a.dataInicio)),
+        .sort((a, b) => a.criadoEm.localeCompare(b.criadoEm)),
     [planosDeAula, turmaFiltro],
   )
 
@@ -236,6 +278,8 @@ export function PlanoDeAulaPage() {
     setForm({ ...planoVazio(), turmaId: turmaFiltro })
     setFormProvaNova(provaNovaVazia())
     setFormAtividadeNova(atividadeNovaVazia())
+    setFormIA(assistenteIAVazio())
+    setBnccGerado(null)
     setDrawer('form')
   }
 
@@ -253,6 +297,36 @@ export function PlanoDeAulaPage() {
       conteudo: p.conteudo ?? '',
     })
     setDrawer('form')
+  }
+
+  async function gerarComAssistenteIA() {
+    if (!formIA.tema.trim()) {
+      notificar('Informe o tema da aula antes de gerar.')
+      return
+    }
+    if (!formIA.habilidadeCodigo) {
+      notificar('Selecione uma habilidade da BNCC antes de gerar.')
+      return
+    }
+    setGerandoIA(true)
+    try {
+      const resultado = await gerarPlanoComIA(form.turmaId, {
+        tema: formIA.tema.trim(),
+        duracaoMinutos: Number(formIA.duracaoMinutos) || 50,
+        habilidadeCodigo: formIA.habilidadeCodigo,
+      })
+      setForm((f) => ({
+        ...f,
+        titulo: f.titulo.trim() || resultado.titulo,
+        conteudo: resultado.conteudo,
+      }))
+      setBnccGerado({ codigo: resultado.bnccCodigo, texto: resultado.bnccTexto })
+      notificar('Proposta gerada — revise o conteúdo antes de criar o plano.')
+    } catch {
+      // erro já notificado pelo DataContext
+    } finally {
+      setGerandoIA(false)
+    }
   }
 
   function mudarDuracao(duracao: DuracaoPlano) {
@@ -304,6 +378,7 @@ export function PlanoDeAulaPage() {
       dataInicio: form.dataInicio,
       dataFim: form.dataFim,
       conteudo: form.conteudo.trim() || undefined,
+      ...(bnccGerado && { bnccCodigo: bnccGerado.codigo, bnccTexto: bnccGerado.texto }),
     }
     setSalvandoPlano(true)
     try {
@@ -499,6 +574,11 @@ export function PlanoDeAulaPage() {
             <span className="evento-tag" style={{ background: turmaAtual?.cor }}>
               {ROTULO_DURACAO[p.duracao]}
             </span>
+            {p.bnccCodigo && (
+              <span className="pill pill-aprovado" title={p.bnccTexto ?? undefined}>
+                BNCC {p.bnccCodigo}
+              </span>
+            )}
             {encerrado && <span className="pill pill-sem-nota">Encerrado</span>}
           </div>
           <h3>{p.titulo}</h3>
@@ -944,7 +1024,11 @@ export function PlanoDeAulaPage() {
             <select
               className="select"
               value={form.turmaId}
-              onChange={(e) => setForm({ ...form, turmaId: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, turmaId: e.target.value })
+                setFormIA(assistenteIAVazio())
+                setBnccGerado(null)
+              }}
             >
               <option value="">— Selecione —</option>
               {turmasDoAno.map((t) => (
@@ -991,6 +1075,82 @@ export function PlanoDeAulaPage() {
 
         {!editando && (
           <>
+            <hr className="divisor" />
+
+            <div className="painel-head">
+              <h3 className="titulo-secao">Assistente de planejamento contextual</h3>
+            </div>
+
+            {!form.turmaId ? (
+              <p className="texto-suave">Escolha a turma acima para usar o assistente de IA.</p>
+            ) : !podeUsarAssistenteIA ? (
+              <p className="texto-suave">
+                Esta turma ainda não tem disciplina, etapa e ano (BNCC) definidos — configure em{' '}
+                <strong>Turmas → Editar</strong> pra habilitar a geração por IA baseada na BNCC.
+              </p>
+            ) : (
+              <>
+                <p className="texto-suave">
+                  Gera uma proposta de conteúdo alinhada à habilidade da BNCC escolhida, com base
+                  na disciplina, etapa e ano cadastrados na turma — não é um texto genérico.
+                </p>
+                <div className="form-grid form-grid-compacto">
+                  <label className="campo campo-largo">
+                    <span>Tema</span>
+                    <input
+                      value={formIA.tema}
+                      onChange={(e) => setFormIA((f) => ({ ...f, tema: e.target.value }))}
+                      placeholder="Ex.: Frações"
+                    />
+                  </label>
+                  <label className="campo">
+                    <span>Duração da aula (min)</span>
+                    <input
+                      type="number"
+                      min="5"
+                      step="5"
+                      value={formIA.duracaoMinutos}
+                      onChange={(e) => setFormIA((f) => ({ ...f, duracaoMinutos: e.target.value }))}
+                    />
+                  </label>
+                  <label className="campo campo-largo">
+                    <span>BNCC — habilidade</span>
+                    <select
+                      className="select"
+                      value={formIA.habilidadeCodigo}
+                      disabled={carregandoHabilidades}
+                      onChange={(e) => setFormIA((f) => ({ ...f, habilidadeCodigo: e.target.value }))}
+                    >
+                      <option value="">
+                        {carregandoHabilidades ? 'Carregando habilidades...' : '— Selecionar habilidade —'}
+                      </option>
+                      {habilidadesBncc.map((h) => (
+                        <option key={h.codigo} value={h.codigo}>
+                          {h.codigo} — {h.texto}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="acoes-fim">
+                  <button
+                    type="button"
+                    className="btn btn-fantasma btn-pequeno"
+                    onClick={gerarComAssistenteIA}
+                    disabled={gerandoIA}
+                  >
+                    {gerandoIA ? 'Gerando...' : 'Gerar com IA'}
+                  </button>
+                </div>
+                {bnccGerado && (
+                  <p className="texto-suave">
+                    Conteúdo preenchido a partir de <strong>{bnccGerado.codigo}</strong> — revise antes
+                    de criar o plano.
+                  </p>
+                )}
+              </>
+            )}
+
             <hr className="divisor" />
 
             <label className="campo-checkbox">

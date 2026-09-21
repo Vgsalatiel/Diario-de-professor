@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express'
 import { paramId } from '../../utils/params'
 import * as planosService from './planos.service'
-import { atualizarPlanoDto, criarPlanoDto } from './planos.dto'
+import { atualizarPlanoDto, criarPlanoDto, gerarPlanoIaDto } from './planos.dto'
 
 export async function listarTodos(req: Request, res: Response) {
   const planos = await planosService.listarTodos(req.professorId)
@@ -27,4 +27,14 @@ export async function atualizar(req: Request, res: Response) {
 export async function remover(req: Request, res: Response) {
   await planosService.remover(paramId(req.params.planoId), req.professorId)
   res.status(204).send()
+}
+
+export async function gerarComIA(req: Request, res: Response) {
+  const dados = gerarPlanoIaDto.parse(req.body)
+  const resultado = await planosService.gerarComIA(
+    paramId(req.params.turmaId),
+    req.professorId,
+    dados,
+  )
+  res.json(resultado)
 }

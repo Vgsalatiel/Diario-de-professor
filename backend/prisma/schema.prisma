@@ -72,6 +72,15 @@ enum SistemaPeriodo {
   semestre
 }
 
+// Etapa de ensino no sentido da BNCC — controla que habilidades aparecem
+// pro Assistente de planejamento contextual. Só cobrimos Fundamental e
+// Médio por enquanto: a Educação Infantil é organizada por campos de
+// experiência (não por componente+ano), então não encaixa no mesmo picker.
+enum EtapaBncc {
+  fundamental
+  medio
+}
+
 model Turma {
   id             String         @id @default(cuid())
   nome           String // ex.: "9º Ano A"
@@ -81,6 +90,17 @@ model Turma {
   sistemaPeriodo SistemaPeriodo
   cor            String
   diasAula       Int[] // dias da semana com aula: 0=domingo .. 6=sábado
+
+  // Componente curricular fixo dessa turma (ex.: "Matemática") — usado pra
+  // já vir preenchido no plano de aula e pra filtrar as habilidades BNCC
+  // do Assistente de planejamento contextual.
+  disciplina String?
+
+  // Etapa + ano/série no vocabulário da BNCC — sem isso não dá pra saber
+  // com segurança quais habilidades (EF05MA.. vs EM13MAT..) valem pra essa
+  // turma. Opcionais pra não quebrar turmas já cadastradas.
+  etapaBncc     EtapaBncc?
+  anoSerieBncc  Int? // 1-9 no Fundamental, 1-3 no Médio
 
   professorId String
   professor   Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
@@ -287,6 +307,14 @@ model PlanoDeAula {
   dataInicio DateTime     @db.Date
   dataFim    DateTime     @db.Date
   conteudo   String?
+  criadoEm   DateTime     @default(now())
+
+  // Quando o conteúdo foi gerado pelo Assistente de planejamento
+  // contextual, guarda qual habilidade da BNCC serviu de base — pra
+  // mostrar de onde veio e pra auditoria (o código sempre vem validado
+  // contra a base de dados real da BNCC, nunca inventado pela IA).
+  bnccCodigo String?
+  bnccTexto  String?
 
   turmaId String
   turma   Turma  @relation(fields: [turmaId], references: [id], onDelete: Cascade)

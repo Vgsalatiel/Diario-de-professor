@@ -24,6 +24,10 @@ export interface ProfessorResumo {
 // Cada escola tem seu próprio jeito de dividir o ano letivo
 export type SistemaPeriodo = 'bimestre' | 'trimestre' | 'semestre'
 
+// Etapa de ensino no vocabulário da BNCC — usada só pra filtrar habilidades
+// no Assistente de planejamento contextual (ver PlanoDeAula).
+export type EtapaBncc = 'fundamental' | 'medio'
+
 export interface Turma {
   id: string
   nome: string // ex.: "9º Ano A"
@@ -34,6 +38,19 @@ export interface Turma {
   cor: string // cor de identificação da turma
   // Dias da semana em que há aula dessa turma — 0=domingo .. 6=sábado
   diasAula: number[]
+  disciplina?: string | null // componente curricular fixo da turma, ex.: "Matemática"
+  etapaBncc?: EtapaBncc | null
+  anoSerieBncc?: number | null // 1-9 no Fundamental, 1-3 no Médio
+}
+
+// Uma habilidade da BNCC (código + descrição reais, nunca inventados —
+// vêm sempre da base embarcada no backend).
+export interface HabilidadeBncc {
+  codigo: string
+  texto: string
+  componente: string
+  etapa: EtapaBncc
+  anos: number[]
 }
 
 // Situação da matrícula do aluno na turma
@@ -138,6 +155,9 @@ export interface PlanoDeAula {
   dataInicio: string // ISO
   dataFim: string // ISO — até quando esse plano vale
   conteudo?: string // tópicos/conteúdo previsto
+  criadoEm: string // ISO datetime — usado pra ordenar os cards por ordem de criação
+  bnccCodigo?: string | null // habilidade usada quando o conteúdo veio do Assistente de IA
+  bnccTexto?: string | null
 }
 
 // "O que foi aplicado no dia" — um resumo por turma+data, mostrado no
