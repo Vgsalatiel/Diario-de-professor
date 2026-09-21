@@ -619,7 +619,6 @@ export function PlanoDeAulaPage() {
     setResumoBaseRegistro(resumo)
     setErroRegistro('')
     setFormRegistroAberto(true)
-    formRegistroRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   function abrirRegistroLivre() {
@@ -628,8 +627,17 @@ export function PlanoDeAulaPage() {
     setResumoBaseRegistro('')
     setErroRegistro('')
     setFormRegistroAberto(true)
-    formRegistroRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
+
+  // Só depois que o formulário realmente aparece no DOM (formRegistroAberto
+  // vira true, ou a aula selecionada muda com o formulário já aberto) a
+  // ref existe de verdade — chamar scrollIntoView direto no clique rolava
+  // pra um elemento que ainda nem tinha sido montado.
+  useEffect(() => {
+    if (formRegistroAberto) {
+      formRegistroRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [formRegistroAberto, formRegistro.planoItemNumero])
 
   function fecharFormRegistro() {
     if (!podeTrocarRegistro()) return
