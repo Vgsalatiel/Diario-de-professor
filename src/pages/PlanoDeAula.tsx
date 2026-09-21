@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
@@ -738,6 +739,9 @@ export function PlanoDeAulaPage() {
         </header>
         <div className="vazio painel">
           <p>Cadastre uma turma primeiro para criar um plano de aula.</p>
+          <Link to="/turmas" className="btn btn-primario">
+            Ir para Turmas
+          </Link>
         </div>
       </div>
     )
@@ -775,6 +779,11 @@ export function PlanoDeAulaPage() {
       {turmasDoAno.length === 0 ? (
         <div className="vazio painel">
           <p>Nenhuma turma cadastrada no ano letivo {anoAtivo}.</p>
+          {!somenteLeitura && (
+            <Link to="/turmas" className="btn btn-primario">
+              Ir para Turmas
+            </Link>
+          )}
         </div>
       ) : planosDaTurma.length === 0 ? (
         <div className="vazio painel">
@@ -1395,6 +1404,7 @@ export function PlanoDeAulaPage() {
 
             <hr className="divisor" />
 
+            <h3 className="titulo-secao">Atividade</h3>
             <label className="campo-checkbox">
               <input
                 type="checkbox"
@@ -1466,6 +1476,7 @@ export function PlanoDeAulaPage() {
 
             <hr className="divisor" />
 
+            <h3 className="titulo-secao">Prova</h3>
             <label className="campo-checkbox">
               <input
                 type="checkbox"

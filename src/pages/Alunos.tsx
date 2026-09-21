@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
@@ -292,11 +292,16 @@ export function Alunos() {
 
       {turmasDoAno.length === 0 ? (
         <div className="vazio painel">
-          <p>
-            {somenteLeitura
-              ? `Nenhuma turma cadastrada no ano letivo ${anoAtivo}.`
-              : 'Cadastre uma turma antes de adicionar alunos.'}
-          </p>
+          {somenteLeitura ? (
+            <p>Nenhuma turma cadastrada no ano letivo {anoAtivo}.</p>
+          ) : (
+            <>
+              <p>Cadastre uma turma antes de adicionar alunos.</p>
+              <Link to="/turmas" className="btn btn-primario">
+                Ir para Turmas
+              </Link>
+            </>
+          )}
         </div>
       ) : turmasDaEscola.length === 0 ? (
         <div className="vazio painel">
@@ -305,18 +310,21 @@ export function Alunos() {
       ) : (
         <>
           <div className="barra-filtros">
-            <select
-              value={turmaFiltro}
-              onChange={(e) => setTurmaFiltro(e.target.value)}
-              className="select"
-            >
-              <option value="todas">Todas as turmas</option>
-              {turmasDaEscola.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.nome}
-                </option>
-              ))}
-            </select>
+            <label className="campo-inline">
+              <span>Turma</span>
+              <select
+                value={turmaFiltro}
+                onChange={(e) => setTurmaFiltro(e.target.value)}
+                className="select"
+              >
+                <option value="todas">Todas as turmas</option>
+                {turmasDaEscola.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
             <input
               className="input-busca"
               placeholder="Buscar por nome…"

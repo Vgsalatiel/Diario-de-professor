@@ -107,7 +107,10 @@ export function Dashboard() {
     return Array.from(nomesPendentes)
   }, [turmasDoAno, avaliacoes, alunos, notas])
 
-  const temPendencias = turmasSemRegistroOntem.length > 0 || turmasComAvaliacaoPendente.length > 0
+  const temPendencias =
+    turmasSemRegistroOntem.length > 0 ||
+    turmasComAvaliacaoPendente.length > 0 ||
+    alunosComBaixaFrequenciaLista.length > 0
 
   return (
     <div className="stack-lg">
@@ -128,7 +131,10 @@ export function Dashboard() {
           <span className="card-numero-valor">{alunos.length}</span>
           <span className="card-numero-rotulo">Alunos</span>
         </Link>
-        <Link to="/agenda" className="card-numero destaque card-numero-clicavel">
+        <Link
+          to="/agenda"
+          className={`card-numero card-numero-clicavel ${avaliacoesProximas > 0 ? 'destaque' : ''}`}
+        >
           <span className="card-numero-valor">{avaliacoesProximas}</span>
           <span className="card-numero-rotulo">Avaliações próximas</span>
         </Link>
@@ -143,53 +149,51 @@ export function Dashboard() {
 
       <section className="painel">
         <div className="painel-head">
-          <h2>Pendências</h2>
+          <h2>O que precisa da sua atenção</h2>
         </div>
         {temPendencias ? (
-          <ul className="lista-marcada">
-            {turmasSemRegistroOntem.map((t) => (
-              <li key={t.id}>
-                <Link to="/plano-de-aula" className="link-acao">
-                  {t.nome} — sem registro da aula de ontem.
-                </Link>
-              </li>
-            ))}
-            {turmasComAvaliacaoPendente.map((nome) => (
-              <li key={nome}>
-                <Link to="/notas" className="link-acao">
-                  {nome} — tem avaliação sem nenhuma nota lançada.
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <div className="stack-md">
+            {(turmasSemRegistroOntem.length > 0 || turmasComAvaliacaoPendente.length > 0) && (
+              <ul className="lista-marcada">
+                {turmasSemRegistroOntem.map((t) => (
+                  <li key={t.id}>
+                    <Link to="/plano-de-aula" className="link-acao">
+                      {t.nome} — sem registro da aula de ontem.
+                    </Link>
+                  </li>
+                ))}
+                {turmasComAvaliacaoPendente.map((nome) => (
+                  <li key={nome}>
+                    <Link to="/notas" className="link-acao">
+                      {nome} — tem avaliação sem nenhuma nota lançada.
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {alunosComBaixaFrequenciaLista.length > 0 && (
+              <div>
+                <span className="texto-suave">Alunos com baixa frequência:</span>
+                <ul className="lista-eventos">
+                  {alunosComBaixaFrequenciaLista.map((a) => (
+                    <li key={a.id} className="evento-item">
+                      <div className="evento-info">
+                        <Link to={`/alunos?turma=${a.turmaId}`} className="link-acao">
+                          <strong>{a.nome}</strong>
+                        </Link>
+                        <span className="evento-turma">{a.turmaNome}</span>
+                      </div>
+                      <span className="pill pill-recuperacao">{a.percentual}%</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         ) : (
           <p className="texto-suave">Nenhuma pendência no momento. 🎉</p>
         )}
       </section>
-
-      {alunosComBaixaFrequenciaLista.length > 0 && (
-        <section className="painel">
-          <div className="painel-head">
-            <h2>Alunos com baixa frequência</h2>
-            <Link to="/frequencia" className="link-acao">
-              Ver presença
-            </Link>
-          </div>
-          <ul className="lista-eventos">
-            {alunosComBaixaFrequenciaLista.map((a) => (
-              <li key={a.id} className="evento-item">
-                <div className="evento-info">
-                  <Link to={`/alunos?turma=${a.turmaId}`} className="link-acao">
-                    <strong>{a.nome}</strong>
-                  </Link>
-                  <span className="evento-turma">{a.turmaNome}</span>
-                </div>
-                <span className="pill pill-recuperacao">{a.percentual}%</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
 
       <section className="painel">
         <div className="painel-head">

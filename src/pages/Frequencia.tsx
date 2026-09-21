@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
@@ -292,6 +293,11 @@ export function Frequencia() {
       {turmasDoAno.length === 0 ? (
         <div className="vazio painel">
           <p>Nenhuma turma cadastrada no ano letivo {anoAtivo}.</p>
+          {!somenteLeitura && (
+            <Link to="/turmas" className="btn btn-primario">
+              Ir para Turmas
+            </Link>
+          )}
         </div>
       ) : turmasDaEscola.length === 0 ? (
         <div className="vazio painel">

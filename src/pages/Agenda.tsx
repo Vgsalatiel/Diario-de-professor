@@ -246,7 +246,7 @@ export function Agenda() {
         <div className="vazio painel">
           <p>
             {filtro === 'proximos'
-              ? 'Nenhum evento futuro. Que tal agendar a próxima prova?'
+              ? 'Nenhum evento futuro agendado.'
               : filtro === 'concluidos'
                 ? diaFiltro
                   ? 'Nenhum evento concluído nesse dia.'
