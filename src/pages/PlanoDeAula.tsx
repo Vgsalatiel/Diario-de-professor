@@ -8,6 +8,7 @@ import { formatarData } from '../lib/eventos'
 import { Drawer } from '../components/Drawer'
 import { EditorRico } from '../components/EditorRico'
 import { resumoTexto } from '../lib/texto'
+import { hojeISO } from '../lib/data'
 
 // Mesma lógica de backend/src/lib/diasAula.ts — usada aqui só pra mostrar
 // "N aulas neste período" antes de gerar, sem precisar chamar a API. Usa
@@ -50,18 +51,23 @@ const ROTULO_DURACAO: Record<DuracaoPlano, string> = {
   personalizado: 'Personalizado',
 }
 
-const hojeISO = () => new Date().toISOString().slice(0, 10)
-
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 function mesAbrev(iso: string): string {
   return MESES[Number(iso.split('-')[1]) - 1] ?? ''
 }
 
+// Usa componentes locais (getFullYear/getMonth/getDate), não toISOString —
+// toISOString converte pra UTC e pode deslocar a data em até um dia
+// dependendo do fuso do navegador (mesma família de bug do hojeISO, ver
+// src/lib/data.ts).
 function adicionarDias(iso: string, dias: number): string {
   if (!iso) return iso
   const d = new Date(iso + 'T00:00:00')
   d.setDate(d.getDate() + dias)
-  return d.toISOString().slice(0, 10)
+  const ano = d.getFullYear()
+  const mes = String(d.getMonth() + 1).padStart(2, '0')
+  const dia = String(d.getDate()).padStart(2, '0')
+  return `${ano}-${mes}-${dia}`
 }
 
 // Funções (não constantes) pra "hoje" ser sempre o dia de verdade — se

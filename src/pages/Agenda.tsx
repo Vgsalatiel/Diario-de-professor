@@ -4,11 +4,10 @@ import { useToast } from '../context/ToastContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
 import type { Evento, TipoEvento } from '../types'
 import { corTipo, formatarData, rotuloTipo } from '../lib/eventos'
+import { hojeISO } from '../lib/data'
 import { Modal } from '../components/Modal'
 
 const TIPOS: TipoEvento[] = ['prova', 'trabalho', 'reuniao', 'outro']
-
-const hojeISO = () => new Date().toISOString().slice(0, 10)
 
 const VAZIO = {
   titulo: '',

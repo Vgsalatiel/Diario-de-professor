@@ -6,6 +6,7 @@ import type { Periodo, SistemaPeriodo } from '../types'
 import { calcularFrequencia, chavePresenca, proximoEstado } from '../lib/frequencia'
 import { opcoesPeriodo, rotuloSistema, turmaInicial } from '../lib/periodos'
 import { formatarData } from '../lib/eventos'
+import { hojeISO } from '../lib/data'
 import {
   diaValidoMaisProximo,
   nomeDiaSemana,
@@ -484,6 +485,3 @@ export function Frequencia() {
   )
 }
 
-function hojeISO(): string {
-  return new Date().toISOString().slice(0, 10)
-}
