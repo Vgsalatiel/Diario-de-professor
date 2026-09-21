@@ -3,8 +3,8 @@ import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
 import type { Periodo, SistemaPeriodo } from '../types'
-import { calcularFrequencia, chavePresenca, proximoEstado } from '../lib/frequencia'
-import { opcoesPeriodo, rotuloSistema, turmaInicial } from '../lib/periodos'
+import { chavePresenca, proximoEstado } from '../lib/frequencia'
+import { opcoesPeriodo, turmaInicial } from '../lib/periodos'
 import { formatarData } from '../lib/eventos'
 import { hojeISO } from '../lib/data'
 import {
@@ -189,11 +189,11 @@ export function Frequencia() {
       <div className="stack-lg">
         <header className="pagina-head">
           <div>
-            <h1>Frequência</h1>
+            <h1>Presença</h1>
           </div>
         </header>
         <div className="vazio painel">
-          <p>Cadastre turmas e alunos para registrar frequência.</p>
+          <p>Cadastre turmas e alunos para registrar presença.</p>
         </div>
       </div>
     )
@@ -203,7 +203,7 @@ export function Frequencia() {
     <div className="stack-lg">
       <header className="pagina-head">
         <div>
-          <h1>Frequência</h1>
+          <h1>Presença</h1>
           <p className="pagina-sub">
             Clique no nome do aluno: presente no primeiro clique, falta no
             segundo.
@@ -336,7 +336,7 @@ export function Frequencia() {
 
             {semAulaHoje && (
               <p className="texto-suave">
-                Este dia está marcado como sem aula — não conta na frequência de
+                Este dia está marcado como sem aula — não conta na presença de
                 ninguém. Clique de novo no botão acima para desfazer.
               </p>
             )}
@@ -384,48 +384,6 @@ export function Frequencia() {
                 })}
               </tbody>
             </table>
-          </section>
-
-          <section className="painel">
-            <div className="painel-head">
-              <h2>Resumo do {rotuloSistema(sistemaAtual).toLowerCase()}</h2>
-            </div>
-            {datasDoPeriodo.length === 0 ? (
-              <p className="texto-suave">
-                Nenhuma frequência registrada neste{' '}
-                {rotuloSistema(sistemaAtual).toLowerCase()} ainda.
-              </p>
-            ) : (
-              <table className="tabela">
-                <thead>
-                  <tr>
-                    <th>Aluno</th>
-                    <th>Presença</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {alunosTurma.map((aluno) => {
-                    const resumo = calcularFrequencia(aluno.id, datasDoPeriodo, frequencia)
-                    return (
-                      <tr key={aluno.id}>
-                        <td className="celula-nome">{aluno.nome}</td>
-                        <td>
-                          {resumo.percentual == null ? (
-                            <span className="pill pill-sem-nota">—</span>
-                          ) : (
-                            <span
-                              className={`pill ${resumo.percentual >= 75 ? 'pill-aprovado' : 'pill-recuperacao'}`}
-                            >
-                              {resumo.percentual}%
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            )}
           </section>
         </div>
       )}

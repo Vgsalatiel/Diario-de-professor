@@ -183,7 +183,7 @@ export function Turmas() {
     }
     if (!form.escola.trim()) {
       setErroForm(
-        'Informe a escola — sem isso a turma fica invisível nas telas de Alunos, Notas e Frequência quando você tem mais de uma escola cadastrada.',
+        'Informe a escola — sem isso a turma fica invisível nas telas de Alunos, Notas e Presença quando você tem mais de uma escola cadastrada.',
       )
       return
     }
