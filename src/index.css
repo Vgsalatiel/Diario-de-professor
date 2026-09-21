@@ -574,6 +574,22 @@ input:focus, select:focus, textarea:focus {
   color: var(--ink);
 }
 .card-numero-rotulo { color: var(--muted); font-size: 14px; }
+/* Só os cards que são link (ex.: Dashboard do professor) ganham essa seta —
+   os cards informativos do dashboard do diretor não navegam pra lugar
+   nenhum, então não devem parecer clicáveis. */
+.card-numero-clicavel { position: relative; }
+.card-numero-clicavel::after {
+  content: '→';
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  color: var(--muted);
+  font-size: 16px;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.12s, transform 0.12s;
+}
+.card-numero-clicavel:hover::after { opacity: 1; transform: translateX(0); }
 .card-numero.destaque { border-color: var(--amber); }
 .card-numero.destaque .card-numero-valor { color: var(--amber); }
 .cards-numero-4 { grid-template-columns: repeat(4, 1fr); }

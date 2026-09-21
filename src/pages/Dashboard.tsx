@@ -34,15 +34,15 @@ export function Dashboard() {
       </section>
 
       <section className="cards-numero">
-        <Link to="/turmas" className="card-numero">
+        <Link to="/turmas" className="card-numero card-numero-clicavel">
           <span className="card-numero-valor">{turmas.length}</span>
           <span className="card-numero-rotulo">Turmas cadastradas</span>
         </Link>
-        <Link to="/alunos" className="card-numero">
+        <Link to="/alunos" className="card-numero card-numero-clicavel">
           <span className="card-numero-valor">{alunos.length}</span>
           <span className="card-numero-rotulo">Alunos</span>
         </Link>
-        <Link to="/agenda" className="card-numero destaque">
+        <Link to="/agenda" className="card-numero destaque card-numero-clicavel">
           <span className="card-numero-valor">{avaliacoesProximas}</span>
           <span className="card-numero-rotulo">Avaliações próximas</span>
         </Link>

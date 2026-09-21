@@ -187,7 +187,9 @@ export function Assistente() {
       {aba === 'corrigir' ? (
         <div className="grid-perfil grid-perfil-media">
           <section className="painel">
-            <h2>Enviar exercício</h2>
+            <div className="painel-head">
+              <h2>Enviar exercício</h2>
+            </div>
             <p className="texto-suave">
               Envie uma foto ou arquivo da atividade do aluno para simular uma
               correção.
@@ -224,7 +226,9 @@ export function Assistente() {
           </section>
 
           <section className="painel">
-            <h2>Resultado</h2>
+            <div className="painel-head">
+              <h2>Resultado</h2>
+            </div>
             {!arquivo && !resultado && !analisando && (
               <p className="texto-suave">
                 Em desenvolvimento
@@ -266,7 +270,9 @@ export function Assistente() {
       {aba === 'gerar' && (
         <div className="grid-perfil">
           <section className="painel">
-            <h2>O que você precisa?</h2>
+            <div className="painel-head">
+              <h2>O que você precisa?</h2>
+            </div>
             <div className="form-grid">
               <label className="campo campo-largo">
                 <span>Descreva o exercício</span>
@@ -290,7 +296,9 @@ export function Assistente() {
           </section>
 
           <section className="painel">
-            <h2>Exercício gerado</h2>
+            <div className="painel-head">
+              <h2>Exercício gerado</h2>
+            </div>
             {!exercicio && !gerando && (
               <p className="texto-suave">
                 Descreva o que precisa ao lado e clique em “Gerar exercício”.
@@ -335,7 +343,9 @@ export function Assistente() {
         <div className="stack-lg">
         <div className="grid-perfil grid-perfil-largo">
           <section className="painel">
-            <h2>Exercício personalizado</h2>
+            <div className="painel-head">
+              <h2>Exercício personalizado</h2>
+            </div>
             <p className="texto-suave">
               Gera uma lista de exercícios sob medida pro aluno, com base no assunto e na
               observação de dificuldade/facilidade dele.
@@ -417,7 +427,9 @@ export function Assistente() {
           </section>
 
           <section className="painel">
-            <h2>Exercícios gerados</h2>
+            <div className="painel-head">
+              <h2>Exercícios gerados</h2>
+            </div>
             {!exercicioPersonalizado && !gerandoPersonalizado && (
               <p className="texto-suave">
                 Escolha o aluno e o assunto ao lado e clique em "Gerar exercícios com IA".
@@ -471,7 +483,9 @@ export function Assistente() {
         </div>
 
         <section className="painel">
-          <h2>Histórico deste aluno</h2>
+          <div className="painel-head">
+            <h2>Histórico deste aluno</h2>
+          </div>
           {!alunoId && <p className="texto-suave">Escolha um aluno pra ver o histórico dele.</p>}
           {alunoId && carregandoHistorico && (
             <p className="texto-suave">Carregando histórico…</p>

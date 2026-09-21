@@ -107,7 +107,9 @@ export function Perfil() {
         </section>
 
         <section className="painel">
-          <h2>Dados pessoais</h2>
+          <div className="painel-head">
+            <h2>Dados pessoais</h2>
+          </div>
           <div className="form-grid">
             <label className="campo">
               <span>Nome</span>

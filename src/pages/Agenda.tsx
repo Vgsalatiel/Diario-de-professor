@@ -176,7 +176,7 @@ export function Agenda() {
           </button>
         ) : (
           <button className="btn btn-primario" onClick={abrirNovoFeriado}>
-            + Feriado/dia sem aula
+            Novo feriado/dia sem aula
           </button>
         )}
       </header>

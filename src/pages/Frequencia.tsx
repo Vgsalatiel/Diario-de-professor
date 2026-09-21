@@ -384,7 +384,9 @@ export function Frequencia() {
           </section>
 
           <section className="painel">
-            <h2>Resumo do {rotuloSistema(sistemaAtual).toLowerCase()}</h2>
+            <div className="painel-head">
+              <h2>Resumo do {rotuloSistema(sistemaAtual).toLowerCase()}</h2>
+            </div>
             {datasDoPeriodo.length === 0 ? (
               <p className="texto-suave">
                 Nenhuma frequência registrada neste{' '}

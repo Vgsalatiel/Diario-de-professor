@@ -678,7 +678,7 @@ export function PlanoDeAulaPage() {
                           <strong>{formatarData(e.data)}</strong> — {e.titulo}
                         </span>
                         {!somenteLeitura && (
-                          <button className="icon-btn" aria-label="Excluir prova" onClick={() => excluirProva(e.id)}>
+                          <button className="remover-col" aria-label="Excluir prova" onClick={() => excluirProva(e.id)}>
                             ✕
                           </button>
                         )}
@@ -773,7 +773,7 @@ export function PlanoDeAulaPage() {
                         </span>
                         {!somenteLeitura && (
                           <button
-                            className="icon-btn"
+                            className="remover-col"
                             aria-label="Excluir atividade"
                             onClick={() => excluirAtividade(e.id)}
                           >
