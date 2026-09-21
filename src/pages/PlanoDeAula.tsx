@@ -152,6 +152,10 @@ export function PlanoDeAulaPage() {
   const [formRegistro, setFormRegistro] = useState(registroVazio)
   const [resumoBaseRegistro, setResumoBaseRegistro] = useState('')
   const [erroRegistro, setErroRegistro] = useState('')
+  // Só relevante quando o plano tem cronograma: abrir uma aula pra ler o
+  // que já foi registrado não deveria deixar o formulário de edição
+  // aberto pra sempre — o professor fecha com o "✕" se só queria ver.
+  const [formRegistroAberto, setFormRegistroAberto] = useState(false)
   const formRegistroRef = useRef<HTMLDivElement>(null)
   const [conteudoEditado, setConteudoEditado] = useState<string | null>(null)
   const [salvandoRegistro, setSalvandoRegistro] = useState(false)
@@ -310,6 +314,7 @@ export function PlanoDeAulaPage() {
     setFormRegistro({ ...vazio, planoItemNumero: sugestao?.numero ?? '' })
     setResumoBaseRegistro('')
     setErroRegistro('')
+    setFormRegistroAberto(false)
     setAbaVer('conteudo')
     setDrawer('ver')
   }
@@ -613,6 +618,7 @@ export function PlanoDeAulaPage() {
     setFormRegistro({ data: item.data, resumo, planoItemNumero: item.numero })
     setResumoBaseRegistro(resumo)
     setErroRegistro('')
+    setFormRegistroAberto(true)
     formRegistroRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
@@ -621,7 +627,16 @@ export function PlanoDeAulaPage() {
     setFormRegistro(registroVazio())
     setResumoBaseRegistro('')
     setErroRegistro('')
+    setFormRegistroAberto(true)
     formRegistroRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  function fecharFormRegistro() {
+    if (!podeTrocarRegistro()) return
+    setFormRegistro(registroVazio())
+    setResumoBaseRegistro('')
+    setErroRegistro('')
+    setFormRegistroAberto(false)
   }
 
   async function salvarRegistro() {
@@ -643,6 +658,7 @@ export function PlanoDeAulaPage() {
       notificar('Registro da aula salvo.')
       setFormRegistro(registroVazio())
       setResumoBaseRegistro('')
+      setFormRegistroAberto(false)
     } catch {
       // erro já notificado pelo DataContext
     } finally {
@@ -1109,7 +1125,7 @@ export function PlanoDeAulaPage() {
                   </>
                 )}
 
-                {!somenteLeitura && (
+                {!somenteLeitura && (!temCronograma || formRegistroAberto) && (
                   <div ref={formRegistroRef}>
                 <hr className="divisor" />
 
@@ -1119,11 +1135,22 @@ export function PlanoDeAulaPage() {
                       ? `Registro da Aula ${formRegistro.planoItemNumero}`
                       : 'Novo registro'}
                   </h3>
-                  {temCronograma && (
-                    <button className="btn btn-fantasma btn-pequeno" onClick={abrirRegistroLivre}>
-                      Registrar aula fora do cronograma
-                    </button>
-                  )}
+                  <div className="grupo-botoes">
+                    {temCronograma && (
+                      <button className="btn btn-fantasma btn-pequeno" onClick={abrirRegistroLivre}>
+                        Registrar aula fora do cronograma
+                      </button>
+                    )}
+                    {temCronograma && (
+                      <button
+                        className="icon-btn"
+                        onClick={fecharFormRegistro}
+                        aria-label="Fechar formulário de registro"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <label className="campo campo-data-curta">
                   <span>Data</span>
