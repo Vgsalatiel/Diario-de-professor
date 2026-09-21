@@ -2,12 +2,41 @@ import { useEffect, useMemo, useState } from 'react'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
-import type { DuracaoPlano, HabilidadeBncc, Periodo, PlanoDeAula, SistemaPeriodo } from '../types'
+import type { CronogramaItem, DuracaoPlano, Periodo, PlanoDeAula, SistemaPeriodo } from '../types'
 import { opcoesPeriodo, turmaInicial } from '../lib/periodos'
 import { formatarData } from '../lib/eventos'
 import { Drawer } from '../components/Drawer'
 import { EditorRico } from '../components/EditorRico'
 import { resumoTexto } from '../lib/texto'
+
+// Mesma lógica de backend/src/lib/diasAula.ts — usada aqui só pra mostrar
+// "N aulas neste período" antes de gerar, sem precisar chamar a API. Usa
+// componentes locais (getFullYear/getMonth/getDate), não toISOString, pra
+// não deslocar a data por fuso horário.
+function paraISOLocal(d: Date): string {
+  const ano = d.getFullYear()
+  const mes = String(d.getMonth() + 1).padStart(2, '0')
+  const dia = String(d.getDate()).padStart(2, '0')
+  return `${ano}-${mes}-${dia}`
+}
+
+function calcularDatasDeAula(
+  dataInicioISO: string,
+  dataFimISO: string,
+  diasAula: number[],
+  feriados: ReadonlySet<string>,
+): string[] {
+  const dias = diasAula.length > 0 ? diasAula : [1, 2, 3, 4, 5]
+  const datas: string[] = []
+  const atual = new Date(dataInicioISO + 'T00:00:00')
+  const fim = new Date(dataFimISO + 'T00:00:00')
+  while (atual <= fim) {
+    const iso = paraISOLocal(atual)
+    if (dias.includes(atual.getDay()) && !feriados.has(iso)) datas.push(iso)
+    atual.setDate(atual.getDate() + 1)
+  }
+  return datas
+}
 
 const DURACAO_DIAS: Record<DuracaoPlano, number> = {
   quinzenal: 14,
@@ -59,11 +88,11 @@ function atividadeVazia() {
 }
 
 function registroVazio() {
-  return { data: hojeISO(), resumo: '' }
+  return { data: hojeISO(), resumo: '', planoItemNumero: '' as number | '' }
 }
 
 function assistenteIAVazio() {
-  return { tema: '', duracaoMinutos: '50', habilidadeCodigo: '' }
+  return { temaGeral: '' }
 }
 
 // "Quick add" de prova/atividade direto na criação do plano — campos
@@ -77,7 +106,7 @@ function atividadeNovaVazia() {
 }
 
 type DrawerAberto = 'ver' | 'form' | null
-type AbaVer = 'conteudo' | 'provas' | 'atividades' | 'registro'
+type AbaVer = 'conteudo' | 'cronograma' | 'provas' | 'atividades' | 'registro'
 
 export function PlanoDeAulaPage() {
   const {
@@ -85,6 +114,7 @@ export function PlanoDeAulaPage() {
     planosDeAula,
     eventos,
     registrosAula,
+    feriados,
     criarPlanoDeAula,
     atualizarPlanoDeAula,
     removerPlanoDeAula,
@@ -92,7 +122,6 @@ export function PlanoDeAulaPage() {
     removerEvento,
     criarAvaliacao,
     definirRegistroAula,
-    listarHabilidadesBncc,
     gerarPlanoComIA,
   } = useData()
   const { notificar } = useToast()
@@ -118,13 +147,15 @@ export function PlanoDeAulaPage() {
   const [conteudoEditado, setConteudoEditado] = useState<string | null>(null)
   const [salvandoRegistro, setSalvandoRegistro] = useState(false)
 
-  // Assistente de planejamento contextual — gera o conteúdo do plano a
-  // partir de uma habilidade BNCC real da turma selecionada no formulário.
+  // Assistente de planejamento contextual — gera o cronograma do período
+  // inteiro do plano (uma aula planejada por data de aula da turma),
+  // distribuindo habilidades reais da BNCC.
   const [formIA, setFormIA] = useState(assistenteIAVazio)
-  const [habilidadesBncc, setHabilidadesBncc] = useState<HabilidadeBncc[]>([])
-  const [carregandoHabilidades, setCarregandoHabilidades] = useState(false)
   const [gerandoIA, setGerandoIA] = useState(false)
-  const [bnccGerado, setBnccGerado] = useState<{ codigo: string; texto: string } | null>(null)
+  const [cronogramaGerado, setCronogramaGerado] = useState<CronogramaItem[] | null>(null)
+  const [infoGeracao, setInfoGeracao] = useState<{ aulasNoPeriodo: number; aulasGeradas: number } | null>(
+    null,
+  )
 
   // As turmas chegam da API de forma assíncrona — se a página monta antes
   // da primeira turma carregar, escolhe a turma inicial assim que chegar.
@@ -146,28 +177,17 @@ export function PlanoDeAulaPage() {
     turmaDoFormulario?.disciplina && turmaDoFormulario.etapaBncc && turmaDoFormulario.anoSerieBncc,
   )
 
-  // Busca as habilidades BNCC válidas pra turma escolhida no formulário
-  // assim que ela muda — o backend já filtra por etapa/ano/componente dela.
-  useEffect(() => {
-    if (drawer !== 'form' || editando || !podeUsarAssistenteIA) {
-      setHabilidadesBncc([])
-      return
+  const feriadosSet = useMemo(() => new Set(feriados.map((f) => f.data)), [feriados])
+
+  // Quantas aulas cabem no período escolhido no formulário — calculado no
+  // cliente só pra mostrar antes de gerar; o backend recalcula do zero.
+  const aulasNoPeriodoForm = useMemo(() => {
+    if (!turmaDoFormulario || !form.dataInicio || !form.dataFim || form.dataFim < form.dataInicio) {
+      return 0
     }
-    let cancelado = false
-    setCarregandoHabilidades(true)
-    listarHabilidadesBncc(form.turmaId)
-      .then((lista) => {
-        if (!cancelado) setHabilidadesBncc(lista)
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelado) setCarregandoHabilidades(false)
-      })
-    return () => {
-      cancelado = true
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drawer, editando, form.turmaId, podeUsarAssistenteIA])
+    return calcularDatasDeAula(form.dataInicio, form.dataFim, turmaDoFormulario.diasAula, feriadosSet)
+      .length
+  }, [turmaDoFormulario, form.dataInicio, form.dataFim, feriadosSet])
 
   function sistemaDaTurma(turmaId: string): SistemaPeriodo {
     return turmas.find((t) => t.id === turmaId)?.sistemaPeriodo ?? 'semestre'
@@ -256,11 +276,14 @@ export function PlanoDeAulaPage() {
   function abrirVisualizacao(id: string) {
     if (drawer === 'ver' && id === selecionadoId) return
     if (!podeTrocarConteudo()) return
+    const plano = planosDeAula.find((p) => p.id === id)
+    const vazio = registroVazio()
+    const sugestao = plano?.cronograma?.find((item) => item.data === vazio.data)
     setSelecionadoId(id)
     setConteudoEditado(null)
     setFormProva(provaVazia())
     setFormAtividade(atividadeVazia())
-    setFormRegistro(registroVazio())
+    setFormRegistro({ ...vazio, planoItemNumero: sugestao?.numero ?? '' })
     setAbaVer('conteudo')
     setDrawer('ver')
   }
@@ -279,7 +302,8 @@ export function PlanoDeAulaPage() {
     setFormProvaNova(provaNovaVazia())
     setFormAtividadeNova(atividadeNovaVazia())
     setFormIA(assistenteIAVazio())
-    setBnccGerado(null)
+    setCronogramaGerado(null)
+    setInfoGeracao(null)
     setDrawer('form')
   }
 
@@ -300,28 +324,29 @@ export function PlanoDeAulaPage() {
   }
 
   async function gerarComAssistenteIA() {
-    if (!formIA.tema.trim()) {
-      notificar('Informe o tema da aula antes de gerar.')
+    if (!formIA.temaGeral.trim()) {
+      notificar('Informe o tema geral do período antes de gerar.')
       return
     }
-    if (!formIA.habilidadeCodigo) {
-      notificar('Selecione uma habilidade da BNCC antes de gerar.')
+    if (!form.dataInicio || !form.dataFim || form.dataFim < form.dataInicio) {
+      notificar('Informe as datas de início e término do plano antes de gerar.')
       return
     }
     setGerandoIA(true)
     try {
       const resultado = await gerarPlanoComIA(form.turmaId, {
-        tema: formIA.tema.trim(),
-        duracaoMinutos: Number(formIA.duracaoMinutos) || 50,
-        habilidadeCodigo: formIA.habilidadeCodigo,
+        temaGeral: formIA.temaGeral.trim(),
+        dataInicio: form.dataInicio,
+        dataFim: form.dataFim,
       })
       setForm((f) => ({
         ...f,
         titulo: f.titulo.trim() || resultado.titulo,
         conteudo: resultado.conteudo,
       }))
-      setBnccGerado({ codigo: resultado.bnccCodigo, texto: resultado.bnccTexto })
-      notificar('Proposta gerada — revise o conteúdo antes de criar o plano.')
+      setCronogramaGerado(resultado.cronograma)
+      setInfoGeracao({ aulasNoPeriodo: resultado.aulasNoPeriodo, aulasGeradas: resultado.aulasGeradas })
+      notificar('Cronograma gerado — revise antes de criar o plano.')
     } catch {
       // erro já notificado pelo DataContext
     } finally {
@@ -335,6 +360,8 @@ export function PlanoDeAulaPage() {
       duracao,
       dataFim: duracao === 'personalizado' ? f.dataFim : adicionarDias(f.dataInicio, DURACAO_DIAS[duracao]),
     }))
+    setCronogramaGerado(null)
+    setInfoGeracao(null)
   }
 
   function mudarDataInicio(dataInicio: string) {
@@ -343,6 +370,8 @@ export function PlanoDeAulaPage() {
       dataInicio,
       dataFim: f.duracao === 'personalizado' ? f.dataFim : adicionarDias(dataInicio, DURACAO_DIAS[f.duracao]),
     }))
+    setCronogramaGerado(null)
+    setInfoGeracao(null)
   }
 
   async function salvarPlano() {
@@ -378,7 +407,7 @@ export function PlanoDeAulaPage() {
       dataInicio: form.dataInicio,
       dataFim: form.dataFim,
       conteudo: form.conteudo.trim() || undefined,
-      ...(bnccGerado && { bnccCodigo: bnccGerado.codigo, bnccTexto: bnccGerado.texto }),
+      ...(cronogramaGerado && { cronograma: cronogramaGerado }),
     }
     setSalvandoPlano(true)
     try {
@@ -533,11 +562,24 @@ export function PlanoDeAulaPage() {
     if (confirm('Excluir esta atividade? Ela também some da Agenda.')) removerEvento(id)
   }
 
+  // Sugestão pré-marcada pela data (nunca salva sozinha — o professor
+  // sempre confirma, podendo trocar, antes de clicar em "Registrar aula").
+  function mudarDataRegistro(data: string) {
+    const sugestao = selecionado?.cronograma?.find((item) => item.data === data)
+    setFormRegistro((f) => ({ ...f, data, planoItemNumero: sugestao?.numero ?? '' }))
+  }
+
   async function salvarRegistro() {
     if (!selecionado || !formRegistro.resumo.trim() || !formRegistro.data) return
     setSalvandoRegistro(true)
     try {
-      await definirRegistroAula(selecionado.turmaId, formRegistro.data, formRegistro.resumo.trim(), selecionado.id)
+      await definirRegistroAula(
+        selecionado.turmaId,
+        formRegistro.data,
+        formRegistro.resumo.trim(),
+        selecionado.id,
+        formRegistro.planoItemNumero === '' ? undefined : formRegistro.planoItemNumero,
+      )
       notificar('Registro da aula salvo.')
       setFormRegistro(registroVazio())
     } catch {
@@ -574,10 +616,8 @@ export function PlanoDeAulaPage() {
             <span className="evento-tag" style={{ background: turmaAtual?.cor }}>
               {ROTULO_DURACAO[p.duracao]}
             </span>
-            {p.bnccCodigo && (
-              <span className="pill pill-aprovado" title={p.bnccTexto ?? undefined}>
-                BNCC {p.bnccCodigo}
-              </span>
+            {p.cronograma && p.cronograma.length > 0 && (
+              <span className="pill pill-aprovado">Cronograma: {p.cronograma.length} aulas</span>
             )}
             {encerrado && <span className="pill pill-sem-nota">Encerrado</span>}
           </div>
@@ -705,6 +745,14 @@ export function PlanoDeAulaPage() {
               >
                 Conteúdo
               </button>
+              {selecionado.cronograma && selecionado.cronograma.length > 0 && (
+                <button
+                  className={`aba ${abaVer === 'cronograma' ? 'ativa' : ''}`}
+                  onClick={() => setAbaVer('cronograma')}
+                >
+                  Cronograma ({selecionado.cronograma.length})
+                </button>
+              )}
               <button
                 className={`aba ${abaVer === 'provas' ? 'ativa' : ''}`}
                 onClick={() => setAbaVer('provas')}
@@ -742,6 +790,28 @@ export function PlanoDeAulaPage() {
                     </button>
                   </div>
                 )}
+              </div>
+            )}
+
+            {abaVer === 'cronograma' && selecionado.cronograma && (
+              <div>
+                <h3 className="titulo-secao">Aulas planejadas pra este período</h3>
+                <ul className="lista-simples">
+                  {selecionado.cronograma.map((item) => {
+                    const jaRegistrada = registrosDoPlano.some((r) => r.planoItemNumero === item.numero)
+                    return (
+                      <li key={item.numero}>
+                        <span>
+                          <strong>Aula {item.numero}</strong> · {formatarData(item.data)} — {item.subtema}{' '}
+                          <span className="pill pill-aprovado" title={item.habilidadeTexto}>
+                            {item.habilidadeCodigo}
+                          </span>
+                          {jaRegistrada && <span className="pill pill-sem-nota">Já registrada</span>}
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ul>
               </div>
             )}
 
@@ -950,7 +1020,12 @@ export function PlanoDeAulaPage() {
                     {registrosDoPlano.map((r) => (
                       <li key={r.id}>
                         <span>
-                          <strong>{formatarData(r.data)}</strong> — {resumoTexto(r.resumo)}
+                          <strong>{formatarData(r.data)}</strong> — {resumoTexto(r.resumo)}{' '}
+                          {r.bnccCodigo && (
+                            <span className="pill pill-aprovado" title={r.bnccTexto ?? undefined}>
+                              {r.bnccCodigo}
+                            </span>
+                          )}
                         </span>
                       </li>
                     ))}
@@ -966,9 +1041,35 @@ export function PlanoDeAulaPage() {
                   <input
                     type="date"
                     value={formRegistro.data}
-                    onChange={(e) => setFormRegistro((f) => ({ ...f, data: e.target.value }))}
+                    onChange={(e) => mudarDataRegistro(e.target.value)}
                   />
                 </label>
+                {selecionado?.cronograma && selecionado.cronograma.length > 0 && (
+                  <label className="campo campo-largo">
+                    <span>Aula do plano (BNCC)</span>
+                    <select
+                      className="select"
+                      value={formRegistro.planoItemNumero}
+                      onChange={(e) =>
+                        setFormRegistro((f) => ({
+                          ...f,
+                          planoItemNumero: e.target.value ? Number(e.target.value) : '',
+                        }))
+                      }
+                    >
+                      <option value="">— Nenhuma (registro livre) —</option>
+                      {selecionado.cronograma.map((item) => (
+                        <option key={item.numero} value={item.numero}>
+                          Aula {item.numero} · {formatarData(item.data)} — {item.subtema} (
+                          {item.habilidadeCodigo})
+                        </option>
+                      ))}
+                    </select>
+                    <span className="texto-suave">
+                      Sugerido automaticamente pela data — confira antes de salvar.
+                    </span>
+                  </label>
+                )}
                 <div className="campo campo-espacosa">
                   <span>O que foi aplicado</span>
                   <EditorRico
@@ -1027,7 +1128,8 @@ export function PlanoDeAulaPage() {
               onChange={(e) => {
                 setForm({ ...form, turmaId: e.target.value })
                 setFormIA(assistenteIAVazio())
-                setBnccGerado(null)
+                setCronogramaGerado(null)
+                setInfoGeracao(null)
               }}
             >
               <option value="">— Selecione —</option>
@@ -1060,7 +1162,11 @@ export function PlanoDeAulaPage() {
               type="date"
               value={form.dataFim}
               disabled={form.duracao !== 'personalizado'}
-              onChange={(e) => setForm({ ...form, dataFim: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, dataFim: e.target.value })
+                setCronogramaGerado(null)
+                setInfoGeracao(null)
+              }}
             />
           </label>
           <div className="campo campo-largo">
@@ -1091,45 +1197,25 @@ export function PlanoDeAulaPage() {
             ) : (
               <>
                 <p className="texto-suave">
-                  Gera uma proposta de conteúdo alinhada à habilidade da BNCC escolhida, com base
-                  na disciplina, etapa e ano cadastrados na turma — não é um texto genérico.
+                  Gera o cronograma do período inteiro do plano — uma aula planejada pra cada dia de
+                  aula da turma entre a data de início e término, distribuindo habilidades reais da
+                  BNCC ao longo do caminho.{' '}
+                  {aulasNoPeriodoForm > 0 && (
+                    <>
+                      Este período tem <strong>{aulasNoPeriodoForm}</strong>{' '}
+                      {aulasNoPeriodoForm === 1 ? 'aula' : 'aulas'}
+                      {aulasNoPeriodoForm > 40 && ' (o assistente cobre só as primeiras 40)'}.
+                    </>
+                  )}
                 </p>
                 <div className="form-grid form-grid-compacto">
                   <label className="campo campo-largo">
-                    <span>Tema</span>
+                    <span>Tema geral do período</span>
                     <input
-                      value={formIA.tema}
-                      onChange={(e) => setFormIA((f) => ({ ...f, tema: e.target.value }))}
-                      placeholder="Ex.: Frações"
+                      value={formIA.temaGeral}
+                      onChange={(e) => setFormIA({ temaGeral: e.target.value })}
+                      placeholder="Ex.: Frações e números decimais"
                     />
-                  </label>
-                  <label className="campo">
-                    <span>Duração da aula (min)</span>
-                    <input
-                      type="number"
-                      min="5"
-                      step="5"
-                      value={formIA.duracaoMinutos}
-                      onChange={(e) => setFormIA((f) => ({ ...f, duracaoMinutos: e.target.value }))}
-                    />
-                  </label>
-                  <label className="campo campo-largo">
-                    <span>BNCC — habilidade</span>
-                    <select
-                      className="select"
-                      value={formIA.habilidadeCodigo}
-                      disabled={carregandoHabilidades}
-                      onChange={(e) => setFormIA((f) => ({ ...f, habilidadeCodigo: e.target.value }))}
-                    >
-                      <option value="">
-                        {carregandoHabilidades ? 'Carregando habilidades...' : '— Selecionar habilidade —'}
-                      </option>
-                      {habilidadesBncc.map((h) => (
-                        <option key={h.codigo} value={h.codigo}>
-                          {h.codigo} — {h.texto}
-                        </option>
-                      ))}
-                    </select>
                   </label>
                 </div>
                 <div className="acoes-fim">
@@ -1137,16 +1223,31 @@ export function PlanoDeAulaPage() {
                     type="button"
                     className="btn btn-fantasma btn-pequeno"
                     onClick={gerarComAssistenteIA}
-                    disabled={gerandoIA}
+                    disabled={gerandoIA || aulasNoPeriodoForm === 0}
                   >
-                    {gerandoIA ? 'Gerando...' : 'Gerar com IA'}
+                    {gerandoIA ? 'Gerando cronograma...' : 'Gerar com IA'}
                   </button>
                 </div>
-                {bnccGerado && (
-                  <p className="texto-suave">
-                    Conteúdo preenchido a partir de <strong>{bnccGerado.codigo}</strong> — revise antes
-                    de criar o plano.
-                  </p>
+                {cronogramaGerado && infoGeracao && (
+                  <div className="stack-md">
+                    <p className="texto-suave">
+                      Cronograma gerado com <strong>{infoGeracao.aulasGeradas}</strong> de{' '}
+                      {infoGeracao.aulasNoPeriodo} aulas — revise antes de criar o plano.
+                    </p>
+                    <ul className="lista-simples">
+                      {cronogramaGerado.map((item) => (
+                        <li key={item.numero}>
+                          <span>
+                            <strong>Aula {item.numero}</strong> · {formatarData(item.data)} —{' '}
+                            {item.subtema}{' '}
+                            <span className="pill pill-aprovado" title={item.habilidadeTexto}>
+                              {item.habilidadeCodigo}
+                            </span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
               </>
             )}

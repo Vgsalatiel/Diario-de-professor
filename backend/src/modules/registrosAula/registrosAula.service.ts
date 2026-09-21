@@ -2,6 +2,8 @@ import type { RegistroAula } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { planoDoProfessor, turmaDoProfessor } from '../../utils/ownership'
 import { paraDataISO } from '../../utils/serializers'
+import { AppError } from '../../utils/AppError'
+import type { CronogramaItemDto } from '../planos/planos.dto'
 import type { DefinirRegistroAulaDto } from './registrosAula.dto'
 
 function serializar(registro: RegistroAula) {
@@ -25,14 +27,33 @@ export async function definir(
   dados: DefinirRegistroAulaDto,
 ) {
   await turmaDoProfessor(turmaId, professorId)
-  if (dados.planoId) await planoDoProfessor(dados.planoId, professorId)
-  const data = new Date(dados.data)
   const planoId = dados.planoId ?? null
+  let bnccCodigo: string | null = null
+  let bnccTexto: string | null = null
+
+  if (dados.planoId) {
+    const plano = await planoDoProfessor(dados.planoId, professorId)
+
+    // O professor confirma manualmente qual aula do cronograma foi essa
+    // (a tela já sugere pela data, mas nunca salva sozinho) — o número
+    // sempre é revalidado contra o cronograma de verdade do plano aqui,
+    // nunca confiamos no código/texto vindos direto do cliente.
+    if (dados.planoItemNumero != null) {
+      const cronograma = (plano.cronograma as CronogramaItemDto[] | null) ?? []
+      const item = cronograma.find((i) => i.numero === dados.planoItemNumero)
+      if (!item) throw AppError.requisicaoInvalida('Esse item não existe no cronograma do plano.')
+      bnccCodigo = item.habilidadeCodigo
+      bnccTexto = item.habilidadeTexto
+    }
+  }
+
+  const data = new Date(dados.data)
+  const planoItemNumero = dados.planoItemNumero ?? null
 
   const registro = await prisma.registroAula.upsert({
     where: { turmaId_data: { turmaId, data } },
-    update: { resumo: dados.resumo, planoId },
-    create: { turmaId, data, resumo: dados.resumo, planoId },
+    update: { resumo: dados.resumo, planoId, planoItemNumero, bnccCodigo, bnccTexto },
+    create: { turmaId, data, resumo: dados.resumo, planoId, planoItemNumero, bnccCodigo, bnccTexto },
   })
   return serializar(registro)
 }

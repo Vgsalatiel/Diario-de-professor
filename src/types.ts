@@ -147,6 +147,19 @@ export type MapaDeFrequencia = Record<string, boolean | null>
 // decide também a data final ("até quando" vale o plano).
 export type DuracaoPlano = 'quinzenal' | 'semestral' | 'personalizado'
 
+// Uma aula planejada dentro do cronograma de um plano — gerado pelo
+// Assistente de planejamento contextual, cobrindo o período inteiro do
+// plano (não uma aula avulsa). habilidadeCodigo sempre vem validado contra
+// a base real da BNCC, nunca inventado pela IA.
+export interface CronogramaItem {
+  numero: number
+  data: string // ISO
+  habilidadeCodigo: string
+  habilidadeTexto: string
+  subtema: string
+  resumo: string
+}
+
 export interface PlanoDeAula {
   id: string
   turmaId: string
@@ -156,8 +169,7 @@ export interface PlanoDeAula {
   dataFim: string // ISO — até quando esse plano vale
   conteudo?: string // tópicos/conteúdo previsto
   criadoEm: string // ISO datetime — usado pra ordenar os cards por ordem de criação
-  bnccCodigo?: string | null // habilidade usada quando o conteúdo veio do Assistente de IA
-  bnccTexto?: string | null
+  cronograma?: CronogramaItem[] | null // gerado pelo Assistente de planejamento contextual
 }
 
 // "O que foi aplicado no dia" — um resumo por turma+data, mostrado no
@@ -168,4 +180,10 @@ export interface RegistroAula {
   data: string // ISO
   resumo: string
   planoId?: string // plano de aula ao qual esse dia pertence, se houver
+  // Confirmado pelo professor: qual item do cronograma do plano essa aula
+  // corresponde. bnccCodigo/bnccTexto são uma cópia congelada no momento
+  // da confirmação (o cronograma do plano pode mudar depois).
+  planoItemNumero?: number | null
+  bnccCodigo?: string | null
+  bnccTexto?: string | null
 }

@@ -145,42 +145,61 @@ Responda em português do Brasil.`
   }
 }
 
-export interface PlanoGeradoIA {
-  objetivos: string[]
-  desenvolvimento: string[]
-  avaliacao: string
+export interface AulaGeradaIA {
+  numero: number
+  habilidadeCodigo: string
+  subtema: string
+  resumo: string
 }
 
-const SCHEMA_PLANO = {
+export interface CronogramaGeradoIA {
+  visaoGeral: string
+  aulas: AulaGeradaIA[]
+}
+
+const SCHEMA_CRONOGRAMA = {
   type: 'object',
   properties: {
-    objetivos: { type: 'array', items: { type: 'string' } },
-    desenvolvimento: {
-      type: 'array',
-      items: { type: 'string' },
-      description: 'Passos/etapas da aula, na ordem em que acontecem.',
+    visaoGeral: {
+      type: 'string',
+      description: 'Parágrafo curto resumindo o que o período vai cobrir, pro "conteúdo previsto" do plano.',
     },
-    avaliacao: { type: 'string', description: 'Como verificar se a habilidade foi desenvolvida.' },
+    aulas: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          numero: { type: 'integer' },
+          habilidadeCodigo: {
+            type: 'string',
+            description: 'Um dos códigos da lista de habilidades candidatas fornecida — nunca um código fora dela.',
+          },
+          subtema: { type: 'string', description: 'Assunto específico dessa aula, dentro do tema geral.' },
+          resumo: { type: 'string', description: 'O que será trabalhado nessa aula, em 1-2 frases.' },
+        },
+        required: ['numero', 'habilidadeCodigo', 'subtema', 'resumo'],
+      },
+    },
   },
-  required: ['objetivos', 'desenvolvimento', 'avaliacao'],
+  required: ['visaoGeral', 'aulas'],
 }
 
-// Gera uma proposta de plano de aula a partir de um contexto pedagógico
-// estruturado — NUNCA a partir de um prompt solto tipo "crie uma aula
-// sobre frações". O código e o texto da habilidade BNCC já chegam aqui
-// validados contra a base real (backend/src/lib/bncc.ts, buscarHabilidade),
-// então o modelo só usa a habilidade, nunca precisa "lembrar" ou inventar
-// o código — isso evita o risco de alucinação de códigos da BNCC.
-export async function gerarPlanoDeAulaComIA(params: {
+// Gera o cronograma de um plano de aula inteiro (um período — quinzena,
+// semestre etc., não uma aula avulsa) a partir de um contexto pedagógico
+// estruturado. A IA só pode usar códigos da lista de habilidades
+// candidatas fornecida (já filtrada e validada contra a base real da BNCC
+// em backend/src/lib/bncc.ts) — o chamador ainda revalida cada código
+// devolvido antes de aceitar, então mesmo que o modelo "invente" um código
+// fora da lista, ele é descartado, nunca vira aula do cronograma.
+export async function gerarCronogramaComIA(params: {
   etapa: 'fundamental' | 'medio'
   ano: number
   componente: string
   faixaEtaria: string
-  habilidadeCodigo: string
-  habilidadeTexto: string
-  tema: string
-  duracaoMinutos: number
-}): Promise<PlanoGeradoIA> {
+  temaGeral: string
+  quantidadeAulas: number
+  habilidadesCandidatas: { codigo: string; texto: string }[]
+}): Promise<CronogramaGeradoIA> {
   const chave = process.env.GEMINI_API_KEY
   if (!chave) {
     throw AppError.requisicaoInvalida(
@@ -189,22 +208,25 @@ export async function gerarPlanoDeAulaComIA(params: {
   }
 
   const etapaRotulo = params.etapa === 'fundamental' ? 'Ensino Fundamental' : 'Ensino Médio'
-  const prompt = `Você é um professor experiente montando uma proposta de plano de aula alinhada à BNCC (Base Nacional Comum Curricular).
+  const listaHabilidades = params.habilidadesCandidatas
+    .map((h) => `${h.codigo} — ${h.texto}`)
+    .join('\n')
+
+  const prompt = `Você é um professor experiente montando o cronograma de um período letivo inteiro, alinhado à BNCC (Base Nacional Comum Curricular).
 
 Etapa: ${etapaRotulo}
 Ano: ${params.ano}º ano
 Componente: ${params.componente}
 Faixa etária: ${params.faixaEtaria}
-Habilidade BNCC: ${params.habilidadeCodigo} — ${params.habilidadeTexto}
-Tema: ${params.tema}
-Duração: ${params.duracaoMinutos} minutos
+Tema geral do período: ${params.temaGeral}
+Quantidade de aulas no período: ${params.quantidadeAulas}
 
-Monte uma proposta de plano de aula para UMA aula com essa duração, que desenvolva especificamente a habilidade BNCC indicada, adequada à faixa etária. Dê:
-- objetivos: de 2 a 4 objetivos de aprendizagem específicos dessa aula, ligados à habilidade.
-- desenvolvimento: os passos da aula na ordem em que acontecem (ex.: abertura, atividade principal, fechamento), com o tempo aproximado de cada um, somando a duração total informada.
-- avaliacao: uma forma simples de verificar, ainda nessa aula, se a habilidade está sendo desenvolvida.
+Habilidades BNCC disponíveis pra esse componente/ano (use SOMENTE códigos desta lista, nunca invente um código fora dela):
+${listaHabilidades}
 
-Responda em português do Brasil, de forma objetiva e prática para um professor usar em sala.`
+Monte um cronograma com exatamente ${params.quantidadeAulas} aulas numeradas de 1 a ${params.quantidadeAulas}, distribuindo as habilidades da lista de forma pedagógica ao longo do período (pode repetir a mesma habilidade em aulas seguidas quando fizer sentido aprofundar/praticar antes de avançar — não precisa ser uma habilidade nova a cada aula). Pra cada aula, dê um subtema específico dentro do tema geral e um resumo curto do que será trabalhado. Dê também uma visão geral (1 parágrafo) resumindo o que o período inteiro vai cobrir.
+
+Responda em português do Brasil, de forma objetiva e prática para um professor usar no planejamento.`
 
   let resposta: Response | null = null
   for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
@@ -218,7 +240,7 @@ Responda em português do Brasil, de forma objetiva e prática para um professor
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
               responseMimeType: 'application/json',
-              responseSchema: SCHEMA_PLANO,
+              responseSchema: SCHEMA_CRONOGRAMA,
             },
           }),
         },
@@ -241,13 +263,13 @@ Responda em português do Brasil, de forma objetiva e prática para um professor
 
   if (!resposta || !resposta.ok) {
     const detalhe = resposta ? await resposta.text().catch(() => '') : ''
-    console.error('[gemini] erro na API (plano):', resposta?.status, detalhe)
+    console.error('[gemini] erro na API (cronograma):', resposta?.status, detalhe)
     if (resposta?.status === 429) {
       throw AppError.requisicaoInvalida(
         'O serviço de IA atingiu o limite de uso do momento. Aguarde um minuto e tente de novo.',
       )
     }
-    throw AppError.requisicaoInvalida('O serviço de IA não conseguiu gerar o plano agora.')
+    throw AppError.requisicaoInvalida('O serviço de IA não conseguiu gerar o cronograma agora.')
   }
 
   const dados = (await resposta.json()) as {
@@ -256,18 +278,16 @@ Responda em português do Brasil, de forma objetiva e prática para um professor
   const texto = dados.candidates?.[0]?.content?.parts?.[0]?.text
 
   if (!texto) {
-    console.error('[gemini] resposta sem texto (plano):', JSON.stringify(dados).slice(0, 500))
+    console.error('[gemini] resposta sem texto (cronograma):', JSON.stringify(dados).slice(0, 500))
     throw AppError.requisicaoInvalida('O serviço de IA não devolveu um resultado válido.')
   }
 
   try {
-    const resultado = JSON.parse(texto) as PlanoGeradoIA
-    if (!Array.isArray(resultado.objetivos) || !Array.isArray(resultado.desenvolvimento) || !resultado.avaliacao) {
-      throw new Error('formato')
-    }
+    const resultado = JSON.parse(texto) as CronogramaGeradoIA
+    if (!resultado.visaoGeral || !Array.isArray(resultado.aulas)) throw new Error('formato')
     return resultado
   } catch {
-    console.error('[gemini] JSON inválido (plano):', texto.slice(0, 500))
+    console.error('[gemini] JSON inválido (cronograma):', texto.slice(0, 500))
     throw AppError.requisicaoInvalida('O serviço de IA devolveu um resultado num formato inesperado.')
   }
 }

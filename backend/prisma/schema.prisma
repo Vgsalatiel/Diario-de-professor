@@ -309,12 +309,13 @@ model PlanoDeAula {
   conteudo   String?
   criadoEm   DateTime     @default(now())
 
-  // Quando o conteúdo foi gerado pelo Assistente de planejamento
-  // contextual, guarda qual habilidade da BNCC serviu de base — pra
-  // mostrar de onde veio e pra auditoria (o código sempre vem validado
-  // contra a base de dados real da BNCC, nunca inventado pela IA).
-  bnccCodigo String?
-  bnccTexto  String?
+  // Cronograma gerado pelo Assistente de planejamento contextual: um
+  // array de { numero, data, habilidadeCodigo, habilidadeTexto, subtema,
+  // resumo } — uma aula planejada por item, cobrindo o período inteiro do
+  // plano (não só uma aula avulsa). Cada habilidadeCodigo sempre vem
+  // validado contra a base real da BNCC antes de salvar, nunca inventado
+  // pela IA. Null quando o plano foi criado sem o assistente.
+  cronograma Json?
 
   turmaId String
   turma   Turma  @relation(fields: [turmaId], references: [id], onDelete: Cascade)
@@ -338,6 +339,15 @@ model RegistroAula {
 
   planoId String?
   plano   PlanoDeAula? @relation(fields: [planoId], references: [id], onDelete: SetNull)
+
+  // Quando o professor confirma que esse dia corresponde a um item do
+  // cronograma do plano (sugestão pré-marcada pela data, mas sempre
+  // confirmada por ele antes de salvar — nunca automático). bnccCodigo/
+  // bnccTexto são uma cópia do item no momento da confirmação, pra manter
+  // o histórico mesmo que o cronograma do plano mude depois.
+  planoItemNumero Int?
+  bnccCodigo      String?
+  bnccTexto       String?
 
   @@unique([turmaId, data])
   @@index([turmaId])

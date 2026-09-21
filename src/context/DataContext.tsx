@@ -3,12 +3,12 @@ import type {
   Aluno,
   Avaliacao,
   ConfigCalculo,
+  CronogramaItem,
   DataAula,
   Evento,
   EtapaBncc,
   ExercicioGerado,
   Feriado,
-  HabilidadeBncc,
   MapaDeFrequencia,
   MapaDeNotas,
   PlanoDeAula,
@@ -77,18 +77,23 @@ interface DataContextValue {
   criarPlanoDeAula: (dados: Omit<PlanoDeAula, 'id' | 'criadoEm'>) => Promise<PlanoDeAula>
   atualizarPlanoDeAula: (id: string, dados: Partial<PlanoDeAula>) => Promise<void>
   removerPlanoDeAula: (id: string) => void
-  // Assistente de planejamento contextual — lista as habilidades BNCC
-  // válidas pra turma (backend filtra por etapa/ano/componente dela) e gera
-  // uma proposta de conteúdo a partir da habilidade escolhida.
-  listarHabilidadesBncc: (turmaId: string) => Promise<HabilidadeBncc[]>
   // Nomes oficiais dos componentes curriculares da etapa — usados pra
   // preencher o campo "Disciplina" da turma sem risco de digitar um nome
   // que não bate com a base da BNCC.
   listarComponentesBncc: (etapa: EtapaBncc) => Promise<string[]>
+  // Assistente de planejamento contextual — gera o cronograma do período
+  // inteiro do plano (uma aula planejada por data de aula da turma no
+  // intervalo), distribuindo habilidades reais da BNCC.
   gerarPlanoComIA: (
     turmaId: string,
-    dados: { tema: string; duracaoMinutos: number; habilidadeCodigo: string },
-  ) => Promise<{ titulo: string; conteudo: string; bnccCodigo: string; bnccTexto: string }>
+    dados: { temaGeral: string; dataInicio: string; dataFim: string },
+  ) => Promise<{
+    titulo: string
+    conteudo: string
+    cronograma: CronogramaItem[]
+    aulasNoPeriodo: number
+    aulasGeradas: number
+  }>
 
   // Registros de aula ("o que foi aplicado no dia")
   registrosAula: RegistroAula[]
@@ -97,6 +102,7 @@ interface DataContextValue {
     data: string,
     resumo: string,
     planoId?: string,
+    planoItemNumero?: number,
   ) => Promise<void>
 
   // Frequência
@@ -555,21 +561,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
           })
           .catch((erro) => notificar(mensagemErro(erro)))
       },
-      listarHabilidadesBncc: async (turmaId) => {
-        const turma = turmas.find((t) => t.id === turmaId)
-        if (!turma?.etapaBncc || !turma.anoSerieBncc || !turma.disciplina) return []
-        const params = new URLSearchParams({
-          etapa: turma.etapaBncc,
-          ano: String(turma.anoSerieBncc),
-          componente: turma.disciplina,
-        })
-        try {
-          return await api.get<HabilidadeBncc[]>(`/bncc/habilidades?${params}`)
-        } catch (erro) {
-          notificar(mensagemErro(erro))
-          throw erro
-        }
-      },
       gerarPlanoComIA: async (turmaId, dados) => {
         try {
           return await api.post(`/turmas/${turmaId}/planos-de-aula/gerar-ia`, dados)
@@ -587,12 +578,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
       },
 
-      definirRegistroAula: async (turmaId, data, resumo, planoId) => {
+      definirRegistroAula: async (turmaId, data, resumo, planoId, planoItemNumero) => {
         try {
           const registro = await api.put<RegistroAulaApi>(`/turmas/${turmaId}/registros-aula`, {
             data,
             resumo,
             planoId,
+            planoItemNumero,
           })
           const normalizado = normalizarRegistroAula(registro)
           setRegistrosAula((rs) => {
