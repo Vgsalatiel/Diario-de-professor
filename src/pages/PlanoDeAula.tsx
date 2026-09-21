@@ -165,6 +165,7 @@ export function PlanoDeAulaPage() {
   // distribuindo habilidades reais da BNCC.
   const [formIA, setFormIA] = useState(assistenteIAVazio)
   const [gerandoIA, setGerandoIA] = useState(false)
+  const [erroIA, setErroIA] = useState('')
   const [cronogramaGerado, setCronogramaGerado] = useState<CronogramaItem[] | null>(null)
   const [infoGeracao, setInfoGeracao] = useState<{ aulasNoPeriodo: number; aulasGeradas: number } | null>(
     null,
@@ -277,17 +278,6 @@ export function PlanoDeAulaPage() {
   const conteudoSujo =
     conteudoEditado !== null && conteudoEditado !== (selecionado?.conteudo ?? '')
 
-  // Avisa antes de fechar/recarregar a aba com conteúdo não salvo.
-  useEffect(() => {
-    if (!conteudoSujo) return
-    const aoFechar = (e: BeforeUnloadEvent) => {
-      e.preventDefault()
-      e.returnValue = ''
-    }
-    window.addEventListener('beforeunload', aoFechar)
-    return () => window.removeEventListener('beforeunload', aoFechar)
-  }, [conteudoSujo])
-
   function podeTrocarConteudo(): boolean {
     if (!conteudoSujo) return true
     return confirm('Você tem alterações não salvas no conteúdo previsto. Sair mesmo assim?')
@@ -335,6 +325,7 @@ export function PlanoDeAulaPage() {
     setFormIA(assistenteIAVazio())
     setCronogramaGerado(null)
     setInfoGeracao(null)
+    setErroIA('')
     setDrawer('form')
   }
 
@@ -356,13 +347,14 @@ export function PlanoDeAulaPage() {
 
   async function gerarComAssistenteIA() {
     if (!formIA.temaGeral.trim()) {
-      notificar('Informe o tema geral do período antes de gerar.')
+      setErroIA('Informe o tema geral do período antes de gerar.')
       return
     }
     if (!form.dataInicio || !form.dataFim || form.dataFim < form.dataInicio) {
-      notificar('Informe as datas de início e término do plano antes de gerar.')
+      setErroIA('Informe as datas de início e término do plano antes de gerar.')
       return
     }
+    setErroIA('')
     setGerandoIA(true)
     try {
       const resultado = await gerarPlanoComIA(form.turmaId, {
@@ -393,6 +385,7 @@ export function PlanoDeAulaPage() {
     }))
     setCronogramaGerado(null)
     setInfoGeracao(null)
+    setErroIA('')
   }
 
   function mudarDataInicio(dataInicio: string) {
@@ -403,6 +396,7 @@ export function PlanoDeAulaPage() {
     }))
     setCronogramaGerado(null)
     setInfoGeracao(null)
+    setErroIA('')
   }
 
   async function salvarPlano() {
@@ -595,6 +589,19 @@ export function PlanoDeAulaPage() {
 
   const registroSujo = formRegistro.resumo.trim() !== resumoBaseRegistro.trim()
 
+  // Avisa antes de fechar/recarregar a aba com conteúdo previsto OU
+  // resumo de registro não salvos — antes só cobria o conteúdo, então um
+  // resumo digitado no Cronograma podia se perder sem aviso nenhum.
+  useEffect(() => {
+    if (!conteudoSujo && !registroSujo) return
+    const aoFechar = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', aoFechar)
+    return () => window.removeEventListener('beforeunload', aoFechar)
+  }, [conteudoSujo, registroSujo])
+
   function podeTrocarRegistro(): boolean {
     if (!registroSujo) return true
     return confirm('Você tem um resumo não salvo nesse registro. Trocar mesmo assim e perder o texto?')
@@ -702,7 +709,7 @@ export function PlanoDeAulaPage() {
               {ROTULO_DURACAO[p.duracao]}
             </span>
             {p.cronograma && p.cronograma.length > 0 && (
-              <span className="pill pill-aprovado">Cronograma: {p.cronograma.length} aulas</span>
+              <span className="pill pill-info">Cronograma: {p.cronograma.length} aulas</span>
             )}
             {encerrado && <span className="pill pill-sem-nota">Encerrado</span>}
           </div>
@@ -846,7 +853,7 @@ export function PlanoDeAulaPage() {
                 className={`aba ${abaVer === 'registro' ? 'ativa' : ''}`}
                 onClick={() => setAbaVer('registro')}
               >
-                {temCronograma ? `Cronograma (${selecionado.cronograma!.length})` : 'Registro de aula'}
+                Aulas{temCronograma && ` (${selecionado.cronograma!.length})`}
               </button>
             </div>
 
@@ -1077,7 +1084,7 @@ export function PlanoDeAulaPage() {
                             <span>
                               <strong>Aula {item.numero}</strong> · {formatarData(item.data)} —{' '}
                               {item.subtema}{' '}
-                              <span className="pill pill-aprovado" title={item.habilidadeTexto}>
+                              <span className="pill pill-info" title={item.habilidadeTexto}>
                                 {item.habilidadeCodigo}
                               </span>
                             </span>
@@ -1256,6 +1263,7 @@ export function PlanoDeAulaPage() {
                 setFormIA(assistenteIAVazio())
                 setCronogramaGerado(null)
                 setInfoGeracao(null)
+    setErroIA('')
               }}
             >
               <option value="">— Selecione —</option>
@@ -1278,11 +1286,11 @@ export function PlanoDeAulaPage() {
               <option value="personalizado">Personalizado</option>
             </select>
           </label>
-          <label className="campo">
+          <label className="campo campo-data-curta">
             <span>Data de início</span>
             <input type="date" value={form.dataInicio} onChange={(e) => mudarDataInicio(e.target.value)} />
           </label>
-          <label className="campo">
+          <label className="campo campo-data-curta">
             <span>Até quando vale</span>
             <input
               type="date"
@@ -1292,6 +1300,7 @@ export function PlanoDeAulaPage() {
                 setForm({ ...form, dataFim: e.target.value })
                 setCronogramaGerado(null)
                 setInfoGeracao(null)
+    setErroIA('')
               }}
             />
           </label>
@@ -1354,6 +1363,7 @@ export function PlanoDeAulaPage() {
                     {gerandoIA ? 'Gerando cronograma...' : 'Gerar com IA'}
                   </button>
                 </div>
+                {erroIA && <div className="alerta-erro">{erroIA}</div>}
                 {cronogramaGerado && infoGeracao && (
                   <div className="stack-md">
                     <p className="texto-suave">
@@ -1366,7 +1376,7 @@ export function PlanoDeAulaPage() {
                           <span>
                             <strong>Aula {item.numero}</strong> · {formatarData(item.data)} —{' '}
                             {item.subtema}{' '}
-                            <span className="pill pill-aprovado" title={item.habilidadeTexto}>
+                            <span className="pill pill-info" title={item.habilidadeTexto}>
                               {item.habilidadeCodigo}
                             </span>
                           </span>

@@ -804,6 +804,7 @@ input:focus, select:focus, textarea:focus {
 .pill-aprovado { background: var(--verde-claro); color: var(--verde-texto); }
 .pill-recuperacao { background: var(--vermelho-claro); color: var(--vermelho-texto); }
 .pill-sem-nota { background: var(--paper); color: var(--muted); }
+.pill-info { background: var(--indigo-claro); color: var(--indigo); }
 .pill-btn { border: none; cursor: pointer; font: inherit; min-width: 44px; }
 .pill-btn:hover { filter: brightness(0.95); }
 .pill-btn:disabled { cursor: not-allowed; opacity: 0.6; }
@@ -1118,7 +1119,11 @@ input:focus, select:focus, textarea:focus {
 
 .aviso-nao-salvo { color: var(--amber); font-weight: 600; font-size: 13px; }
 
-.form-grid-compacto { margin-top: 12px; }
+/* Campos curtos (data, período, peso) não devem esticar até a largura
+   inteira da coluna do grid — com os drawers bem mais largos agora, um
+   grid fixo de 2 colunas deixava esses campos enormes e esparsos. Colunas
+   flexíveis de 140-220px resolvem pra qualquer largura de tela. */
+.form-grid-compacto { margin-top: 12px; grid-template-columns: repeat(auto-fit, minmax(140px, 220px)); }
 
 .campo-espacosa { margin-top: 14px; }
 .campo-data-curta { max-width: 220px; }

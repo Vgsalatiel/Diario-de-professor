@@ -474,7 +474,7 @@ export function Turmas() {
                 {!form.etapaBncc
                   ? '— Escolha a etapa primeiro —'
                   : carregandoComponentes
-                    ? 'Carregando...'
+                    ? 'Carregando…'
                     : '— Não definida —'}
               </option>
               {componentesBncc.map((m) => (
