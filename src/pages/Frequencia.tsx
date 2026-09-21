@@ -39,7 +39,9 @@ export function Frequencia() {
   const feriadosSet = useMemo(() => new Set(feriados.map((f) => f.data)), [feriados])
 
   const [escolaFiltro, setEscolaFiltro] = useState('todas')
-  const [turmaId, setTurmaId] = useState<string>(() => turmaInicial(turmas))
+  const [turmaId, setTurmaId] = useState<string>(() =>
+    turmaInicial(turmas.filter((t) => t.anoLetivo === anoAtivo)),
+  )
   const [periodo, setPeriodo] = useState<Periodo>('1')
   const [data, setData] = useState<string>(() => {
     const turma = turmas.find((t) => t.id === turmaId)
@@ -51,12 +53,12 @@ export function Frequencia() {
   // que a lista chegar.
   useEffect(() => {
     if (!turmaId && turmas.length > 0) {
-      const id = turmaInicial(turmas)
+      const id = turmaInicial(turmas.filter((t) => t.anoLetivo === anoAtivo))
       const turma = turmas.find((t) => t.id === id)
       setTurmaId(id)
       setData((d) => diaValidoMaisProximo(d, turma?.diasAula ?? DIAS_UTEIS_PADRAO, feriadosSet))
     }
-  }, [turmas, turmaId, feriadosSet])
+  }, [turmas, turmaId, feriadosSet, anoAtivo])
 
   const turmasDoAno = useMemo(
     () => turmas.filter((t) => t.anoLetivo === anoAtivo),

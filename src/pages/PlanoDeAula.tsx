@@ -133,7 +133,9 @@ export function PlanoDeAulaPage() {
   const { notificar } = useToast()
   const { anoAtivo, somenteLeitura } = useAnoLetivo()
 
-  const [turmaFiltro, setTurmaFiltro] = useState<string>(() => turmaInicial(turmas))
+  const [turmaFiltro, setTurmaFiltro] = useState<string>(() =>
+    turmaInicial(turmas.filter((t) => t.anoLetivo === anoAtivo)),
+  )
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null)
   const [drawer, setDrawer] = useState<DrawerAberto>(null)
   const [abaVer, setAbaVer] = useState<AbaVer>('conteudo')
@@ -173,11 +175,14 @@ export function PlanoDeAulaPage() {
 
   // As turmas chegam da API de forma assíncrona — se a página monta antes
   // da primeira turma carregar, escolhe a turma inicial assim que chegar.
+  // Sempre dentre as turmas do ano letivo ativo — turmaInicial(turmas) sem
+  // filtrar deixava a pré-seleção (e o "Novo plano") mirando uma turma de
+  // outro ano, que nem aparece nas opções visíveis.
   useEffect(() => {
     if (!turmaFiltro && turmas.length > 0) {
-      setTurmaFiltro(turmaInicial(turmas))
+      setTurmaFiltro(turmaInicial(turmas.filter((t) => t.anoLetivo === anoAtivo)))
     }
-  }, [turmas, turmaFiltro])
+  }, [turmas, turmaFiltro, anoAtivo])
 
   const turmasDoAno = useMemo(
     () => turmas.filter((t) => t.anoLetivo === anoAtivo),

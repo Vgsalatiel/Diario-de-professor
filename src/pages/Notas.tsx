@@ -29,7 +29,9 @@ export function Notas() {
   const { anoAtivo, somenteLeitura } = useAnoLetivo()
 
   const [escolaFiltro, setEscolaFiltro] = useState('todas')
-  const [turmaId, setTurmaId] = useState<string>(() => turmaInicial(turmas))
+  const [turmaId, setTurmaId] = useState<string>(() =>
+    turmaInicial(turmas.filter((t) => t.anoLetivo === anoAtivo)),
+  )
   const [periodo, setPeriodo] = useState<Periodo>('1')
   const [modalAval, setModalAval] = useState(false)
   const [novaAval, setNovaAval] = useState({ nome: '', peso: '1', periodo: '1' as Periodo })
@@ -41,9 +43,9 @@ export function Notas() {
   // da primeira turma carregar, escolhe a turma inicial assim que chegar.
   useEffect(() => {
     if (!turmaId && turmas.length > 0) {
-      setTurmaId(turmaInicial(turmas))
+      setTurmaId(turmaInicial(turmas.filter((t) => t.anoLetivo === anoAtivo)))
     }
-  }, [turmas, turmaId])
+  }, [turmas, turmaId, anoAtivo])
 
   const turmasDoAno = useMemo(
     () => turmas.filter((t) => t.anoLetivo === anoAtivo),
