@@ -6,6 +6,7 @@ import { authRouter } from './modules/auth/auth.routes'
 import { alunosRouter, turmaAlunosRouter } from './modules/alunos/alunos.routes'
 import { avaliacoesRouter, turmaAvaliacoesRouter } from './modules/avaliacoes/avaliacoes.routes'
 import { eventosRouter } from './modules/eventos/eventos.routes'
+import { alunoEntregasRouter, entregasRouter } from './modules/entregas/entregas.routes'
 import {
   alunoFrequenciaRouter,
   datasAulaRouter,
@@ -61,11 +62,13 @@ app.use('/turmas', autenticar, turmasRouter)
 
 app.use('/alunos/:alunoId/notas', autenticar, alunoNotasRouter)
 app.use('/alunos/:alunoId/frequencia', autenticar, alunoFrequenciaRouter)
+app.use('/alunos/:alunoId/entregas', autenticar, alunoEntregasRouter)
 app.use('/alunos', autenticar, alunosRouter)
 
 app.use('/avaliacoes', autenticar, avaliacoesRouter)
 app.use('/notas', autenticar, notasRouter)
 app.use('/eventos', autenticar, eventosRouter)
+app.use('/entregas', autenticar, entregasRouter)
 app.use('/datas-aula', autenticar, datasAulaRouter)
 app.use('/frequencia', autenticar, frequenciaRouter)
 app.use('/planos-de-aula', autenticar, planosRouter)

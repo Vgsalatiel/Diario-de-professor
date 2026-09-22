@@ -150,6 +150,7 @@ model Aluno {
   notas              Nota[]
   frequencias        Frequencia[]
   exerciciosGerados  ExercicioGerado[]
+  entregas           Entrega[]
 
   @@index([turmaId])
   @@map("alunos")
@@ -299,10 +300,33 @@ model Evento {
   planoId String?
   plano   PlanoDeAula? @relation(fields: [planoId], references: [id], onDelete: SetNull)
 
+  entregas Entrega[]
+
   @@index([professorId])
   @@index([turmaId])
   @@index([planoId])
   @@map("eventos")
+}
+
+// Status de entrega de uma prova/atividade (Evento) por aluno — o professor
+// marca individualmente quem fez, quem ainda não entregou etc.
+enum StatusEntrega {
+  pendente
+  feito
+  naoEntregou
+}
+
+model Entrega {
+  id     String        @id @default(cuid())
+  status StatusEntrega @default(pendente)
+
+  alunoId String
+  aluno   Aluno   @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  eventoId String
+  evento   Evento @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+
+  @@unique([alunoId, eventoId])
+  @@map("entregas")
 }
 
 // Duração que o professor escolhe pro plano: quinzenal, semestral ou uma

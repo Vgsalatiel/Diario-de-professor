@@ -201,6 +201,13 @@ export interface DataAula {
 // true = presente, false = falta, ausência de chave = ainda não lançado
 export type MapaDeFrequencia = Record<string, boolean | null>
 
+// Situação da entrega de uma prova/atividade (Evento) por aluno.
+export type StatusEntrega = 'pendente' | 'feito' | 'naoEntregou'
+
+// Entregas num mapa plano: chave = `${alunoId}::${eventoId}`, ausência de
+// chave = "pendente" (ainda não marcado).
+export type MapaDeEntregas = Record<string, StatusEntrega | undefined>
+
 // Duração que o professor escolhe pro plano — em todos os casos ele
 // decide também a data final ("até quando" vale o plano).
 export type DuracaoPlano = 'quinzenal' | 'semestral' | 'personalizado'

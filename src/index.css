@@ -620,6 +620,46 @@ input:focus, select:focus, textarea:focus {
 .evento-turma { font-size: 12.5px; color: var(--muted); }
 .evento-data { color: var(--ink-suave); font-size: 13.5px; font-weight: 500; }
 
+.entregas-do-dia { margin-top: 4px; }
+.entrega-detalhe {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.entrega-detalhe summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  list-style: none;
+}
+.entrega-detalhe summary::-webkit-details-marker { display: none; }
+.entrega-detalhe[open] summary { margin-bottom: 10px; }
+.lista-entregas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.linha-entrega {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+.linha-entrega:first-child { border-top: none; }
+.grupo-status-entrega { display: flex; gap: 6px; flex-shrink: 0; }
+.status-entrega-btn {
+  border: 1px solid var(--line-forte);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.status-entrega-btn.status-feito.ativo { background: var(--verde-claro); color: var(--verde-texto); border-color: transparent; }
+.status-entrega-btn.status-pendente.ativo { background: var(--indigo-claro); color: var(--indigo); border-color: transparent; }
+.status-entrega-btn.status-naoEntregou.ativo { background: var(--vermelho-claro); color: var(--vermelho-texto); border-color: transparent; }
+
 /* ============================================================
    Perfil
    ============================================================ */

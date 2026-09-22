@@ -11,15 +11,18 @@ import type {
   Feriado,
   MapaDeFrequencia,
   MapaDeConceitos,
+  MapaDeEntregas,
   MapaDeNotas,
   PlanoDeAula,
   RegistroAula,
+  StatusEntrega,
   SugestaoAvaliacao,
   Turma,
 } from '../types'
 import { api, ApiError } from '../lib/api'
 import { chaveNota } from '../lib/media'
 import { chavePresenca } from '../lib/frequencia'
+import { chaveEntrega } from '../lib/entregas'
 import { useAuth } from './AuthContext'
 import { useToast } from './ToastContext'
 
@@ -124,6 +127,10 @@ interface DataContextValue {
   feriados: Feriado[]
   criarFeriado: (data: string, titulo: string) => Promise<void>
   removerFeriado: (id: string) => Promise<void>
+
+  // Entregas de prova/atividade — status por aluno (feito/pendente/não entregou)
+  entregas: MapaDeEntregas
+  definirEntrega: (alunoId: string, eventoId: string, status: StatusEntrega) => void
 }
 
 const DataContext = createContext<DataContextValue | null>(null)
@@ -160,6 +167,11 @@ interface FrequenciaApi {
   alunoId: string
   dataAulaId: string
   presente: boolean | null
+}
+interface EntregaApi {
+  alunoId: string
+  eventoId: string
+  status: StatusEntrega
 }
 interface PlanoApi extends Omit<PlanoDeAula, 'conteudo'> {
   conteudo: string | null
@@ -209,6 +221,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [eventos, setEventos] = useState<Evento[]>([])
   const [datasAula, setDatasAula] = useState<DataAula[]>([])
   const [frequencia, setFrequencia] = useState<MapaDeFrequencia>({})
+  const [entregas, setEntregas] = useState<MapaDeEntregas>({})
   const [planosDeAula, setPlanosDeAula] = useState<PlanoDeAula[]>([])
   const [registrosAula, setRegistrosAula] = useState<RegistroAula[]>([])
   const [feriados, setFeriados] = useState<Feriado[]>([])
@@ -245,6 +258,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setEventos([])
       setDatasAula([])
       setFrequencia({})
+      setEntregas({})
       setPlanosDeAula([])
       setRegistrosAula([])
       setFeriados([])
@@ -263,6 +277,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       api.get<EventoApi[]>('/eventos'),
       api.get<DataAula[]>('/datas-aula'),
       api.get<FrequenciaApi[]>('/frequencia'),
+      api.get<EntregaApi[]>('/entregas'),
       api.get<PlanoApi[]>('/planos-de-aula'),
       api.get<RegistroAulaApi[]>('/registros-aula'),
       api.get<Feriado[]>('/feriados'),
@@ -276,6 +291,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           eventosApi,
           datasAulaApi,
           frequenciaApi,
+          entregasApi,
           planosApi,
           registrosAulaApi,
           feriadosApi,
@@ -300,6 +316,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
           setFrequencia(
             Object.fromEntries(
               frequenciaApi.map((f) => [chavePresenca(f.alunoId, f.dataAulaId), f.presente]),
+            ),
+          )
+          setEntregas(
+            Object.fromEntries(
+              entregasApi.map((e) => [chaveEntrega(e.alunoId, e.eventoId), e.status]),
             ),
           )
           setPlanosDeAula(planosApi.map(normalizarPlano))
@@ -330,6 +351,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       eventos,
       datasAula,
       frequencia,
+      entregas,
       planosDeAula,
       registrosAula,
       carregando,
@@ -391,6 +413,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 if (alunosDaTurma.includes(aId) || datasDaTurma.includes(dId)) {
                   delete copia[k]
                 }
+              }
+              return copia
+            })
+            setEntregas((es) => {
+              const copia = { ...es }
+              for (const k of Object.keys(copia)) {
+                const [aId] = k.split('::')
+                if (alunosDaTurma.includes(aId)) delete copia[k]
               }
               return copia
             })
@@ -469,6 +499,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
             })
             setFrequencia((fs) => {
               const copia = { ...fs }
+              for (const k of Object.keys(copia)) {
+                if (k.startsWith(`${id}::`)) delete copia[k]
+              }
+              return copia
+            })
+            setEntregas((es) => {
+              const copia = { ...es }
               for (const k of Object.keys(copia)) {
                 if (k.startsWith(`${id}::`)) delete copia[k]
               }
@@ -571,7 +608,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
       removerEvento: (id) => {
         api
           .delete(`/eventos/${id}`)
-          .then(() => setEventos((es) => es.filter((e) => e.id !== id)))
+          .then(() => {
+            setEventos((es) => es.filter((e) => e.id !== id))
+            setEntregas((es) => {
+              const copia = { ...es }
+              for (const k of Object.keys(copia)) {
+                if (k.endsWith(`::${id}`)) delete copia[k]
+              }
+              return copia
+            })
+          })
           .catch((erro) => notificar(mensagemErro(erro)))
       },
 
@@ -676,6 +722,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
           })
       },
 
+      definirEntrega: (alunoId, eventoId, status) => {
+        const chave = chaveEntrega(alunoId, eventoId)
+        const anterior = entregas[chave]
+        setEntregas((es) => ({ ...es, [chave]: status }))
+        api
+          .put(`/alunos/${alunoId}/entregas/${eventoId}`, { status })
+          .catch((erro) => {
+            setEntregas((es) => ({ ...es, [chave]: anterior }))
+            notificar(mensagemErro(erro))
+          })
+      },
+
       alternarSemAula: async (turmaId, data, periodo) => {
         try {
           const atualizado = await api.post<DataAula>(
@@ -723,6 +781,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     eventos,
     datasAula,
     frequencia,
+    entregas,
     planosDeAula,
     registrosAula,
     feriados,
