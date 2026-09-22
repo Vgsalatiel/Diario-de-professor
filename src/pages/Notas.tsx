@@ -376,7 +376,7 @@ export function Notas() {
                         return (
                           <td key={av.id} className="col-nota">
                             <select
-                              className="select"
+                              className="select select-conceito"
                               value={c ?? ''}
                               onChange={(e) =>
                                 definirConceito(aluno.id, av.id, e.target.value || null)
