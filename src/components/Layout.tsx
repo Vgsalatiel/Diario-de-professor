@@ -6,7 +6,14 @@ import { useAnoLetivo } from '../context/AnoLetivoContext'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 
-const LINKS = [
+interface LinkNav {
+  to: string
+  rotulo: string
+  icone: string
+  exato?: boolean
+}
+
+const LINKS: LinkNav[] = [
   { to: '/', rotulo: 'Início', icone: '◧', exato: true },
   { to: '/turmas', rotulo: 'Turmas', icone: '▦' },
   { to: '/alunos', rotulo: 'Alunos', icone: '☺' },
@@ -19,7 +26,17 @@ const LINKS = [
   { to: '/perfil', rotulo: 'Perfil', icone: '◑' },
 ]
 
-const LINK_ADMIN = { to: '/admin', rotulo: 'Administração', icone: '⚙', exato: true }
+const LINK_ADMIN: LinkNav = { to: '/admin', rotulo: 'Administração', icone: '⚙', exato: true }
+const LINK_COORDENACAO: LinkNav = { to: '/coordenacao', rotulo: 'Coordenação', icone: '◈', exato: true }
+
+// Conta de coordenação pedagógica pura (sem ser também diretor) não dá
+// aula — as telas de Notas/Presença/Plano de aula etc. não fazem sentido
+// pra ela, então o menu fica só com o essencial.
+const LINKS_COORDENACAO: LinkNav[] = [
+  { to: '/', rotulo: 'Início', icone: '◧', exato: true },
+  LINK_COORDENACAO,
+  { to: '/perfil', rotulo: 'Perfil', icone: '◑' },
+]
 
 export function Layout() {
   const { professora, sair, reenviarVerificacao } = useAuth()
@@ -53,7 +70,11 @@ export function Layout() {
     .map((p) => p[0]?.toUpperCase())
     .join('')
 
-  const links = professora.isAdmin ? [...LINKS, LINK_ADMIN] : LINKS
+  const links = professora.isAdmin
+    ? [...LINKS, LINK_ADMIN, LINK_COORDENACAO]
+    : professora.isCoordenador
+      ? LINKS_COORDENACAO
+      : LINKS
 
   return (
     <div className="app">

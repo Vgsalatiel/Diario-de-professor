@@ -75,7 +75,7 @@ interface DataContextValue {
   atualizarConfig: (turmaId: string, dados: Partial<ConfigCalculo>) => void
 
   // Eventos
-  criarEvento: (dados: Omit<Evento, 'id'>) => Promise<void>
+  criarEvento: (dados: Omit<Evento, 'id' | 'professorId'>) => Promise<void>
   atualizarEvento: (id: string, dados: Partial<Evento>) => void
   removerEvento: (id: string) => void
 

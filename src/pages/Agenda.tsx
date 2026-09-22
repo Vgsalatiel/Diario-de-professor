@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
+import { useAuth } from '../context/AuthContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
 import type { Evento, TipoEvento } from '../types'
 import { corTipo, formatarData, rotuloTipo } from '../lib/eventos'
@@ -27,6 +28,7 @@ const FERIADO_VAZIO = { data: hojeISO(), titulo: '' }
 export function Agenda() {
   const { eventos, turmas, criarEvento, atualizarEvento, removerEvento, feriados, criarFeriado, removerFeriado } =
     useData()
+  const { professora } = useAuth()
   const { notificar } = useToast()
   const { anoAtivo } = useAnoLetivo()
   const [secao, setSecao] = useState<Secao>('eventos')
@@ -300,33 +302,39 @@ export function Agenda() {
                 )}
               </div>
               <div className="evento-cartao-acoes">
-                {e.concluido ? (
-                  <button
-                    className="btn btn-fantasma btn-pequeno"
-                    onClick={() => reabrir(e)}
-                  >
-                    ↺ Reabrir
-                  </button>
+                {e.professorId === professora.id ? (
+                  <>
+                    {e.concluido ? (
+                      <button
+                        className="btn btn-fantasma btn-pequeno"
+                        onClick={() => reabrir(e)}
+                      >
+                        ↺ Reabrir
+                      </button>
+                    ) : (
+                      <button
+                        className="btn btn-fantasma btn-pequeno"
+                        onClick={() => concluir(e)}
+                      >
+                        ✓ Concluir
+                      </button>
+                    )}
+                    <button
+                      className="btn btn-fantasma btn-pequeno"
+                      onClick={() => abrirEdicao(e)}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      className="btn btn-perigo-fantasma btn-pequeno"
+                      onClick={() => excluir(e)}
+                    >
+                      Excluir
+                    </button>
+                  </>
                 ) : (
-                  <button
-                    className="btn btn-fantasma btn-pequeno"
-                    onClick={() => concluir(e)}
-                  >
-                    ✓ Concluir
-                  </button>
+                  <span className="texto-suave">Marcado pela coordenação</span>
                 )}
-                <button
-                  className="btn btn-fantasma btn-pequeno"
-                  onClick={() => abrirEdicao(e)}
-                >
-                  Editar
-                </button>
-                <button
-                  className="btn btn-perigo-fantasma btn-pequeno"
-                  onClick={() => excluir(e)}
-                >
-                  Excluir
-                </button>
               </div>
             </article>
           ))}

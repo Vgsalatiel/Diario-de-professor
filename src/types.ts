@@ -8,6 +8,7 @@ export interface Professora {
   fotoUrl?: string
   emailVerificado: boolean
   isAdmin: boolean
+  isCoordenador: boolean
 }
 
 // Um professor visto pela conta de diretor(a) — resumo pra tela de administração.
@@ -21,6 +22,74 @@ export interface ProfessorResumo {
   totalTurmas: number
   aulasRegistradasHoje: number
   pendencias: number
+}
+
+// Turma vista pela coordenação pedagógica — mesmo formato de TurmaResumoAdmin.
+export type TurmaResumoCoordenacao = TurmaResumoAdmin
+
+// Plano de aula resumido, visto pela coordenação (sem o cronograma inteiro).
+export interface PlanoResumoCoordenacao {
+  id: string
+  titulo: string
+  dataInicio: string
+  dataFim: string
+  turmaNome: string
+}
+
+// Aluno com dificuldade registrada, visto pela coordenação.
+export interface AlunoDificuldadeCoordenacao {
+  id: string
+  nome: string
+  dificuldades: string | null
+  turmaNome?: string
+}
+
+export interface ObservacaoPedagogica {
+  id: string
+  texto: string
+  criadoEm: string
+  autorNome: string
+  turmaNome: string | null
+}
+
+// Detalhe pedagógico de um professor, visto pela coordenação.
+export interface ProfessorDetalheCoordenacao {
+  id: string
+  nome: string
+  email: string
+  materias: string[]
+  criadoEm: string
+  turmas: TurmaResumoCoordenacao[]
+  planosDeAula: PlanoResumoCoordenacao[]
+  alunosComDificuldade: AlunoDificuldadeCoordenacao[]
+  observacoes: ObservacaoPedagogica[]
+}
+
+// Detalhe pedagógico de uma turma, visto pela coordenação.
+export interface TurmaDetalheCoordenacao {
+  id: string
+  nome: string
+  escola: string
+  anoLetivo: string
+  professorId: string
+  professorNome: string
+  totalAlunos: number
+  alunosComDificuldade: AlunoDificuldadeCoordenacao[]
+  mediasPorAvaliacao: { id: string; nome: string; mediaTurma: number | null; totalLancadas: number }[]
+  ultimoRegistroAula: { data: string | null; resumo: string } | null
+  planoAtivo: { id: string; titulo: string; dataInicio: string; dataFim: string } | null
+}
+
+// Evento visto pela coordenação — de qualquer professor/turma da escola.
+export interface EventoEscola {
+  id: string
+  titulo: string
+  tipo: TipoEvento
+  data: string
+  hora: string | null
+  concluido: boolean
+  turmaNome: string | null
+  professorNome: string
 }
 
 // Turma vista pelo painel do(a) diretor(a) — todas as turmas da escola,
@@ -181,6 +250,9 @@ export interface Evento {
   conteudo?: string
   concluido?: boolean
   prazo?: string // ISO — prazo de entrega, usado em eventos do tipo "trabalho"/atividade
+  // Dono do evento — normalmente sou eu mesmo, mas pode ser a coordenação
+  // pedagógica marcando uma reunião numa turma minha. Só o dono edita/exclui.
+  professorId: string
 }
 
 // Notas ficam num mapa plano: chave = `${alunoId}::${avaliacaoId}`

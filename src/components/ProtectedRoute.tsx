@@ -7,12 +7,21 @@ interface ProtectedRouteProps {
   // true: só diretor(a) entra aqui (as telas normais, turmas/alunos/agenda
   // etc., continuam abertas pra diretor(a) também usar com os próprios dados).
   somenteAdmin?: boolean
+  // true: coordenação pedagógica ou diretor(a) — diretor(a) enxerga tudo.
+  somenteCoordenacao?: boolean
 }
 
-export function ProtectedRoute({ children, somenteAdmin = false }: ProtectedRouteProps) {
+export function ProtectedRoute({
+  children,
+  somenteAdmin = false,
+  somenteCoordenacao = false,
+}: ProtectedRouteProps) {
   const { autenticada, carregando, professora } = useAuth()
   if (carregando) return null
   if (!autenticada) return <Navigate to="/login" replace />
   if (somenteAdmin && !professora.isAdmin) return <Navigate to="/" replace />
+  if (somenteCoordenacao && !professora.isCoordenador && !professora.isAdmin) {
+    return <Navigate to="/" replace />
+  }
   return <>{children}</>
 }

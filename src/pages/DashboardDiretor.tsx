@@ -56,19 +56,31 @@ function ListaResumo({ itens, vazio }: { itens: EventoResumo[]; vazio: string })
   )
 }
 
-export function DashboardDiretor() {
+interface DashboardDiretorProps {
+  // Reaproveitado pela conta de coordenação pedagógica — mesmos números,
+  // só que apontando pra /coordenacao em vez de /admin.
+  apiPath?: string
+  linkBase?: string
+  saudacaoRotulo?: string
+}
+
+export function DashboardDiretor({
+  apiPath = '/admin/dashboard',
+  linkBase = '/admin',
+  saudacaoRotulo = 'Diretor(a)',
+}: DashboardDiretorProps) {
   const { professora } = useAuth()
   const [dados, setDados] = useState<DadosDashboard | null>(null)
   const [erro, setErro] = useState('')
 
   useEffect(() => {
     api
-      .get<DadosDashboard>('/admin/dashboard')
+      .get<DadosDashboard>(apiPath)
       .then(setDados)
       .catch((e) => setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar.'))
-  }, [])
+  }, [apiPath])
 
-  const primeiroNome = professora.nome.split(' ')[0] || 'Diretor(a)'
+  const primeiroNome = professora.nome.split(' ')[0] || saudacaoRotulo
 
   if (erro) {
     return (
@@ -102,29 +114,29 @@ export function DashboardDiretor() {
       </section>
 
       <section className="cards-numero">
-        <Link to="/admin?aba=professores" className="card-numero card-numero-clicavel">
+        <Link to={`${linkBase}?aba=professores`} className="card-numero card-numero-clicavel">
           <span className="card-numero-valor">{dados.totais.professores}</span>
           <span className="card-numero-rotulo">Professores</span>
         </Link>
-        <Link to="/admin?aba=turmas" className="card-numero card-numero-clicavel">
+        <Link to={`${linkBase}?aba=turmas`} className="card-numero card-numero-clicavel">
           <span className="card-numero-valor">{dados.totais.turmas}</span>
           <span className="card-numero-rotulo">Turmas</span>
         </Link>
-        <Link to="/admin?aba=alunos" className="card-numero card-numero-clicavel">
+        <Link to={`${linkBase}?aba=alunos`} className="card-numero card-numero-clicavel">
           <span className="card-numero-valor">{dados.totais.alunos}</span>
           <span className="card-numero-rotulo">Alunos</span>
         </Link>
       </section>
 
       <section className="cards-numero">
-        <Link to="/admin?aba=turmas" className="card-numero card-numero-clicavel">
+        <Link to={`${linkBase}?aba=turmas`} className="card-numero card-numero-clicavel">
           <span className="card-numero-valor">
             {dados.totais.frequenciaMedia == null ? '—' : `${dados.totais.frequenciaMedia}%`}
           </span>
           <span className="card-numero-rotulo">Frequência média da escola</span>
         </Link>
         <Link
-          to="/admin?aba=alunos"
+          to={`${linkBase}?aba=alunos`}
           className={`card-numero card-numero-clicavel ${dados.totais.alunosComBaixaFrequencia > 0 ? 'destaque' : ''}`}
         >
           <span className="card-numero-valor">{dados.totais.alunosComBaixaFrequencia}</span>
@@ -170,14 +182,14 @@ export function DashboardDiretor() {
           <ul className="lista-marcada">
             {dados.pendencias.turmasSemRegistroOntem > 0 && (
               <li>
-                <Link to="/admin?aba=turmas" className="link-acao">
+                <Link to={`${linkBase}?aba=turmas`} className="link-acao">
                   {dados.pendencias.turmasSemRegistroOntem} turma(s) sem registro da aula de ontem.
                 </Link>
               </li>
             )}
             {dados.pendencias.turmasComAvaliacaoPendente > 0 && (
               <li>
-                <Link to="/admin?aba=turmas" className="link-acao">
+                <Link to={`${linkBase}?aba=turmas`} className="link-acao">
                   {dados.pendencias.turmasComAvaliacaoPendente} turma(s) com avaliação sem nenhuma nota lançada.
                 </Link>
               </li>

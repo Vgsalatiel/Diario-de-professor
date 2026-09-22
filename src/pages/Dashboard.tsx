@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
@@ -7,7 +7,9 @@ import { rotuloTipo, corTipo, formatarData } from '../lib/eventos'
 import { calcularFrequencia } from '../lib/frequencia'
 import { arredondar, calcularMedia, chaveNota, formatarNota } from '../lib/media'
 import { hojeISO } from '../lib/data'
+import { api } from '../lib/api'
 import { DashboardDiretor } from './DashboardDiretor'
+import type { ObservacaoPedagogica } from '../types'
 
 // Abaixo desse percentual de presença, o aluno entra na contagem de
 // "baixa frequência" — mesmo corte usado na tela de Presença (pill verde
@@ -29,7 +31,26 @@ export function Dashboard() {
     useData()
   const { anoAtivo } = useAnoLetivo()
 
+  const [observacoesRecebidas, setObservacoesRecebidas] = useState<ObservacaoPedagogica[]>([])
+  useEffect(() => {
+    api
+      .get<ObservacaoPedagogica[]>('/observacoes-recebidas')
+      .then(setObservacoesRecebidas)
+      .catch(() => {
+        // silencioso — é só um painel a mais, não trava o dashboard se falhar
+      })
+  }, [])
+
   if (professora.isAdmin) return <DashboardDiretor />
+  if (professora.isCoordenador) {
+    return (
+      <DashboardDiretor
+        apiPath="/coordenacao/dashboard"
+        linkBase="/coordenacao"
+        saudacaoRotulo="Coordenador(a)"
+      />
+    )
+  }
 
   const hoje = new Date()
   hoje.setHours(0, 0, 0, 0)
@@ -291,6 +312,25 @@ export function Dashboard() {
           <p className="texto-suave">Nenhuma pendência no momento. 🎉</p>
         )}
       </section>
+
+      {observacoesRecebidas.length > 0 && (
+        <section className="painel">
+          <div className="painel-head">
+            <h2>Observações da coordenação pedagógica</h2>
+          </div>
+          <ul className="lista-simples">
+            {observacoesRecebidas.slice(0, 5).map((o) => (
+              <li key={o.id}>
+                <span>{o.texto}</span>
+                <span className="texto-suave">
+                  {o.autorNome} · {new Date(o.criadoEm).toLocaleDateString('pt-BR')}
+                  {o.turmaNome && ` · ${o.turmaNome}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="painel">
         <div className="painel-head">

@@ -22,6 +22,7 @@ import { Agenda } from './pages/Agenda'
 import { Assistente } from './pages/Assistente'
 import { Perfil } from './pages/Perfil'
 import { Admin } from './pages/Admin'
+import { Coordenacao } from './pages/Coordenacao'
 
 export default function App() {
   return (
@@ -59,6 +60,14 @@ export default function App() {
                       element={
                         <ProtectedRoute somenteAdmin>
                           <Admin />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/coordenacao"
+                      element={
+                        <ProtectedRoute somenteCoordenacao>
+                          <Coordenacao />
                         </ProtectedRoute>
                       }
                     />

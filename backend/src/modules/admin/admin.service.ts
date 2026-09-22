@@ -23,12 +23,12 @@ function ehFeriadoNacional(dataISO: string): boolean {
 // "baixa frequência" — mesmo corte usado na tela de Frequência (pill
 // verde/vermelho) pra o indicador da escola bater com o que o professor
 // já vê na própria turma.
-const LIMIAR_BAIXA_FREQUENCIA = 75
+export const LIMIAR_BAIXA_FREQUENCIA = 75
 
 // Frequência de cada aluno ativo da escola inteira, ignorando dias
 // marcados como "sem aula" — mesma regra de src/lib/frequencia.ts no
 // frontend, só que agregada pra todas as turmas de uma vez.
-async function calcularFrequenciaPorAluno(): Promise<Map<string, number>> {
+export async function calcularFrequenciaPorAluno(): Promise<Map<string, number>> {
   const registros = await prisma.frequencia.findMany({
     where: {
       presente: { not: null },
@@ -87,9 +87,10 @@ async function turmasComAvaliacaoPendenteIds(): Promise<Set<string>> {
   return new Set(turmas.map((t) => t.id))
 }
 
-// Base compartilhada pelas telas de Turmas e Professores — evita calcular
-// a mesma coisa (frequência por turma, pendências) duas vezes.
-async function obterTurmasComMetricas() {
+// Base compartilhada pelas telas de Turmas e Professores (e reaproveitada
+// pelo módulo de coordenação) — evita calcular a mesma coisa (frequência
+// por turma, pendências) duas vezes.
+export async function obterTurmasComMetricas() {
   const anoAtual = hojeNoBrasil().slice(0, 4)
   const hoje = hojeNoBrasil()
 

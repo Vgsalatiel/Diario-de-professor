@@ -29,6 +29,12 @@ model Professor {
   // administração em vez do painel de professor. Só concedido manualmente.
   isAdmin Boolean @default(false)
 
+  // Conta de coordenação pedagógica — acompanha professores/turmas (aulas,
+  // frequência, avaliações, planejamento, dificuldades) e organiza reuniões
+  // e observações, mas não administra contas/turmas como o(a) diretor(a).
+  // Também só concedido manualmente.
+  isCoordenador Boolean @default(false)
+
   // Recuperação de senha: guardamos o hash do token (nunca o token em si)
   // e a validade — um link de redefinição vale por 1 hora e uso único.
   resetSenhaTokenHash String?
@@ -46,7 +52,34 @@ model Professor {
   eventos  Evento[]
   feriados Feriado[]
 
+  // Observações pedagógicas — as que essa conta escreveu (coordenação) e,
+  // se for professor, as que recebeu sobre o próprio trabalho.
+  observacoesEscritas  ObservacaoPedagogica[] @relation("ObservacoesEscritas")
+  observacoesRecebidas ObservacaoPedagogica[] @relation("ObservacoesRecebidas")
+
   @@map("professores")
+}
+
+// Nota da coordenação pedagógica sobre o trabalho de um professor —
+// opcionalmente amarrada a uma turma específica. Só a coordenação escreve;
+// o professor-alvo só lê (nada de "responder" por ora).
+model ObservacaoPedagogica {
+  id     String @id @default(cuid())
+  texto  String
+  criadoEm DateTime @default(now())
+
+  autorId String
+  autor   Professor @relation("ObservacoesEscritas", fields: [autorId], references: [id], onDelete: Cascade)
+
+  professorAlvoId String
+  professorAlvo   Professor @relation("ObservacoesRecebidas", fields: [professorAlvoId], references: [id], onDelete: Cascade)
+
+  turmaId String?
+  turma   Turma? @relation(fields: [turmaId], references: [id], onDelete: SetNull)
+
+  @@index([professorAlvoId])
+  @@index([autorId])
+  @@map("observacoes_pedagogicas")
 }
 
 // Dia sem aula pra todas as turmas do professor — feriado, recesso, ponto
@@ -117,6 +150,7 @@ model Turma {
   config        ConfigCalculo?
   planosDeAula  PlanoDeAula[]
   registrosAula RegistroAula[]
+  observacoes   ObservacaoPedagogica[]
 
   @@index([professorId])
   @@map("turmas")

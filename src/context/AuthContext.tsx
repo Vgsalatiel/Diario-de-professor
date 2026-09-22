@@ -49,6 +49,7 @@ const PROFESSORA_VAZIA: Professora = {
   materias: [],
   emailVerificado: false,
   isAdmin: false,
+  isCoordenador: false,
 }
 
 function mensagemErro(erro: unknown): string {

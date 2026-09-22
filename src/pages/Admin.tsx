@@ -7,7 +7,7 @@ import type { AlunoResumoAdmin, ProfessorResumo, TurmaResumoAdmin } from '../typ
 
 type Aba = 'professores' | 'turmas' | 'alunos'
 
-function pillFrequencia(percentual: number | null) {
+export function pillFrequencia(percentual: number | null) {
   if (percentual == null) return <span className="pill pill-sem-nota">—</span>
   return (
     <span className={`pill ${percentual >= 75 ? 'pill-aprovado' : 'pill-recuperacao'}`}>{percentual}%</span>
