@@ -293,6 +293,7 @@ input:focus, select:focus, textarea:focus {
   height: 100vh;
 }
 .sidebar .brand { padding: 0 8px 26px; }
+.sidebar-fechar { display: none; }
 
 .nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .nav-link {
@@ -1135,6 +1136,7 @@ input:focus, select:focus, textarea:focus {
   }
   .sidebar.aberta { transform: translateX(0); }
   .menu-toggle { display: inline-flex; }
+  .sidebar-fechar { display: inline-flex; margin-left: auto; }
   .menu-backdrop {
     display: block;
     position: fixed;

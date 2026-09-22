@@ -63,6 +63,13 @@ export function Layout() {
             ≡
           </span>
           <span className="brand-name">Diário</span>
+          <button
+            className="icon-btn sidebar-fechar"
+            onClick={() => setMenuAberto(false)}
+            aria-label="Fechar menu"
+          >
+            ✕
+          </button>
         </div>
 
         <nav className="nav">
