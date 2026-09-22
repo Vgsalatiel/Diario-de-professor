@@ -15,6 +15,19 @@ import { opcoesPeriodo, rotuloSistema, turmaInicial } from '../lib/periodos'
 import { exportarExcel, exportarHTML, exportarPDF } from '../lib/export'
 import { Modal } from '../components/Modal'
 
+// Cabeçalho curto pra coluna de avaliação — o nome completo pode ser bem
+// longo ("A Proclamação da República e seus primeiros anos"), o que
+// deixava a coluna gigante. Detecta prova/atividade pelo começo do nome;
+// o que não bate com nenhum dos dois vira "Aval" genérico. O nome
+// completo continua acessível pelo tooltip (title) do cabeçalho.
+function rotuloCurtoAvaliacao(nome: string, indice: number): string {
+  const numero = indice + 1
+  const n = nome.trim().toLowerCase()
+  if (n.startsWith('prova')) return `Prova${numero}`
+  if (n.startsWith('ativ')) return `Ativ${numero}`
+  return `Aval${numero}`
+}
+
 export function Notas() {
   const {
     turmas,
@@ -331,10 +344,10 @@ export function Notas() {
             <thead>
               <tr>
                 <th className="col-aluno">Aluno</th>
-                {avalsTurma.map((av) => (
+                {avalsTurma.map((av, indice) => (
                   <th key={av.id} className="col-nota">
-                    <span className="th-aval">
-                      {av.nome}
+                    <span className="th-aval" title={av.nome}>
+                      {rotuloCurtoAvaliacao(av.nome, indice)}
                       {config?.modelo === 'ponderada' && (
                         <em className="peso">peso {av.peso}</em>
                       )}
