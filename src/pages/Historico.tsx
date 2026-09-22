@@ -4,18 +4,12 @@ import { useAnoLetivo } from '../context/AnoLetivoContext'
 import { formatarData } from '../lib/eventos'
 import { rotuloTipo, corTipo } from '../lib/eventos'
 import { chavePresenca } from '../lib/frequencia'
-import { chaveEntrega } from '../lib/entregas'
 import { nomeDiaSemana } from '../lib/diasUteis'
 import { turmaInicial } from '../lib/periodos'
 import { hojeISO } from '../lib/data'
 import { resumoTexto } from '../lib/texto'
-import type { Evento, StatusEntrega } from '../types'
-
-const ROTULO_STATUS: Record<StatusEntrega, string> = {
-  feito: 'Feito',
-  pendente: 'Pendente',
-  naoEntregou: 'Não entregou',
-}
+import { EntregasEvento } from '../components/EntregasEvento'
+import type { Evento } from '../types'
 
 interface ItemHistorico {
   data: string
@@ -25,8 +19,7 @@ interface ItemHistorico {
 }
 
 export function Historico() {
-  const { turmas, alunos, datasAula, frequencia, registrosAula, eventos, entregas, definirEntrega } =
-    useData()
+  const { turmas, alunos, datasAula, frequencia, registrosAula, eventos } = useData()
   const { anoAtivo } = useAnoLetivo()
 
   const [escolaFiltro, setEscolaFiltro] = useState('todas')
@@ -118,14 +111,6 @@ export function Historico() {
 
     return Array.from(mapa.values()).sort((a, b) => b.data.localeCompare(a.data))
   }, [turmaId, registrosAula, datasAula, alunos, frequencia, eventos])
-
-  const alunosDaTurma = useMemo(
-    () =>
-      alunos
-        .filter((a) => a.turmaId === turmaId && a.situacao === 'ativo')
-        .sort((a, b) => a.nome.localeCompare(b.nome)),
-    [alunos, turmaId],
-  )
 
   return (
     <div className="stack-lg">
@@ -220,55 +205,18 @@ export function Historico() {
 
                     {item.eventos.length > 0 && (
                       <div className="stack-sm entregas-do-dia">
-                        {item.eventos.map((e) => {
-                          const feitos = alunosDaTurma.filter(
-                            (a) => entregas[chaveEntrega(a.id, e.id)] === 'feito',
-                          ).length
-                          return (
-                            <details key={e.id} className="entrega-detalhe">
-                              <summary>
-                                <span
-                                  className="evento-tag"
-                                  style={{ background: corTipo(e.tipo) }}
-                                >
-                                  {rotuloTipo(e.tipo)}: {e.titulo}
-                                </span>
-                                <span className="texto-suave">
-                                  {feitos}/{alunosDaTurma.length} entregaram
-                                </span>
-                              </summary>
-                              {alunosDaTurma.length === 0 ? (
-                                <p className="texto-suave">Nenhum aluno ativo nesta turma.</p>
-                              ) : (
-                                <ul className="lista-entregas">
-                                  {alunosDaTurma.map((aluno) => {
-                                    const status =
-                                      entregas[chaveEntrega(aluno.id, e.id)] ?? 'pendente'
-                                    return (
-                                      <li key={aluno.id} className="linha-entrega">
-                                        <span>{aluno.nome}</span>
-                                        <div className="grupo-status-entrega">
-                                          {(['feito', 'pendente', 'naoEntregou'] as StatusEntrega[]).map(
-                                            (opcao) => (
-                                              <button
-                                                key={opcao}
-                                                type="button"
-                                                className={`status-entrega-btn status-${opcao} ${status === opcao ? 'ativo' : ''}`}
-                                                onClick={() => definirEntrega(aluno.id, e.id, opcao)}
-                                              >
-                                                {ROTULO_STATUS[opcao]}
-                                              </button>
-                                            ),
-                                          )}
-                                        </div>
-                                      </li>
-                                    )
-                                  })}
-                                </ul>
-                              )}
-                            </details>
-                          )
-                        })}
+                        {item.eventos.map((e) => (
+                          <EntregasEvento
+                            key={e.id}
+                            eventoId={e.id}
+                            turmaId={e.turmaId!}
+                            rotulo={
+                              <span className="evento-tag" style={{ background: corTipo(e.tipo) }}>
+                                {rotuloTipo(e.tipo)}: {e.titulo}
+                              </span>
+                            }
+                          />
+                        ))}
                       </div>
                     )}
 

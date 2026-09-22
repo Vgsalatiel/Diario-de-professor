@@ -6,6 +6,7 @@ import type { Evento, TipoEvento } from '../types'
 import { corTipo, formatarData, rotuloTipo } from '../lib/eventos'
 import { hojeISO } from '../lib/data'
 import { Modal } from '../components/Modal'
+import { EntregasEvento } from '../components/EntregasEvento'
 
 const TIPOS: TipoEvento[] = ['prova', 'trabalho', 'reuniao', 'outro']
 
@@ -293,6 +294,9 @@ export function Agenda() {
                   <span className="evento-data-completa evento-prazo">
                     Entrega até {formatarData(e.prazo)}
                   </span>
+                )}
+                {(e.tipo === 'prova' || e.tipo === 'trabalho') && e.turmaId && (
+                  <EntregasEvento eventoId={e.id} turmaId={e.turmaId} />
                 )}
               </div>
               <div className="evento-cartao-acoes">
