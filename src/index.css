@@ -774,15 +774,19 @@ input:focus, select:focus, textarea:focus {
 .tabela-notas thead .col-aluno { background: var(--paper); }
 .tabela-notas tbody tr:hover .col-aluno { background: var(--linha-hover); }
 .col-nota { text-align: center; }
-.th-aval { display: inline-flex; flex-direction: column; align-items: center; }
+.tabela-notas th.col-nota { text-align: center; position: relative; }
+.th-aval { display: flex; flex-direction: column; align-items: center; }
 .th-aval .peso { font-style: normal; font-weight: 500; color: var(--indigo); font-size: 11px; text-transform: none; }
 .remover-col {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
   border: none;
   background: transparent;
   color: var(--line-forte);
   cursor: pointer;
   font-size: 11px;
-  margin-left: 6px;
 }
 .remover-col:hover { color: var(--vermelho); }
 
@@ -800,8 +804,10 @@ input:focus, select:focus, textarea:focus {
   font-weight: 600;
 }
 .col-media { text-align: center; }
+.tabela-notas th.col-media { text-align: center; }
 .celula-media { font-family: var(--fonte-titulo); font-weight: 700; font-size: 15px; }
 .col-situacao { text-align: center; }
+.tabela-notas th.col-situacao { text-align: center; }
 
 .pill {
   display: inline-block;
