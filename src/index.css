@@ -1186,6 +1186,57 @@ input:focus, select:focus, textarea:focus {
     background-size: 20px 100%, 20px 100%, 10px 100%, 10px 100%;
     background-attachment: local, local, scroll, scroll;
   }
+
+  /* Tabelas "de lista" (Alunos, Notas) viram uma pilha de cards no celular
+     em vez de rolar de lado — uma linha por aluno, cada coluna aparece
+     como rótulo + valor. Evita colunas espremidas e inputs minúsculos. */
+  .rolagem-x:has(.tabela-responsiva) { overflow-x: visible; background: none; }
+  .tabela-responsiva { display: block; }
+  .tabela-responsiva thead { display: none; }
+  .tabela-responsiva tbody,
+  .tabela-responsiva tr {
+    display: block;
+    width: 100%;
+  }
+  .tabela-responsiva tr {
+    margin-bottom: 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--raio);
+    padding: 0 16px;
+  }
+  .tabela-responsiva tr:last-child { margin-bottom: 0; }
+  .tabela-responsiva tbody tr:hover td { background: transparent; }
+  .tabela-responsiva td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--line);
+    white-space: normal;
+    position: static;
+  }
+  .tabela-responsiva td:last-child { border-bottom: none; }
+  .tabela-responsiva td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    font-size: 12.5px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .tabela-responsiva .celula-nome {
+    font-size: 16px;
+    padding: 14px 0;
+    border-bottom: 2px solid var(--line);
+  }
+  .tabela-responsiva .celula-nome::before { content: none; }
+  .tabela-responsiva .col-acoes {
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 10px 0;
+  }
+  .tabela-responsiva .col-acoes::before { content: none; }
+  .tabela-responsiva .celula-vazia { text-align: left; padding: 16px 0; }
 }
 
 /* ============================================================

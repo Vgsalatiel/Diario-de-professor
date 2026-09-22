@@ -334,7 +334,7 @@ export function Alunos() {
           </div>
 
           <div className="painel sem-padding rolagem-x">
-            <table className="tabela">
+            <table className="tabela tabela-responsiva">
               <thead>
                 <tr>
                   <th>Nome completo</th>
@@ -356,8 +356,10 @@ export function Alunos() {
                   lista.map((a) => (
                     <tr key={a.id}>
                       <td className="celula-nome">{a.nome}</td>
-                      <td className="texto-suave">{a.matricula || '—'}</td>
-                      <td>
+                      <td className="texto-suave" data-label="Matrícula">
+                        {a.matricula || '—'}
+                      </td>
+                      <td data-label="Turma">
                         <span
                           className="badge-turma"
                           style={{
@@ -368,10 +370,10 @@ export function Alunos() {
                           {nomeTurma(a.turmaId)}
                         </span>
                       </td>
-                      <td className="texto-suave">
+                      <td className="texto-suave" data-label="Nascimento">
                         {a.dataNascimento ? formatarData(a.dataNascimento) : '—'}
                       </td>
-                      <td>
+                      <td data-label="Situação">
                         <span className={`pill ${situacaoInfo(a.situacao).pill}`}>
                           {situacaoInfo(a.situacao).rotulo}
                         </span>

@@ -340,7 +340,7 @@ export function Notas() {
         </div>
       ) : (
         <div className="painel sem-padding rolagem-x">
-          <table className="tabela tabela-notas">
+          <table className="tabela tabela-notas tabela-responsiva">
             <thead>
               <tr>
                 <th className="col-aluno">Aluno</th>
@@ -383,11 +383,12 @@ export function Notas() {
                 return (
                   <tr key={aluno.id}>
                     <td className="celula-nome col-aluno">{aluno.nome}</td>
-                    {avalsTurma.map((av) => {
+                    {avalsTurma.map((av, indice) => {
+                      const rotuloCol = rotuloCurtoAvaliacao(av.nome, indice)
                       if (ehConceito) {
                         const c = conceitos[chaveNota(aluno.id, av.id)]
                         return (
-                          <td key={av.id} className="col-nota">
+                          <td key={av.id} className="col-nota" data-label={rotuloCol}>
                             <select
                               className="select select-conceito"
                               value={c ?? ''}
@@ -408,7 +409,7 @@ export function Notas() {
                       }
                       const v = notas[chaveNota(aluno.id, av.id)]
                       return (
-                        <td key={av.id} className="col-nota">
+                        <td key={av.id} className="col-nota" data-label={rotuloCol}>
                           <input
                             className="input-nota"
                             inputMode="decimal"
@@ -423,8 +424,10 @@ export function Notas() {
                     })}
                     {!ehConceito && (
                       <>
-                        <td className="col-media celula-media">{formatarNota(media)}</td>
-                        <td className="col-situacao">
+                        <td className="col-media celula-media" data-label="Média">
+                          {formatarNota(media)}
+                        </td>
+                        <td className="col-situacao" data-label="Situação">
                           <span className={`pill pill-${sit}`}>
                             {sit === 'aprovado'
                               ? 'Aprovado'
