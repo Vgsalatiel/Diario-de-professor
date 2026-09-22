@@ -4,7 +4,7 @@ import { planoDoProfessor, turmaDoProfessor } from '../../utils/ownership'
 import { paraDataISO } from '../../utils/serializers'
 import { AppError } from '../../utils/AppError'
 import * as bncc from '../../lib/bncc'
-import { gerarCronogramaComIA } from '../../lib/gemini'
+import { gerarCronogramaComIA, gerarSugestoesAvaliacoesComIA } from '../../lib/gemini'
 import { calcularDatasDeAula } from '../../lib/diasAula'
 import { listarFeriados } from '../feriados/feriados.service'
 import type { AtualizarPlanoDto, CriarPlanoDto, CronogramaItemDto, GerarPlanoIaDto } from './planos.dto'
@@ -14,6 +14,26 @@ import type { AtualizarPlanoDto, CriarPlanoDto, CronogramaItemDto, GerarPlanoIaD
 // (ex.: 5x/semana num semestre inteiro passa de 100). Limita o pedido às
 // primeiras aulas do período — o resto o professor completa manualmente.
 const MAX_AULAS_IA = 40
+
+// Quantidade de avaliações sugeridas pelo assistente junto com o
+// cronograma — 2 atividades mais curtas (formativas) e 2 provas mais
+// completas, cobrindo partes diferentes do tema geral do período.
+const QUANTIDADE_ATIVIDADES_SUGERIDAS = 2
+const QUESTOES_POR_ATIVIDADE_SUGERIDA = 5
+const QUANTIDADE_PROVAS_SUGERIDAS = 2
+const QUESTOES_POR_PROVA_SUGERIDA = 8
+
+// Espalha N datas dentro do período (nunca no primeiro nem no último dia),
+// pra sugerir uma data razoável pra cada atividade/prova — o professor
+// ainda pode trocar antes de aceitar a sugestão.
+function distribuirDatas(datas: string[], quantidade: number): string[] {
+  if (datas.length === 0 || quantidade <= 0) return []
+  return Array.from({ length: quantidade }, (_, i) => {
+    const posicao = Math.round(((i + 1) * datas.length) / (quantidade + 1))
+    const indice = Math.min(datas.length - 1, Math.max(0, posicao))
+    return datas[indice]
+  })
+}
 
 function serializar(plano: PlanoDeAula) {
   return {
@@ -135,15 +155,28 @@ export async function gerarComIA(turmaId: string, professorId: string, dados: Ge
 
   const faixaEtaria = bncc.faixaEtaria(turma.etapaBncc, turma.anoSerieBncc)
 
-  const gerado = await gerarCronogramaComIA({
-    etapa: turma.etapaBncc,
-    ano: turma.anoSerieBncc,
-    componente: turma.disciplina,
-    faixaEtaria,
-    temaGeral: dados.temaGeral,
-    quantidadeAulas: datas.length,
-    habilidadesCandidatas: habilidadesCandidatas.map((h) => ({ codigo: h.codigo, texto: h.texto })),
-  })
+  const [gerado, sugestoes] = await Promise.all([
+    gerarCronogramaComIA({
+      etapa: turma.etapaBncc,
+      ano: turma.anoSerieBncc,
+      componente: turma.disciplina,
+      faixaEtaria,
+      temaGeral: dados.temaGeral,
+      quantidadeAulas: datas.length,
+      habilidadesCandidatas: habilidadesCandidatas.map((h) => ({ codigo: h.codigo, texto: h.texto })),
+    }),
+    gerarSugestoesAvaliacoesComIA({
+      etapa: turma.etapaBncc,
+      ano: turma.anoSerieBncc,
+      componente: turma.disciplina,
+      faixaEtaria,
+      temaGeral: dados.temaGeral,
+      quantidadeAtividades: QUANTIDADE_ATIVIDADES_SUGERIDAS,
+      questoesPorAtividade: QUESTOES_POR_ATIVIDADE_SUGERIDA,
+      quantidadeProvas: QUANTIDADE_PROVAS_SUGERIDAS,
+      questoesPorProva: QUESTOES_POR_PROVA_SUGERIDA,
+    }),
+  ])
 
   const habilidadesPorCodigo = new Map(habilidadesCandidatas.map((h) => [h.codigo, h]))
   const cronograma = gerado.aulas
@@ -163,11 +196,24 @@ export async function gerarComIA(turmaId: string, professorId: string, dados: Ge
       }
     })
 
+  const datasAtividades = distribuirDatas(datas, sugestoes.atividades.length)
+  const datasProvas = distribuirDatas(datas, sugestoes.provas.length)
+
   return {
     titulo: dados.temaGeral,
     conteudo: `<p>${gerado.visaoGeral}</p>`,
     cronograma,
     aulasNoPeriodo: todasAsDatas.length,
     aulasGeradas: cronograma.length,
+    sugestoesAtividades: sugestoes.atividades.map((a, i) => ({
+      titulo: a.titulo,
+      questoes: a.questoes,
+      data: datasAtividades[i],
+    })),
+    sugestoesProvas: sugestoes.provas.map((p, i) => ({
+      titulo: p.titulo,
+      questoes: p.questoes,
+      data: datasProvas[i],
+    })),
   }
 }

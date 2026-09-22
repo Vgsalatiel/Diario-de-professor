@@ -143,6 +143,23 @@ export interface Feriado {
 
 export type TipoEvento = 'prova' | 'trabalho' | 'reuniao' | 'outro'
 
+// Uma questão gerada por IA (mesma forma usada tanto no Assistente de
+// exercícios personalizados quanto nas sugestões de atividade/prova do
+// Assistente de planejamento contextual).
+export interface QuestaoGerada {
+  enunciado: string
+  gabarito: string
+}
+
+// Sugestão de atividade ou prova pronta (com questões), gerada junto com
+// o cronograma — o professor decide se aceita antes de virar avaliação
+// de verdade.
+export interface SugestaoAvaliacao {
+  titulo: string
+  questoes: QuestaoGerada[]
+  data: string // ISO — data sugerida, dentro do período do plano
+}
+
 export interface Evento {
   id: string
   titulo: string

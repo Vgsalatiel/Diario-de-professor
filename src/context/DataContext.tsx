@@ -13,6 +13,7 @@ import type {
   MapaDeNotas,
   PlanoDeAula,
   RegistroAula,
+  SugestaoAvaliacao,
   Turma,
 } from '../types'
 import { api, ApiError } from '../lib/api'
@@ -93,6 +94,8 @@ interface DataContextValue {
     cronograma: CronogramaItem[]
     aulasNoPeriodo: number
     aulasGeradas: number
+    sugestoesAtividades: SugestaoAvaliacao[]
+    sugestoesProvas: SugestaoAvaliacao[]
   }>
 
   // Registros de aula ("o que foi aplicado no dia")

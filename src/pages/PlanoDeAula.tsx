@@ -3,7 +3,14 @@ import { Link } from 'react-router-dom'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
-import type { CronogramaItem, DuracaoPlano, Periodo, PlanoDeAula, SistemaPeriodo } from '../types'
+import type {
+  CronogramaItem,
+  DuracaoPlano,
+  Periodo,
+  PlanoDeAula,
+  SistemaPeriodo,
+  SugestaoAvaliacao,
+} from '../types'
 import { opcoesPeriodo, turmaInicial } from '../lib/periodos'
 import { formatarData } from '../lib/eventos'
 import { Drawer } from '../components/Drawer'
@@ -102,6 +109,16 @@ function assistenteIAVazio() {
   return { temaGeral: '' }
 }
 
+// Formata as questões geradas por IA como HTML — mesmo formato que o
+// EditorRico usa pro "conteúdo cobrado" da prova/atividade.
+function questoesParaHtml(questoes: { enunciado: string; gabarito: string }[]): string {
+  return (
+    '<ol>' +
+    questoes.map((q) => `<li>${q.enunciado}<br><em>Gabarito: ${q.gabarito}</em></li>`).join('') +
+    '</ol>'
+  )
+}
+
 // "Quick add" de prova/atividade direto na criação do plano — campos
 // opcionais que, se preenchidos, viram um evento na Agenda ao salvar.
 function provaNovaVazia() {
@@ -173,6 +190,14 @@ export function PlanoDeAulaPage() {
   const [infoGeracao, setInfoGeracao] = useState<{ aulasNoPeriodo: number; aulasGeradas: number } | null>(
     null,
   )
+  // Sugestões de atividade/prova geradas junto com o cronograma — cada
+  // uma só vira avaliação de verdade se o professor marcar "aceitar" e
+  // depois clicar em "Criar plano" (mesmo fluxo das provas/atividades
+  // avulsas já existentes, pra herdar o planoId certinho).
+  const [sugestoesAtividades, setSugestoesAtividades] = useState<(SugestaoAvaliacao & { aceita: boolean })[]>(
+    [],
+  )
+  const [sugestoesProvas, setSugestoesProvas] = useState<(SugestaoAvaliacao & { aceita: boolean })[]>([])
 
   // As turmas chegam da API de forma assíncrona — se a página monta antes
   // da primeira turma carregar, escolhe a turma inicial assim que chegar.
@@ -330,6 +355,8 @@ export function PlanoDeAulaPage() {
     setFormAtividadeNova(atividadeNovaVazia())
     setFormIA(assistenteIAVazio())
     setCronogramaGerado(null)
+    setSugestoesAtividades([])
+    setSugestoesProvas([])
     setInfoGeracao(null)
     setErroIA('')
     setDrawer('form')
@@ -375,12 +402,24 @@ export function PlanoDeAulaPage() {
       }))
       setCronogramaGerado(resultado.cronograma)
       setInfoGeracao({ aulasNoPeriodo: resultado.aulasNoPeriodo, aulasGeradas: resultado.aulasGeradas })
+      setSugestoesAtividades(resultado.sugestoesAtividades.map((s) => ({ ...s, aceita: false })))
+      setSugestoesProvas(resultado.sugestoesProvas.map((s) => ({ ...s, aceita: false })))
       notificar('Cronograma gerado — revise antes de criar o plano.')
     } catch {
       // erro já notificado pelo DataContext
     } finally {
       setGerandoIA(false)
     }
+  }
+
+  function alternarSugestao(lista: 'atividades' | 'provas', indice: number) {
+    const setter = lista === 'atividades' ? setSugestoesAtividades : setSugestoesProvas
+    setter((atual) => atual.map((s, i) => (i === indice ? { ...s, aceita: !s.aceita } : s)))
+  }
+
+  function mudarDataSugestao(lista: 'atividades' | 'provas', indice: number, data: string) {
+    const setter = lista === 'atividades' ? setSugestoesAtividades : setSugestoesProvas
+    setter((atual) => atual.map((s, i) => (i === indice ? { ...s, data } : s)))
   }
 
   function mudarDuracao(duracao: DuracaoPlano) {
@@ -390,6 +429,8 @@ export function PlanoDeAulaPage() {
       dataFim: duracao === 'personalizado' ? f.dataFim : adicionarDias(f.dataInicio, DURACAO_DIAS[duracao]),
     }))
     setCronogramaGerado(null)
+    setSugestoesAtividades([])
+    setSugestoesProvas([])
     setInfoGeracao(null)
     setErroIA('')
   }
@@ -401,6 +442,8 @@ export function PlanoDeAulaPage() {
       dataFim: f.duracao === 'personalizado' ? f.dataFim : adicionarDias(dataInicio, DURACAO_DIAS[f.duracao]),
     }))
     setCronogramaGerado(null)
+    setSugestoesAtividades([])
+    setSugestoesProvas([])
     setInfoGeracao(null)
     setErroIA('')
   }
@@ -491,6 +534,42 @@ export function PlanoDeAulaPage() {
             periodo: formAtividadeNova.periodo,
           })
         }
+
+        // Sugestões de atividade/prova que o professor aceitou — cada
+        // uma vira um evento (com as questões geradas como conteúdo) e
+        // uma coluna de avaliação, do mesmo jeito que a prova/atividade
+        // avulsa acima, só que várias de uma vez.
+        for (const s of sugestoesAtividades.filter((s) => s.aceita)) {
+          try {
+            await criarEvento({
+              titulo: s.titulo,
+              tipo: 'trabalho',
+              data: s.data,
+              turmaId: dados.turmaId,
+              planoId: criado.id,
+              prazo: s.data,
+              conteudo: questoesParaHtml(s.questoes),
+            })
+          } catch {
+            // erro já notificado pelo DataContext
+          }
+          criarAvaliacao({ turmaId: dados.turmaId, nome: s.titulo, peso: 1, periodo: '1' })
+        }
+        for (const s of sugestoesProvas.filter((s) => s.aceita)) {
+          try {
+            await criarEvento({
+              titulo: s.titulo,
+              tipo: 'prova',
+              data: s.data,
+              turmaId: dados.turmaId,
+              planoId: criado.id,
+              conteudo: questoesParaHtml(s.questoes),
+            })
+          } catch {
+            // erro já notificado pelo DataContext
+          }
+          criarAvaliacao({ turmaId: dados.turmaId, nome: s.titulo, peso: 1, periodo: '1' })
+        }
       }
       // Se o plano foi salvo numa turma diferente da que está filtrada
       // agora, troca o filtro — senão ele "some" da tela sem aviso.
@@ -501,6 +580,8 @@ export function PlanoDeAulaPage() {
       setFormProva(provaVazia())
       setFormAtividade(atividadeVazia())
       setFormRegistro(registroVazio())
+      setSugestoesAtividades([])
+      setSugestoesProvas([])
       setSelecionadoId(planoId)
       setAbaVer('conteudo')
       setDrawer('ver')
@@ -1276,6 +1357,8 @@ export function PlanoDeAulaPage() {
                 setForm({ ...form, turmaId: e.target.value })
                 setFormIA(assistenteIAVazio())
                 setCronogramaGerado(null)
+    setSugestoesAtividades([])
+    setSugestoesProvas([])
                 setInfoGeracao(null)
     setErroIA('')
               }}
@@ -1313,6 +1396,8 @@ export function PlanoDeAulaPage() {
               onChange={(e) => {
                 setForm({ ...form, dataFim: e.target.value })
                 setCronogramaGerado(null)
+    setSugestoesAtividades([])
+    setSugestoesProvas([])
                 setInfoGeracao(null)
     setErroIA('')
               }}
@@ -1397,6 +1482,92 @@ export function PlanoDeAulaPage() {
                         </li>
                       ))}
                     </ul>
+                  </div>
+                )}
+                {(sugestoesAtividades.length > 0 || sugestoesProvas.length > 0) && (
+                  <div className="stack-md">
+                    {sugestoesAtividades.length > 0 && (
+                      <div>
+                        <h4 className="titulo-secao">Atividades sugeridas</h4>
+                        <ul className="lista-simples">
+                          {sugestoesAtividades.map((s, i) => (
+                            <li key={i} className="registro-cronograma-item">
+                              <label className="campo-checkbox">
+                                <input
+                                  type="checkbox"
+                                  checked={s.aceita}
+                                  onChange={() => alternarSugestao('atividades', i)}
+                                />
+                                <span>
+                                  <strong>{s.titulo}</strong> — {s.questoes.length} questões
+                                </span>
+                              </label>
+                              <label className="campo campo-data-curta">
+                                <span>Data</span>
+                                <input
+                                  type="date"
+                                  value={s.data}
+                                  onChange={(e) => mudarDataSugestao('atividades', i, e.target.value)}
+                                />
+                              </label>
+                              <details>
+                                <summary className="texto-suave">Ver questões</summary>
+                                <ol>
+                                  {s.questoes.map((q, qi) => (
+                                    <li key={qi}>
+                                      {q.enunciado}
+                                      <br />
+                                      <em className="texto-suave">Gabarito: {q.gabarito}</em>
+                                    </li>
+                                  ))}
+                                </ol>
+                              </details>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {sugestoesProvas.length > 0 && (
+                      <div>
+                        <h4 className="titulo-secao">Provas sugeridas</h4>
+                        <ul className="lista-simples">
+                          {sugestoesProvas.map((s, i) => (
+                            <li key={i} className="registro-cronograma-item">
+                              <label className="campo-checkbox">
+                                <input
+                                  type="checkbox"
+                                  checked={s.aceita}
+                                  onChange={() => alternarSugestao('provas', i)}
+                                />
+                                <span>
+                                  <strong>{s.titulo}</strong> — {s.questoes.length} questões
+                                </span>
+                              </label>
+                              <label className="campo campo-data-curta">
+                                <span>Data</span>
+                                <input
+                                  type="date"
+                                  value={s.data}
+                                  onChange={(e) => mudarDataSugestao('provas', i, e.target.value)}
+                                />
+                              </label>
+                              <details>
+                                <summary className="texto-suave">Ver questões</summary>
+                                <ol>
+                                  {s.questoes.map((q, qi) => (
+                                    <li key={qi}>
+                                      {q.enunciado}
+                                      <br />
+                                      <em className="texto-suave">Gabarito: {q.gabarito}</em>
+                                    </li>
+                                  ))}
+                                </ol>
+                              </details>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 )}
               </>
