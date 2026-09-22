@@ -16,6 +16,7 @@ import { Turmas } from './pages/Turmas'
 import { Alunos } from './pages/Alunos'
 import { Notas } from './pages/Notas'
 import { Frequencia } from './pages/Frequencia'
+import { Historico } from './pages/Historico'
 import { PlanoDeAulaPage } from './pages/PlanoDeAula'
 import { Agenda } from './pages/Agenda'
 import { Assistente } from './pages/Assistente'
@@ -48,6 +49,7 @@ export default function App() {
                     <Route path="/alunos" element={<Alunos />} />
                     <Route path="/notas" element={<Notas />} />
                     <Route path="/frequencia" element={<Frequencia />} />
+                    <Route path="/historico" element={<Historico />} />
                     <Route path="/plano-de-aula" element={<PlanoDeAulaPage />} />
                     <Route path="/agenda" element={<Agenda />} />
                     <Route path="/assistente" element={<Assistente />} />

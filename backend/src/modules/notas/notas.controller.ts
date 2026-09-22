@@ -9,12 +9,12 @@ export async function listarTodas(req: Request, res: Response) {
 }
 
 export async function definir(req: Request, res: Response) {
-  const { valor } = definirNotaDto.parse(req.body)
+  const dados = definirNotaDto.parse(req.body)
   const nota = await notasService.definir(
     paramId(req.params.alunoId),
     paramId(req.params.avaliacaoId),
     req.professorId,
-    valor,
+    dados,
   )
   res.json(nota)
 }

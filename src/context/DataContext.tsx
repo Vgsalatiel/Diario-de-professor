@@ -10,6 +10,7 @@ import type {
   ExercicioGerado,
   Feriado,
   MapaDeFrequencia,
+  MapaDeConceitos,
   MapaDeNotas,
   PlanoDeAula,
   RegistroAula,
@@ -27,6 +28,7 @@ interface DataContextValue {
   alunos: Aluno[]
   avaliacoes: Avaliacao[]
   notas: MapaDeNotas
+  conceitos: MapaDeConceitos
   configs: ConfigCalculo[]
   eventos: Evento[]
   carregando: boolean
@@ -63,6 +65,7 @@ interface DataContextValue {
 
   // Notas
   definirNota: (alunoId: string, avaliacaoId: string, valor: number | null) => void
+  definirConceito: (alunoId: string, avaliacaoId: string, conceito: string | null) => void
 
   // Configuração de cálculo
   configDaTurma: (turmaId: string) => ConfigCalculo
@@ -129,6 +132,7 @@ const CONFIG_PADRAO = (turmaId: string): ConfigCalculo => ({
   turmaId,
   modelo: 'simples',
   mediaAprovacao: 6.0,
+  tipoAvaliacao: 'nota',
 })
 
 // Respostas cruas da API — o Prisma serializa datas/nulos de um jeito
@@ -150,6 +154,7 @@ interface NotaApi {
   alunoId: string
   avaliacaoId: string
   valor: number | null
+  conceito: string | null
 }
 interface FrequenciaApi {
   alunoId: string
@@ -199,6 +204,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [alunosBrutos, setAlunos] = useState<Aluno[]>([])
   const [avaliacoes, setAvaliacoes] = useState<Avaliacao[]>([])
   const [notas, setNotas] = useState<MapaDeNotas>({})
+  const [conceitos, setConceitos] = useState<MapaDeConceitos>({})
   const [configs, setConfigs] = useState<ConfigCalculo[]>([])
   const [eventos, setEventos] = useState<Evento[]>([])
   const [datasAula, setDatasAula] = useState<DataAula[]>([])
@@ -234,6 +240,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setAlunos([])
       setAvaliacoes([])
       setNotas({})
+      setConceitos({})
       setConfigs([])
       setEventos([])
       setDatasAula([])
@@ -283,6 +290,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
               notasApi.map((n) => [chaveNota(n.alunoId, n.avaliacaoId), n.valor]),
             ),
           )
+          setConceitos(
+            Object.fromEntries(
+              notasApi.map((n) => [chaveNota(n.alunoId, n.avaliacaoId), n.conceito]),
+            ),
+          )
           setEventos(eventosApi.map(normalizarEvento))
           setDatasAula(datasAulaApi)
           setFrequencia(
@@ -313,6 +325,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       alunos,
       avaliacoes,
       notas,
+      conceitos,
       configs,
       eventos,
       datasAula,
@@ -353,6 +366,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
             setConfigs((cs) => cs.filter((c) => c.turmaId !== id))
             setNotas((ns) => {
               const copia = { ...ns }
+              for (const k of Object.keys(copia)) {
+                const [aId, avId] = k.split('::')
+                if (alunosDaTurma.includes(aId) || avalsDaTurma.includes(avId)) {
+                  delete copia[k]
+                }
+              }
+              return copia
+            })
+            setConceitos((cs) => {
+              const copia = { ...cs }
               for (const k of Object.keys(copia)) {
                 const [aId, avId] = k.split('::')
                 if (alunosDaTurma.includes(aId) || avalsDaTurma.includes(avId)) {
@@ -437,6 +460,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
               }
               return copia
             })
+            setConceitos((cs) => {
+              const copia = { ...cs }
+              for (const k of Object.keys(copia)) {
+                if (k.startsWith(`${id}::`)) delete copia[k]
+              }
+              return copia
+            })
             setFrequencia((fs) => {
               const copia = { ...fs }
               for (const k of Object.keys(copia)) {
@@ -474,6 +504,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
               }
               return copia
             })
+            setConceitos((cs) => {
+              const copia = { ...cs }
+              for (const k of Object.keys(copia)) {
+                if (k.endsWith(`::${id}`)) delete copia[k]
+              }
+              return copia
+            })
           })
           .catch((erro) => notificar(mensagemErro(erro)))
       },
@@ -484,6 +521,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setNotas((ns) => ({ ...ns, [chave]: valor }))
         api.put(`/alunos/${alunoId}/notas/${avaliacaoId}`, { valor }).catch((erro) => {
           setNotas((ns) => ({ ...ns, [chave]: anterior }))
+          notificar(mensagemErro(erro))
+        })
+      },
+
+      definirConceito: (alunoId, avaliacaoId, conceito) => {
+        const chave = chaveNota(alunoId, avaliacaoId)
+        const anterior = conceitos[chave] ?? null
+        setConceitos((cs) => ({ ...cs, [chave]: conceito }))
+        api.put(`/alunos/${alunoId}/notas/${avaliacaoId}`, { conceito }).catch((erro) => {
+          setConceitos((cs) => ({ ...cs, [chave]: anterior }))
           notificar(mensagemErro(erro))
         })
       },
@@ -671,6 +718,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     alunos,
     avaliacoes,
     notas,
+    conceitos,
     configs,
     eventos,
     datasAula,

@@ -12,6 +12,7 @@ const LINKS = [
   { to: '/alunos', rotulo: 'Alunos', icone: '☺' },
   { to: '/notas', rotulo: 'Notas', icone: '✎' },
   { to: '/frequencia', rotulo: 'Presença', icone: '☑' },
+  { to: '/historico', rotulo: 'Histórico', icone: '↻' },
   { to: '/plano-de-aula', rotulo: 'Plano de aula', icone: '▤' },
   { to: '/agenda', rotulo: 'Agenda', icone: '▣' },
   { to: '/assistente', rotulo: 'Assistente IA', icone: '✦' },

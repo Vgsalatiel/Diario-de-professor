@@ -197,7 +197,11 @@ model Avaliacao {
 // em formato de string do frontend por uma linha de verdade na tabela).
 model Nota {
   id    String @id @default(cuid())
-  valor Float?
+  valor Float? // usado quando a turma trabalha com nota numérica (0-10)
+
+  // Usado quando a turma trabalha com conceito em vez de nota — turmas
+  // desse tipo nunca usam "valor" (ver ConfigCalculo.tipoAvaliacao).
+  conceito String?
 
   alunoId     String
   aluno       Aluno     @relation(fields: [alunoId], references: [id], onDelete: Cascade)
@@ -244,10 +248,19 @@ enum ModeloCalculo {
   ponderada
 }
 
+// Nota numérica (0-10, com média calculada) ou conceito (texto livre tipo
+// "Ótimo"/"Bom"/"Regular"/"Insuficiente", sem média — cada turma escolhe
+// um dos dois, nunca mistura.
+enum TipoAvaliacao {
+  nota
+  conceito
+}
+
 model ConfigCalculo {
   id             String        @id @default(cuid())
   modelo         ModeloCalculo @default(simples)
   mediaAprovacao Float         @default(6)
+  tipoAvaliacao  TipoAvaliacao @default(nota)
 
   turmaId String @unique
   turma   Turma  @relation(fields: [turmaId], references: [id], onDelete: Cascade)

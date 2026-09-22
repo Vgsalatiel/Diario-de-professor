@@ -124,11 +124,20 @@ export interface Avaliacao {
 
 export type ModeloCalculo = 'simples' | 'ponderada'
 
+// Nota numérica (0-10, com média) ou conceito (texto livre, sem média) —
+// escolhido por turma, nunca os dois ao mesmo tempo.
+export type TipoAvaliacao = 'nota' | 'conceito'
+
+// Opções de conceito oferecidas quando a turma usa esse modo — mesma
+// lista no frontend e usada como referência ao exportar/mostrar.
+export const OPCOES_CONCEITO = ['Ótimo', 'Bom', 'Regular', 'Insuficiente'] as const
+
 // Configuração de como a média é calculada em cada turma
 export interface ConfigCalculo {
   turmaId: string
   modelo: ModeloCalculo
   mediaAprovacao: number
+  tipoAvaliacao: TipoAvaliacao
 }
 
 // Dia sem aula pra toda a escola (feriado, recesso, ponto facultativo) —
@@ -175,6 +184,8 @@ export interface Evento {
 
 // Notas ficam num mapa plano: chave = `${alunoId}::${avaliacaoId}`
 export type MapaDeNotas = Record<string, number | null>
+// Mesma ideia, só que pras turmas que usam conceito em vez de nota.
+export type MapaDeConceitos = Record<string, string | null>
 
 // Uma data de aula dentro de uma turma — cada uma vira uma coluna de chamada
 export interface DataAula {

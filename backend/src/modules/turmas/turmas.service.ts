@@ -8,7 +8,7 @@ import type {
   PromoverTurmaDto,
 } from './turmas.dto'
 
-const CONFIG_PADRAO = { modelo: 'simples' as const, mediaAprovacao: 6 }
+const CONFIG_PADRAO = { modelo: 'simples' as const, mediaAprovacao: 6, tipoAvaliacao: 'nota' as const }
 
 export function listar(professorId: string) {
   return prisma.turma.findMany({

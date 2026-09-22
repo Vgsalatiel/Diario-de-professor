@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
-import type { ModeloCalculo, Periodo, SistemaPeriodo } from '../types'
+import type { ModeloCalculo, Periodo, SistemaPeriodo, TipoAvaliacao } from '../types'
+import { OPCOES_CONCEITO } from '../types'
 import {
   calcularMedia,
   chaveNota,
@@ -20,7 +21,9 @@ export function Notas() {
     alunos,
     avaliacoes,
     notas,
+    conceitos,
     definirNota,
+    definirConceito,
     configDaTurma,
     atualizarConfig,
     criarAvaliacao,
@@ -90,6 +93,7 @@ export function Notas() {
     : '1'
 
   const config = turmaId ? configDaTurma(turmaId) : null
+  const ehConceito = config?.tipoAvaliacao === 'conceito'
   const alunosTurma = useMemo(
     () =>
       alunos
@@ -240,39 +244,60 @@ export function Notas() {
         {config && (
           <>
             <label className="campo-inline">
-              <span>Cálculo da média</span>
+              <span>Tipo de avaliação</span>
               <select
                 className="select"
-                value={config.modelo}
+                value={config.tipoAvaliacao}
                 disabled={somenteLeitura}
                 onChange={(e) =>
                   atualizarConfig(turmaId, {
-                    modelo: e.target.value as ModeloCalculo,
+                    tipoAvaliacao: e.target.value as TipoAvaliacao,
                   })
                 }
               >
-                <option value="simples">Média simples</option>
-                <option value="ponderada">Média ponderada (por peso)</option>
+                <option value="nota">Nota (0 a 10)</option>
+                <option value="conceito">Conceito</option>
               </select>
             </label>
 
-            <label className="campo-inline campo-estreito">
-              <span>Média p/ aprovação</span>
-              <input
-                className="input-num"
-                type="number"
-                min={0}
-                max={10}
-                step={0.5}
-                value={config.mediaAprovacao}
-                disabled={somenteLeitura}
-                onChange={(e) =>
-                  atualizarConfig(turmaId, {
-                    mediaAprovacao: Number(e.target.value) || 0,
-                  })
-                }
-              />
-            </label>
+            {config.tipoAvaliacao === 'nota' && (
+              <>
+                <label className="campo-inline">
+                  <span>Cálculo da média</span>
+                  <select
+                    className="select"
+                    value={config.modelo}
+                    disabled={somenteLeitura}
+                    onChange={(e) =>
+                      atualizarConfig(turmaId, {
+                        modelo: e.target.value as ModeloCalculo,
+                      })
+                    }
+                  >
+                    <option value="simples">Média simples</option>
+                    <option value="ponderada">Média ponderada (por peso)</option>
+                  </select>
+                </label>
+
+                <label className="campo-inline campo-estreito">
+                  <span>Média p/ aprovação</span>
+                  <input
+                    className="input-num"
+                    type="number"
+                    min={0}
+                    max={10}
+                    step={0.5}
+                    value={config.mediaAprovacao}
+                    disabled={somenteLeitura}
+                    onChange={(e) =>
+                      atualizarConfig(turmaId, {
+                        mediaAprovacao: Number(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </label>
+              </>
+            )}
 
             {!somenteLeitura && (
               <button className="btn btn-fantasma" onClick={abrirModalAval}>
@@ -328,13 +353,17 @@ export function Notas() {
                     )}
                   </th>
                 ))}
-                <th className="col-media">Média</th>
-                <th className="col-situacao">Situação</th>
+                {!ehConceito && (
+                  <>
+                    <th className="col-media">Média</th>
+                    <th className="col-situacao">Situação</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
               {alunosTurma.map((aluno) => {
-                const media = config
+                const media = config && !ehConceito
                   ? calcularMedia(aluno.id, avalsTurma, notas, config.modelo)
                   : null
                 const sit = situacao(media, config?.mediaAprovacao ?? 6)
@@ -342,6 +371,28 @@ export function Notas() {
                   <tr key={aluno.id}>
                     <td className="celula-nome col-aluno">{aluno.nome}</td>
                     {avalsTurma.map((av) => {
+                      if (ehConceito) {
+                        const c = conceitos[chaveNota(aluno.id, av.id)]
+                        return (
+                          <td key={av.id} className="col-nota">
+                            <select
+                              className="select"
+                              value={c ?? ''}
+                              onChange={(e) =>
+                                definirConceito(aluno.id, av.id, e.target.value || null)
+                              }
+                              disabled={somenteLeitura}
+                            >
+                              <option value="">—</option>
+                              {OPCOES_CONCEITO.map((op) => (
+                                <option key={op} value={op}>
+                                  {op}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        )
+                      }
                       const v = notas[chaveNota(aluno.id, av.id)]
                       return (
                         <td key={av.id} className="col-nota">
@@ -357,16 +408,20 @@ export function Notas() {
                         </td>
                       )
                     })}
-                    <td className="col-media celula-media">{formatarNota(media)}</td>
-                    <td className="col-situacao">
-                      <span className={`pill pill-${sit}`}>
-                        {sit === 'aprovado'
-                          ? 'Aprovado'
-                          : sit === 'recuperacao'
-                            ? 'Recuperação'
-                            : '—'}
-                      </span>
-                    </td>
+                    {!ehConceito && (
+                      <>
+                        <td className="col-media celula-media">{formatarNota(media)}</td>
+                        <td className="col-situacao">
+                          <span className={`pill pill-${sit}`}>
+                            {sit === 'aprovado'
+                              ? 'Aprovado'
+                              : sit === 'recuperacao'
+                                ? 'Recuperação'
+                                : '—'}
+                          </span>
+                        </td>
+                      </>
+                    )}
                   </tr>
                 )
               })}

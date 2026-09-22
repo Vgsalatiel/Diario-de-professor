@@ -109,6 +109,28 @@ export function Dashboard() {
     }
   }, [turmasDoAno, avaliacoes, alunos, notas, configs])
 
+  // Alunos com observação pedagógica ("dificuldades") registrada — o
+  // campo já existe no cadastro do aluno, isso só reúne quem tem algo
+  // escrito ali num lugar visível, pra não precisar abrir aluno por aluno.
+  const alunosComDificuldadeLista = useMemo(() => {
+    const lista: { id: string; nome: string; turmaId: string; turmaNome: string; dificuldades: string }[] = []
+    for (const turma of turmasDoAno) {
+      const alunosDaTurma = alunos.filter((a) => a.turmaId === turma.id)
+      for (const aluno of alunosDaTurma) {
+        if (aluno.dificuldades && aluno.dificuldades.trim()) {
+          lista.push({
+            id: aluno.id,
+            nome: aluno.nome,
+            turmaId: turma.id,
+            turmaNome: turma.nome,
+            dificuldades: aluno.dificuldades.trim(),
+          })
+        }
+      }
+    }
+    return lista.sort((a, b) => a.nome.localeCompare(b.nome))
+  }, [turmasDoAno, alunos])
+
   const turmasSemRegistroOntem = useMemo(() => {
     const ontemISO = diaAnteriorISO(hojeISO())
     if (feriadosSet.has(ontemISO)) return []
@@ -139,7 +161,8 @@ export function Dashboard() {
     turmasSemRegistroOntem.length > 0 ||
     turmasComAvaliacaoPendente.length > 0 ||
     alunosComBaixaFrequenciaLista.length > 0 ||
-    alunosComNotaBaixaLista.length > 0
+    alunosComNotaBaixaLista.length > 0 ||
+    alunosComDificuldadeLista.length > 0
 
   return (
     <div className="stack-lg">
@@ -238,6 +261,26 @@ export function Dashboard() {
                         <span className="evento-turma">{a.turmaNome}</span>
                       </div>
                       <span className="pill pill-recuperacao">{formatarNota(a.media)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {alunosComDificuldadeLista.length > 0 && (
+              <div>
+                <span className="texto-suave">Alunos com dificuldade registrada:</span>
+                <ul className="lista-eventos">
+                  {alunosComDificuldadeLista.map((a) => (
+                    <li key={a.id} className="evento-item">
+                      <div className="evento-info">
+                        <Link to={`/alunos?turma=${a.turmaId}`} className="link-acao">
+                          <strong>{a.nome}</strong>
+                        </Link>
+                        <span className="evento-turma">{a.turmaNome}</span>
+                        <span className="texto-suave">
+                          {a.dificuldades.length > 90 ? `${a.dificuldades.slice(0, 90)}…` : a.dificuldades}
+                        </span>
+                      </div>
                     </li>
                   ))}
                 </ul>

@@ -36,9 +36,11 @@ export const promoverTurmaDto = z.object({
 export type PromoverTurmaDto = z.infer<typeof promoverTurmaDto>
 
 export const modeloCalculoEnum = z.enum(['simples', 'ponderada'])
+export const tipoAvaliacaoEnum = z.enum(['nota', 'conceito'])
 
 export const atualizarConfigDto = z.object({
   modelo: modeloCalculoEnum.optional(),
   mediaAprovacao: z.number().min(0).max(10).optional(),
+  tipoAvaliacao: tipoAvaliacaoEnum.optional(),
 })
 export type AtualizarConfigDto = z.infer<typeof atualizarConfigDto>
