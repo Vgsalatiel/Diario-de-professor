@@ -130,7 +130,8 @@ export type TipoAvaliacao = 'nota' | 'conceito'
 
 // Opções de conceito oferecidas quando a turma usa esse modo — mesma
 // lista no frontend e usada como referência ao exportar/mostrar.
-export const OPCOES_CONCEITO = ['Ótimo', 'Bom', 'Regular', 'Insuficiente'] as const
+// A = nota máxima ... D = nota baixa/reprovado.
+export const OPCOES_CONCEITO = ['A', 'B', 'C', 'D'] as const
 
 // Configuração de como a média é calculada em cada turma
 export interface ConfigCalculo {
