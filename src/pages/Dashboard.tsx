@@ -5,7 +5,7 @@ import { useData } from '../context/DataContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
 import { rotuloTipo, corTipo, formatarData } from '../lib/eventos'
 import { calcularFrequencia } from '../lib/frequencia'
-import { chaveNota } from '../lib/media'
+import { arredondar, calcularMedia, chaveNota, formatarNota } from '../lib/media'
 import { hojeISO } from '../lib/data'
 import { DashboardDiretor } from './DashboardDiretor'
 
@@ -25,7 +25,7 @@ function diaAnteriorISO(iso: string): string {
 
 export function Dashboard() {
   const { professora } = useAuth()
-  const { turmas, alunos, eventos, avaliacoes, notas, datasAula, frequencia, registrosAula, feriados } =
+  const { turmas, alunos, eventos, avaliacoes, notas, configs, datasAula, frequencia, registrosAula, feriados } =
     useData()
   const { anoAtivo } = useAnoLetivo()
 
@@ -81,6 +81,34 @@ export function Dashboard() {
 
   const alunosComBaixaFrequencia = alunosComBaixaFrequenciaLista.length
 
+  // Média geral das turmas do ano (só entram alunos que já têm alguma nota
+  // lançada) + a lista de quem está abaixo da média de aprovação
+  // configurada em cada turma — mesma regra usada em Notas.
+  const { mediaGeralTurmas, alunosComNotaBaixaLista } = useMemo(() => {
+    const todasMedias: number[] = []
+    const baixas: { id: string; nome: string; turmaId: string; turmaNome: string; media: number }[] = []
+    for (const turma of turmasDoAno) {
+      const avaliacoesDaTurma = avaliacoes.filter((av) => av.turmaId === turma.id)
+      if (avaliacoesDaTurma.length === 0) continue
+      const config = configs.find((c) => c.turmaId === turma.id)
+      const modelo = config?.modelo ?? 'simples'
+      const mediaAprovacao = config?.mediaAprovacao ?? 6
+      const alunosDaTurma = alunos.filter((a) => a.turmaId === turma.id)
+      for (const aluno of alunosDaTurma) {
+        const media = calcularMedia(aluno.id, avaliacoesDaTurma, notas, modelo)
+        if (media == null) continue
+        todasMedias.push(media)
+        if (media < mediaAprovacao) {
+          baixas.push({ id: aluno.id, nome: aluno.nome, turmaId: turma.id, turmaNome: turma.nome, media })
+        }
+      }
+    }
+    return {
+      mediaGeralTurmas: todasMedias.length > 0 ? arredondar(todasMedias.reduce((a, b) => a + b, 0) / todasMedias.length) : null,
+      alunosComNotaBaixaLista: baixas.sort((a, b) => a.media - b.media),
+    }
+  }, [turmasDoAno, avaliacoes, alunos, notas, configs])
+
   const turmasSemRegistroOntem = useMemo(() => {
     const ontemISO = diaAnteriorISO(hojeISO())
     if (feriadosSet.has(ontemISO)) return []
@@ -110,7 +138,8 @@ export function Dashboard() {
   const temPendencias =
     turmasSemRegistroOntem.length > 0 ||
     turmasComAvaliacaoPendente.length > 0 ||
-    alunosComBaixaFrequenciaLista.length > 0
+    alunosComBaixaFrequenciaLista.length > 0 ||
+    alunosComNotaBaixaLista.length > 0
 
   return (
     <div className="stack-lg">
@@ -122,7 +151,7 @@ export function Dashboard() {
         </h1>
       </section>
 
-      <section className="cards-numero cards-numero-4">
+      <section className="cards-numero cards-numero-5">
         <Link to="/turmas" className="card-numero card-numero-clicavel">
           <span className="card-numero-valor">{turmas.length}</span>
           <span className="card-numero-rotulo">Turmas cadastradas</span>
@@ -144,6 +173,13 @@ export function Dashboard() {
         >
           <span className="card-numero-valor">{alunosComBaixaFrequencia}</span>
           <span className="card-numero-rotulo">Alunos com baixa frequência</span>
+        </Link>
+        <Link
+          to="/notas"
+          className={`card-numero card-numero-clicavel ${alunosComNotaBaixaLista.length > 0 ? 'destaque' : ''}`}
+        >
+          <span className="card-numero-valor">{formatarNota(mediaGeralTurmas)}</span>
+          <span className="card-numero-rotulo">Média das turmas</span>
         </Link>
       </section>
 
@@ -184,6 +220,24 @@ export function Dashboard() {
                         <span className="evento-turma">{a.turmaNome}</span>
                       </div>
                       <span className="pill pill-recuperacao">{a.percentual}%</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {alunosComNotaBaixaLista.length > 0 && (
+              <div>
+                <span className="texto-suave">Alunos com nota baixa:</span>
+                <ul className="lista-eventos">
+                  {alunosComNotaBaixaLista.map((a) => (
+                    <li key={a.id} className="evento-item">
+                      <div className="evento-info">
+                        <Link to="/notas" className="link-acao">
+                          <strong>{a.nome}</strong>
+                        </Link>
+                        <span className="evento-turma">{a.turmaNome}</span>
+                      </div>
+                      <span className="pill pill-recuperacao">{formatarNota(a.media)}</span>
                     </li>
                   ))}
                 </ul>
