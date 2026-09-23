@@ -257,6 +257,7 @@ export interface AlunoResumoAdmin {
   id: string
   nome: string
   situacao: SituacaoMatricula
+  turmaId: string
   turmaNome: string
   escola: string
   professorNome: string

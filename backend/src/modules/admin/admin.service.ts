@@ -53,11 +53,19 @@ export async function calcularFrequenciaPorAluno(): Promise<Map<string, number>>
   return percentuais
 }
 
-// Turmas com aula marcada pra "ontem" (pelo dia da semana) que ninguém
-// registrou o que foi aplicado — mesma lógica da pendência do dashboard,
-// mas devolvendo os ids das turmas em vez de só a contagem, pra dar pra
-// destacar cada uma individualmente nas telas de Turmas/Professores.
-async function turmasSemRegistroOntemIds(anoAtual: string): Promise<Set<string>> {
+// Pares "turmaId:professorId" — uma turma agora pode ter vários
+// professores (um por disciplina), então uma pendência é sempre de um
+// professor específico dentro da turma, nunca da turma como um todo.
+// idsDosPares() reduz de volta pra turma quando só interessa "essa turma
+// tem alguma pendência" (ex.: pill no card da turma).
+function idsDosPares(pares: Set<string>): Set<string> {
+  return new Set(Array.from(pares, (par) => par.split(':')[0]))
+}
+
+// Pares sem registro da aula de ontem: a turma tinha aula prevista ontem
+// (pelo dia da semana) e esse professor especificamente não registrou o
+// resumo (RegistroAula já é por turma+professor+data).
+async function paresSemRegistroOntem(anoAtual: string): Promise<Set<string>> {
   const hoje = hojeNoBrasil()
   const ontem = diaAnterior(hoje)
   if (ehFeriadoNacional(ontem)) return new Set()
@@ -65,26 +73,45 @@ async function turmasSemRegistroOntemIds(anoAtual: string): Promise<Set<string>>
   const weekdayOntem = diaDaSemana(ontem)
   const turmasComAulaOntem = await prisma.turma.findMany({
     where: { excluidoEm: null, anoLetivo: anoAtual, diasAula: { has: weekdayOntem } },
-    select: { id: true },
+    select: { id: true, professores: { select: { professorId: true } } },
   })
-  const idsComAulaOntem = turmasComAulaOntem.map((t) => t.id)
-  if (idsComAulaOntem.length === 0) return new Set()
+  if (turmasComAulaOntem.length === 0) return new Set()
 
+  const idsComAulaOntem = turmasComAulaOntem.map((t) => t.id)
   const registrosOntem = await prisma.registroAula.findMany({
     where: { turmaId: { in: idsComAulaOntem }, data: new Date(`${ontem}T00:00:00.000Z`) },
-    select: { turmaId: true },
+    select: { turmaId: true, professorId: true },
   })
-  const idsComRegistroOntem = new Set(registrosOntem.map((r) => r.turmaId))
-  return new Set(idsComAulaOntem.filter((id) => !idsComRegistroOntem.has(id)))
+  const comRegistro = new Set(registrosOntem.map((r) => `${r.turmaId}:${r.professorId}`))
+
+  const semRegistro = new Set<string>()
+  for (const t of turmasComAulaOntem) {
+    for (const p of t.professores) {
+      const chave = `${t.id}:${p.professorId}`
+      if (!comRegistro.has(chave)) semRegistro.add(chave)
+    }
+  }
+  return semRegistro
 }
 
-// Turmas com pelo menos uma avaliação sem nenhuma nota lançada ainda.
-async function turmasComAvaliacaoPendenteIds(): Promise<Set<string>> {
-  const turmas = await prisma.turma.findMany({
-    where: { excluidoEm: null, avaliacoes: { some: { notas: { none: { valor: { not: null } } } } } },
-    select: { id: true },
+// Pares com alguma avaliação sem nenhuma nota lançada — Avaliacao já
+// carrega professorId direto, então nem precisa passar por TurmaProfessor.
+async function paresComAvaliacaoPendente(): Promise<Set<string>> {
+  const avaliacoes = await prisma.avaliacao.findMany({
+    where: { turma: { excluidoEm: null }, notas: { none: { valor: { not: null } } } },
+    select: { turmaId: true, professorId: true },
   })
-  return new Set(turmas.map((t) => t.id))
+  return new Set(avaliacoes.map((a) => `${a.turmaId}:${a.professorId}`))
+}
+
+// Pares com o resumo da aula de hoje já registrado.
+async function paresComAulaRegistradaHoje(): Promise<Set<string>> {
+  const hoje = hojeNoBrasil()
+  const registros = await prisma.registroAula.findMany({
+    where: { data: new Date(`${hoje}T00:00:00.000Z`), turma: { excluidoEm: null } },
+    select: { turmaId: true, professorId: true },
+  })
+  return new Set(registros.map((r) => `${r.turmaId}:${r.professorId}`))
 }
 
 // Base compartilhada pelas telas de Turmas e Professores (e reaproveitada
@@ -94,7 +121,7 @@ export async function obterTurmasComMetricas() {
   const anoAtual = hojeNoBrasil().slice(0, 4)
   const hoje = hojeNoBrasil()
 
-  const [turmas, alunosAtivos, percentuaisPorAluno, idsSemRegistroOntem, idsAvaliacaoPendente, registrosHoje] =
+  const [turmas, alunosAtivos, percentuaisPorAluno, paresSemRegistro, paresAvaliacaoPendente, paresAulaHoje] =
     await Promise.all([
       prisma.turma.findMany({
         where: { excluidoEm: null },
@@ -116,13 +143,14 @@ export async function obterTurmasComMetricas() {
         select: { id: true, turmaId: true },
       }),
       calcularFrequenciaPorAluno(),
-      turmasSemRegistroOntemIds(anoAtual),
-      turmasComAvaliacaoPendenteIds(),
-      prisma.registroAula.findMany({
-        where: { data: new Date(`${hoje}T00:00:00.000Z`), turma: { excluidoEm: null } },
-        select: { turmaId: true },
-      }),
+      paresSemRegistroOntem(anoAtual),
+      paresComAvaliacaoPendente(),
+      paresComAulaRegistradaHoje(),
     ])
+
+  const idsSemRegistroOntem = idsDosPares(paresSemRegistro)
+  const idsAvaliacaoPendente = idsDosPares(paresAvaliacaoPendente)
+  const idsComAulaRegistradaHoje = idsDosPares(paresAulaHoje)
 
   const alunosPorTurma = new Map<string, string[]>()
   for (const a of alunosAtivos) {
@@ -130,7 +158,6 @@ export async function obterTurmasComMetricas() {
     arr.push(a.id)
     alunosPorTurma.set(a.turmaId, arr)
   }
-  const idsComAulaRegistradaHoje = new Set(registrosHoje.map((r) => r.turmaId))
 
   return turmas.map((t) => {
     const alunoIds = alunosPorTurma.get(t.id) ?? []
@@ -174,20 +201,23 @@ export async function obterDashboard() {
     totalTurmas,
     totalAlunos,
     percentuaisPorAluno,
-    idsSemRegistroOntem,
-    idsAvaliacaoPendente,
+    paresSemRegistro,
+    paresAvaliacaoPendente,
     aulasRegistradasHoje,
   ] = await Promise.all([
     prisma.professor.count(),
     prisma.turma.count({ where: { excluidoEm: null } }),
     prisma.aluno.count({ where: { excluidoEm: null, turma: { excluidoEm: null } } }),
     calcularFrequenciaPorAluno(),
-    turmasSemRegistroOntemIds(anoAtual),
-    turmasComAvaliacaoPendenteIds(),
+    paresSemRegistroOntem(anoAtual),
+    paresComAvaliacaoPendente(),
     prisma.registroAula.count({
       where: { data: new Date(`${hoje}T00:00:00.000Z`), turma: { excluidoEm: null } },
     }),
   ])
+
+  const idsSemRegistroOntem = idsDosPares(paresSemRegistro)
+  const idsAvaliacaoPendente = idsDosPares(paresAvaliacaoPendente)
 
   const percentuais = Array.from(percentuaisPorAluno.values())
   const frequenciaMedia =
@@ -195,17 +225,11 @@ export async function obterDashboard() {
   const alunosComBaixaFrequencia = percentuais.filter((p) => p < LIMIAR_BAIXA_FREQUENCIA).length
 
   // Professores com pelo menos uma pendência (turma sem registro de ontem
-  // ou com avaliação sem nota) — turma pode ter vários professores agora,
-  // então a pendência da turma não aponta sozinha pra um professor só.
-  const idsTurmasPendentes = Array.from(new Set([...idsSemRegistroOntem, ...idsAvaliacaoPendente]))
-  const professoresPendentesPromise =
-    idsTurmasPendentes.length > 0
-      ? prisma.turmaProfessor.findMany({
-          where: { turmaId: { in: idsTurmasPendentes } },
-          select: { professorId: true },
-          distinct: ['professorId'],
-        })
-      : Promise.resolve([])
+  // ou com avaliação sem nota) — cada par já sabe exatamente de qual
+  // professor é a pendência, então basta pegar os professorId únicos.
+  const professoresComPendencia = new Set(
+    [...paresSemRegistro, ...paresAvaliacaoPendente].map((par) => par.split(':')[1]),
+  ).size
 
   const [
     aulasPrevistasHojeConta,
@@ -214,7 +238,6 @@ export async function obterDashboard() {
     proximasReunioes,
     proximosOutros,
     agendaHoje,
-    professoresPendentes,
   ] = await Promise.all([
     hojeEhFeriado
       ? Promise.resolve(0)
@@ -251,7 +274,6 @@ export async function obterDashboard() {
       orderBy: [{ hora: 'asc' }, { titulo: 'asc' }],
       include: { turma: { select: { nome: true } } },
     }),
-    professoresPendentesPromise,
   ])
 
   function contarTipo(tipo: string): number {
@@ -304,32 +326,44 @@ export async function obterDashboard() {
     pendencias: {
       turmasSemRegistroOntem: idsSemRegistroOntem.size,
       turmasComAvaliacaoPendente: idsAvaliacaoPendente.size,
-      professoresComPendencia: professoresPendentes.length,
+      professoresComPendencia,
     },
   }
 }
 
 export async function listarProfessores() {
-  const [professores, turmasComMetricas] = await Promise.all([
-    prisma.professor.findMany({
-      orderBy: { nome: 'asc' },
-      select: {
-        id: true,
-        nome: true,
-        email: true,
-        materias: true,
-        isAdmin: true,
-        criadoEm: true,
-        _count: { select: { turmasAtribuidas: true } },
-      },
-    }),
-    obterTurmasComMetricas(),
-  ])
+  const anoAtual = hojeNoBrasil().slice(0, 4)
+  const [professores, turmasComMetricas, paresSemRegistro, paresAvaliacaoPendente, paresAulaHoje] =
+    await Promise.all([
+      prisma.professor.findMany({
+        orderBy: { nome: 'asc' },
+        select: {
+          id: true,
+          nome: true,
+          email: true,
+          materias: true,
+          isAdmin: true,
+          criadoEm: true,
+          _count: { select: { turmasAtribuidas: true } },
+        },
+      }),
+      obterTurmasComMetricas(),
+      paresSemRegistroOntem(anoAtual),
+      paresComAvaliacaoPendente(),
+      paresComAulaRegistradaHoje(),
+    ])
 
   return professores.map((p) => {
     const turmasDoProfessor = turmasComMetricas.filter((t) =>
       t.professores.some((pr) => pr.professorId === p.id),
     )
+    const aulasRegistradasHoje = turmasDoProfessor.filter((t) =>
+      paresAulaHoje.has(`${t.id}:${p.id}`),
+    ).length
+    const pendencias = turmasDoProfessor.filter((t) => {
+      const chave = `${t.id}:${p.id}`
+      return paresSemRegistro.has(chave) || paresAvaliacaoPendente.has(chave)
+    }).length
     return {
       id: p.id,
       nome: p.nome,
@@ -338,8 +372,8 @@ export async function listarProfessores() {
       isAdmin: p.isAdmin,
       criadoEm: p.criadoEm.toISOString(),
       totalTurmas: p._count.turmasAtribuidas,
-      aulasRegistradasHoje: turmasDoProfessor.filter((t) => t.aulaRegistradaHoje).length,
-      pendencias: turmasDoProfessor.filter((t) => t.semRegistroOntem || t.avaliacaoPendente).length,
+      aulasRegistradasHoje,
+      pendencias,
     }
   })
 }
@@ -361,6 +395,7 @@ export async function listarAlunosDetalhado() {
         id: true,
         nome: true,
         situacao: true,
+        turmaId: true,
         turma: {
           select: {
             nome: true,
@@ -379,6 +414,7 @@ export async function listarAlunosDetalhado() {
       id: a.id,
       nome: a.nome,
       situacao: a.situacao,
+      turmaId: a.turmaId,
       turmaNome: a.turma.nome,
       escola: a.turma.escola,
       professorNome: a.turma.professores.map((p) => p.professor.nome).join(', ') || '—',
@@ -452,5 +488,14 @@ export async function excluirProfessor(professorId: string, quemPediuId: string)
     )
   }
 
-  await prisma.professor.delete({ where: { id: professorId } })
+  // ConfigCalculo não entra na checagem acima: é criada automaticamente
+  // (com valores padrão) toda vez que o professor é atribuído a uma turma,
+  // mesmo que ele nunca lance nada — não é histórico de trabalho, é só
+  // configuração presa à atribuição que já está sendo removida (TurmaProfessor
+  // cai em cascata). Sem isso, a FK (ON DELETE RESTRICT) rejeitava o delete
+  // com um 500 genérico mesmo quando a checagem acima dizia estar tudo limpo.
+  await prisma.$transaction([
+    prisma.configCalculo.deleteMany({ where: { professorId } }),
+    prisma.professor.delete({ where: { id: professorId } }),
+  ])
 }

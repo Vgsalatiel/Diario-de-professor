@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../lib/api'
 import { pillFrequencia } from '../pages/Admin'
 import { AlunoDetalheDrawer } from './AlunoDetalheDrawer'
@@ -18,6 +19,18 @@ export function AlunosEscolaPainel() {
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
 
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [turmaFiltroId, setTurmaFiltroId] = useState<string | null>(null)
+
+  // Veio de "Ver alunos" numa turma específica — filtra só nela, sem
+  // precisar digitar o nome de cada um pra achar.
+  useEffect(() => {
+    const turmaParam = searchParams.get('turma')
+    if (!turmaParam) return
+    setTurmaFiltroId(turmaParam)
+    setSearchParams({}, { replace: true })
+  }, [searchParams, setSearchParams])
+
   useEffect(() => {
     Promise.all([
       api.get<AlunoResumoAdmin[]>('/admin/alunos'),
@@ -31,11 +44,18 @@ export function AlunosEscolaPainel() {
       .finally(() => setCarregando(false))
   }, [])
 
+  const turmaFiltroNome = turmaFiltroId
+    ? alunos.find((a) => a.turmaId === turmaFiltroId)?.turmaNome ?? null
+    : null
+
   const alunosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase()
-    if (!termo) return alunos
-    return alunos.filter((a) => a.nome.toLowerCase().includes(termo))
-  }, [alunos, busca])
+    return alunos.filter((a) => {
+      if (turmaFiltroId && a.turmaId !== turmaFiltroId) return false
+      if (termo && !a.nome.toLowerCase().includes(termo)) return false
+      return true
+    })
+  }, [alunos, busca, turmaFiltroId])
 
   if (carregando) return <p className="texto-suave">Carregando…</p>
   if (erro) return <div className="alerta-erro">{erro}</div>
@@ -71,6 +91,15 @@ export function AlunosEscolaPainel() {
         </div>
       )}
 
+      {turmaFiltroId && (
+        <div className="alerta-info">
+          Mostrando só os alunos de <strong>{turmaFiltroNome ?? 'turma selecionada'}</strong>.{' '}
+          <button className="link-botao" onClick={() => setTurmaFiltroId(null)}>
+            Ver todos os alunos
+          </button>
+        </div>
+      )}
+
       <input
         style={{ maxWidth: 360 }}
         value={busca}
@@ -84,7 +113,7 @@ export function AlunosEscolaPainel() {
         </div>
       ) : alunosFiltrados.length === 0 ? (
         <div className="vazio painel">
-          <p>Nenhum aluno encontrado para "{busca}".</p>
+          <p>Nenhum aluno encontrado{busca ? ` para "${busca}"` : ''}.</p>
         </div>
       ) : (
         <div className="painel sem-padding rolagem-x">
