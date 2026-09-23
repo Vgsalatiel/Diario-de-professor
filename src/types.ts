@@ -26,8 +26,17 @@ export interface ProfessorResumo {
 
 // Turma vista pela coordenação pedagógica — mesmo formato de
 // TurmaResumoAdmin, mais a média geral de notas (que o diretor não vê).
+// Tendência de desempenho da turma — calculada por regra fixa (últimas 3
+// avaliações lançadas em sequência consistente), não por IA. O sistema só
+// mostra o dado; quem decide se é um problema é a coordenação.
+export interface TendenciaDesempenho {
+  direcao: 'queda' | 'alta'
+  texto: string
+}
+
 export interface TurmaResumoCoordenacao extends TurmaResumoAdmin {
   mediaTurma: number | null
+  tendencia: TendenciaDesempenho | null
 }
 
 // Plano de aula resumido, visto pela coordenação (sem o cronograma inteiro).
@@ -137,6 +146,7 @@ export interface TurmaDetalheCoordenacao {
   mediaTurma: number | null
   alunos: AlunoDaTurmaCoordenacao[]
   mediasPorAvaliacao: { id: string; nome: string; mediaTurma: number | null; totalLancadas: number }[]
+  tendencia: TendenciaDesempenho | null
   aulasRecentes: { data: string | null; resumo: string }[]
   planoAtivo: { id: string; titulo: string; dataInicio: string; dataFim: string } | null
   atividades: AtividadeTurmaCoordenacao[]

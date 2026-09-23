@@ -17,22 +17,66 @@ export const listarAlunosDetalhado = adminService.listarAlunosDetalhado
 export async function listarTurmas() {
   const [turmasComMetricas, avaliacoes] = await Promise.all([
     adminService.obterTurmasComMetricas(),
-    prisma.avaliacao.findMany({ select: { turmaId: true, notas: { select: { valor: true } } } }),
+    prisma.avaliacao.findMany({
+      select: { turmaId: true, periodo: true, notas: { select: { valor: true } } },
+      orderBy: { periodo: 'asc' },
+    }),
   ])
 
+  // Duas contas diferentes de propósito: "Média" do card é a média simples
+  // de todas as notas lançadas (mesma conta que o drawer da turma usa).
+  // "tendencia" olha a sequência de médias por avaliação — outra pergunta
+  // (a turma está piorando?), não dá pra responder com um número só.
   const notasPorTurma = new Map<string, number[]>()
+  const avaliacoesPorTurma = new Map<string, { mediaTurma: number | null }[]>()
   for (const av of avaliacoes) {
-    const arr = notasPorTurma.get(av.turmaId) ?? []
-    for (const n of av.notas) if (n.valor != null) arr.push(n.valor)
-    notasPorTurma.set(av.turmaId, arr)
+    const notasDaAval = av.notas.map((n) => n.valor).filter((v): v is number => v != null)
+    const mediaDaAval =
+      notasDaAval.length > 0
+        ? Math.round((notasDaAval.reduce((s, v) => s + v, 0) / notasDaAval.length) * 10) / 10
+        : null
+
+    const notas = notasPorTurma.get(av.turmaId) ?? []
+    notas.push(...notasDaAval)
+    notasPorTurma.set(av.turmaId, notas)
+
+    const arr = avaliacoesPorTurma.get(av.turmaId) ?? []
+    arr.push({ mediaTurma: mediaDaAval })
+    avaliacoesPorTurma.set(av.turmaId, arr)
   }
 
   return turmasComMetricas.map((t) => {
     const notas = notasPorTurma.get(t.id) ?? []
     const mediaTurma =
       notas.length > 0 ? Math.round((notas.reduce((s, v) => s + v, 0) / notas.length) * 10) / 10 : null
-    return { ...t, mediaTurma }
+    return { ...t, mediaTurma, tendencia: calcularTendencia(avaliacoesPorTurma.get(t.id) ?? []) }
   })
+}
+
+// Só aponta tendência quando as últimas 3 avaliações lançadas formam uma
+// sequência consistente (cada uma pior/melhor que a anterior) — não é a IA
+// "decidindo" que há um problema, é uma regra fixa e explicável sobre os
+// números que a própria coordenação pode conferir.
+function calcularTendencia(
+  mediasPorAvaliacao: { mediaTurma: number | null }[],
+): { direcao: 'queda' | 'alta'; texto: string } | null {
+  const valores = mediasPorAvaliacao.map((m) => m.mediaTurma).filter((v): v is number => v != null)
+  if (valores.length < 3) return null
+  const [a, b, c] = valores.slice(-3)
+
+  if (a > b && b > c) {
+    return {
+      direcao: 'queda',
+      texto: `Queda de desempenho na turma — média foi de ${a} para ${c} nas últimas 3 avaliações.`,
+    }
+  }
+  if (a < b && b < c) {
+    return {
+      direcao: 'alta',
+      texto: `Melhora de desempenho na turma — média foi de ${a} para ${c} nas últimas 3 avaliações.`,
+    }
+  }
+  return null
 }
 
 // "Registro em dia" = tem resumo da aula (RegistroAula) pra cada data em
@@ -281,6 +325,7 @@ export async function detalharTurma(turmaId: string) {
     todasAsNotas.length > 0
       ? Math.round((todasAsNotas.reduce((s, v) => s + v, 0) / todasAsNotas.length) * 10) / 10
       : null
+  const tendencia = calcularTendencia(mediasPorAvaliacao)
 
   return {
     id: turma.id,
@@ -295,6 +340,7 @@ export async function detalharTurma(turmaId: string) {
     mediaTurma,
     alunos: alunosComFrequencia,
     mediasPorAvaliacao,
+    tendencia,
     aulasRecentes: aulasRecentes.map((r) => ({ data: paraDataISO(r.data), resumo: r.resumo })),
     planoAtivo: planoAtivo
       ? {

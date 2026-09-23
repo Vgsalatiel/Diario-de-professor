@@ -367,6 +367,12 @@ export function Coordenacao() {
                             <strong>{t.mediaTurma == null ? '—' : String(t.mediaTurma).replace('.', ',')}</strong>
                           </p>
                           <p className="texto-suave">Professor responsável: {t.professorNome}</p>
+                          {t.tendencia && (
+                            <p className={`tendencia tendencia-${t.tendencia.direcao}`}>
+                              {t.tendencia.direcao === 'queda' ? '📉' : '📈'}{' '}
+                              {t.tendencia.direcao === 'queda' ? 'Queda de desempenho' : 'Melhora de desempenho'}
+                            </p>
+                          )}
                         </div>
                       </article>
                     ))}
@@ -716,6 +722,11 @@ export function Coordenacao() {
                 Média geral da turma:{' '}
                 <strong>{turmaAberta.mediaTurma == null ? '—' : String(turmaAberta.mediaTurma).replace('.', ',')}</strong>
               </p>
+              {turmaAberta.tendencia && (
+                <p className={`tendencia tendencia-${turmaAberta.tendencia.direcao}`}>
+                  {turmaAberta.tendencia.direcao === 'queda' ? '📉' : '📈'} {turmaAberta.tendencia.texto}
+                </p>
+              )}
               {turmaAberta.mediasPorAvaliacao.length === 0 ? (
                 <p className="texto-suave">Nenhuma avaliação cadastrada.</p>
               ) : (
