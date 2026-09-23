@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router-dom'
 import { useToast } from '../context/ToastContext'
 import { api, ApiError } from '../lib/api'
 import { Modal } from '../components/Modal'
+import { Drawer } from '../components/Drawer'
+import { resumoTexto } from '../lib/texto'
 import { pillFrequencia } from './Admin'
 import { rotuloTipo, corTipo, formatarData } from '../lib/eventos'
 import type {
@@ -406,7 +408,7 @@ export function Coordenacao() {
         </>
       )}
 
-      <Modal
+      <Drawer
         aberto={!!professorAberto}
         titulo={professorAberto?.nome ?? ''}
         onFechar={() => setProfessorAberto(null)}
@@ -573,9 +575,9 @@ export function Coordenacao() {
             </div>
           </div>
         )}
-      </Modal>
+      </Drawer>
 
-      <Modal aberto={!!turmaAberta} titulo={turmaAberta?.nome ?? ''} onFechar={() => setTurmaAberta(null)}>
+      <Drawer aberto={!!turmaAberta} titulo={turmaAberta?.nome ?? ''} onFechar={() => setTurmaAberta(null)}>
         {turmaAberta && (
           <div className="stack-md">
             <p className="texto-suave">
@@ -601,7 +603,7 @@ export function Coordenacao() {
                   <strong>
                     {turmaAberta.ultimoRegistroAula.data && formatarData(turmaAberta.ultimoRegistroAula.data)}
                   </strong>{' '}
-                  — {turmaAberta.ultimoRegistroAula.resumo}
+                  — {resumoTexto(turmaAberta.ultimoRegistroAula.resumo, 400)}
                 </p>
               ) : (
                 <p className="texto-suave">Nenhum registro ainda.</p>
@@ -647,7 +649,7 @@ export function Coordenacao() {
             </div>
           </div>
         )}
-      </Modal>
+      </Drawer>
 
       <Modal
         aberto={modalReuniao}

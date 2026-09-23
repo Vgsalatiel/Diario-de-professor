@@ -1016,6 +1016,50 @@ input:focus, select:focus, textarea:focus {
   border-top: 1px solid var(--line);
 }
 
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(31, 36, 51, 0.45);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 100;
+  animation: fade 0.12s ease-out;
+}
+.drawer {
+  background: var(--surface);
+  width: 100%;
+  max-width: 560px;
+  height: 100vh;
+  overflow: auto;
+  box-shadow: -20px 0 60px rgba(31, 36, 51, 0.25);
+  animation: entraDireita 0.18s ease-out;
+  display: flex;
+  flex-direction: column;
+}
+.drawer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+}
+.drawer-head h2 { font-size: 18px; }
+.drawer-body { padding: 24px; flex: 1; }
+.drawer-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+}
+@media (max-width: 640px) {
+  .drawer { max-width: 100%; }
+}
+
 /* ============================================================
    Drawer (painel lateral) — como o Modal, mas desliza da direita
    e não cobre o menu lateral.
@@ -1120,6 +1164,7 @@ input:focus, select:focus, textarea:focus {
 
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes sobe { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes entraDireita { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
