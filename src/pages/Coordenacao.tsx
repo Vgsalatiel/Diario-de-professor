@@ -10,6 +10,7 @@ import { pillFrequencia } from './Admin'
 import { rotuloTipo, corTipo, formatarData } from '../lib/eventos'
 import { hojeISO } from '../lib/data'
 import type {
+  AlunoDetalheCoordenacao,
   AlunoResumoAdmin,
   EventoEscola,
   ObservacaoPedagogica,
@@ -79,6 +80,15 @@ function pillFrequenciaTurma(percentual: number | null) {
   return <span className={`pill ${classe}`}>{percentual}%</span>
 }
 
+// A pill de frequência do aluno (pillFrequencia) já sinaliza abaixo de
+// 75% em vermelho — esse ⚠️ extra é só um alerta prévio pra faixa logo
+// acima disso (75–84%), pra chamar atenção antes de virar um problema
+// mais sério.
+function alertaFrequenciaAluno(percentual: number | null): string {
+  if (percentual == null) return ''
+  return percentual >= 75 && percentual < 85 ? ' ⚠️' : ''
+}
+
 function badgeObservacao(o: ObservacaoPedagogica) {
   if (o.tipo !== 'solicitacaoCorrecao') return null
   return (
@@ -114,6 +124,10 @@ export function Coordenacao() {
   const [salvandoAta, setSalvandoAta] = useState(false)
   const [novoEncaminhamento, setNovoEncaminhamento] = useState({ texto: '', responsavelId: '' })
   const [salvandoEncaminhamento, setSalvandoEncaminhamento] = useState(false)
+
+  const [alunoAberto, setAlunoAberto] = useState<AlunoDetalheCoordenacao | null>(null)
+  const [novoAcompanhamento, setNovoAcompanhamento] = useState('')
+  const [salvandoAcompanhamento, setSalvandoAcompanhamento] = useState(false)
 
   const [modalObservacao, setModalObservacao] = useState(false)
   const [formObservacao, setFormObservacao] = useState(OBSERVACAO_VAZIA)
@@ -330,6 +344,33 @@ export function Coordenacao() {
       atualizarReuniaoAberta(atualizada)
     } catch (e) {
       notificar(e instanceof ApiError ? e.message : 'Não foi possível excluir.')
+    }
+  }
+
+  async function abrirAluno(id: string) {
+    try {
+      const detalhe = await api.get<AlunoDetalheCoordenacao>(`/coordenacao/alunos/${id}`)
+      setAlunoAberto(detalhe)
+      setNovoAcompanhamento('')
+    } catch (e) {
+      notificar(e instanceof ApiError ? e.message : 'Não foi possível abrir esse aluno.')
+    }
+  }
+
+  async function adicionarAcompanhamento() {
+    if (!alunoAberto || !novoAcompanhamento.trim()) return
+    setSalvandoAcompanhamento(true)
+    try {
+      const atualizado = await api.post<AlunoDetalheCoordenacao>(
+        `/coordenacao/alunos/${alunoAberto.id}/acompanhamento`,
+        { texto: novoAcompanhamento.trim() },
+      )
+      setAlunoAberto(atualizado)
+      setNovoAcompanhamento('')
+    } catch (e) {
+      notificar(e instanceof ApiError ? e.message : 'Não foi possível salvar o acompanhamento.')
+    } finally {
+      setSalvandoAcompanhamento(false)
     }
   }
 
@@ -611,7 +652,11 @@ export function Coordenacao() {
                   <tbody>
                     {alunos.map((a) => (
                       <tr key={a.id}>
-                        <td className="celula-nome">{a.nome}</td>
+                        <td className="celula-nome">
+                          <button className="link-botao" onClick={() => abrirAluno(a.id)}>
+                            {a.nome}
+                          </button>
+                        </td>
                         <td data-label="Turma">{a.turmaNome}</td>
                         <td data-label="Escola">{a.escola}</td>
                         <td data-label="Professor(a)">{a.professorNome}</td>
@@ -1285,6 +1330,82 @@ export function Coordenacao() {
                 disabled={salvandoEncaminhamento || !novoEncaminhamento.texto.trim()}
               >
                 {salvandoEncaminhamento ? 'Adicionando...' : '+ Adicionar encaminhamento'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Drawer>
+
+      <Drawer aberto={!!alunoAberto} titulo={alunoAberto?.nome ?? ''} onFechar={() => setAlunoAberto(null)}>
+        {alunoAberto && (
+          <div className="stack-md">
+            <p className="texto-suave">
+              {alunoAberto.turmaNome}
+              {alunoAberto.situacao !== 'ativo' && ` · ${alunoAberto.situacao}`}
+            </p>
+
+            <div>
+              <h3 className="titulo-secao">Frequência</h3>
+              <p>
+                {pillFrequencia(alunoAberto.frequenciaPercentual)}
+                {alertaFrequenciaAluno(alunoAberto.frequenciaPercentual)}
+              </p>
+            </div>
+
+            <div>
+              <h3 className="titulo-secao">Desempenho</h3>
+              {alunoAberto.desempenho.length === 0 ? (
+                <p className="texto-suave">Nenhuma nota lançada ainda.</p>
+              ) : (
+                <ul className="lista-simples">
+                  {alunoAberto.desempenho.map((d) => (
+                    <li key={d.turmaId}>
+                      <span>{d.materia}</span>
+                      <span className="texto-suave">
+                        {d.media == null ? 'Sem notas lançadas' : String(d.media).replace('.', ',')}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div>
+              <h3 className="titulo-secao">Observações pedagógicas</h3>
+              <p className="texto-suave">{alunoAberto.dificuldades || 'Nenhuma registrada.'}</p>
+            </div>
+
+            <div>
+              <h3 className="titulo-secao">Acompanhamento</h3>
+              {alunoAberto.acompanhamentos.length === 0 ? (
+                <p className="texto-suave">Nenhum acompanhamento registrado ainda.</p>
+              ) : (
+                <ul className="lista-simples">
+                  {alunoAberto.acompanhamentos.map((a) => (
+                    <li key={a.id}>
+                      <span>{a.texto}</span>
+                      <span className="texto-suave">
+                        {new Date(a.criadoEm).toLocaleDateString('pt-BR')} · {a.autorNome}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <label className="campo campo-largo">
+                <span>Novo acompanhamento</span>
+                <textarea
+                  rows={3}
+                  value={novoAcompanhamento}
+                  onChange={(e) => setNovoAcompanhamento(e.target.value)}
+                  placeholder="Ex.: Professor relatou dificuldade em matemática."
+                />
+              </label>
+              <button
+                className="btn btn-primario btn-pequeno"
+                onClick={adicionarAcompanhamento}
+                disabled={salvandoAcompanhamento || !novoAcompanhamento.trim()}
+              >
+                {salvandoAcompanhamento ? 'Salvando...' : '+ Adicionar ao histórico'}
               </button>
             </div>
           </div>

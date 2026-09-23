@@ -36,3 +36,8 @@ export const criarEncaminhamentoDto = z.object({
   responsavelId: z.string().min(1).nullable().optional(),
 })
 export type CriarEncaminhamentoDto = z.infer<typeof criarEncaminhamentoDto>
+
+export const criarAcompanhamentoDto = z.object({
+  texto: z.string().trim().min(1).max(2000),
+})
+export type CriarAcompanhamentoDto = z.infer<typeof criarAcompanhamentoDto>

@@ -57,6 +57,7 @@ model Professor {
   observacoesEscritas  ObservacaoPedagogica[] @relation("ObservacoesEscritas")
   observacoesRecebidas ObservacaoPedagogica[] @relation("ObservacoesRecebidas")
   encaminhamentos      Encaminhamento[]
+  acompanhamentosEscritos AcompanhamentoAluno[]
 
   @@map("professores")
 }
@@ -211,9 +212,29 @@ model Aluno {
   frequencias        Frequencia[]
   exerciciosGerados  ExercicioGerado[]
   entregas           Entrega[]
+  acompanhamentos    AcompanhamentoAluno[]
 
   @@index([turmaId])
   @@map("alunos")
+}
+
+// Linha do tempo pedagógica do aluno — diferente de "dificuldades" (nota
+// única que qualquer edição substitui), aqui cada entrada fica registrada
+// pra sempre: "professor relatou dificuldade", "coordenação conversou com
+// o aluno", "atividade de recuperação aplicada" etc. Histórico, não só nota.
+model AcompanhamentoAluno {
+  id       String   @id @default(cuid())
+  texto    String
+  criadoEm DateTime @default(now())
+
+  alunoId String
+  aluno   Aluno  @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+
+  autorId String
+  autor   Professor @relation(fields: [autorId], references: [id], onDelete: Cascade)
+
+  @@index([alunoId])
+  @@map("acompanhamentos_aluno")
 }
 
 // Lista de exercícios que o Assistente IA gerou pra um aluno específico —

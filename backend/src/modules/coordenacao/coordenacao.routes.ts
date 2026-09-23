@@ -9,6 +9,8 @@ coordenacaoRouter.get('/professores/:id', coordenacaoController.detalharProfesso
 coordenacaoRouter.get('/turmas', coordenacaoController.listarTurmas)
 coordenacaoRouter.get('/turmas/:id', coordenacaoController.detalharTurma)
 coordenacaoRouter.get('/alunos', coordenacaoController.listarAlunos)
+coordenacaoRouter.get('/alunos/:id', coordenacaoController.detalharAluno)
+coordenacaoRouter.post('/alunos/:id/acompanhamento', coordenacaoController.criarAcompanhamento)
 coordenacaoRouter.get('/eventos', coordenacaoController.listarEventos)
 coordenacaoRouter.post('/reunioes', coordenacaoController.criarReuniao)
 coordenacaoRouter.get('/reunioes/:id', coordenacaoController.detalharReuniao)

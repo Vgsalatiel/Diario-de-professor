@@ -4,6 +4,7 @@ import { paraDataISO } from '../../utils/serializers'
 import * as adminService from '../admin/admin.service'
 import type {
   AtualizarReuniaoDto,
+  CriarAcompanhamentoDto,
   CriarEncaminhamentoDto,
   CriarObservacaoDto,
   CriarReuniaoDto,
@@ -596,4 +597,95 @@ export async function resolverObservacao(id: string, professorId: string) {
     include: { autor: { select: { nome: true } }, turma: { select: { nome: true } } },
   })
   return serializarObservacao(atualizada)
+}
+
+// Acompanhamento individual do aluno: a mesma pessoa costuma ter uma
+// matrícula (Aluno) por turma — e cada turma aqui é uma disciplina com um
+// professor — então "o aluno" de verdade é o conjunto de matrículas com o
+// mesmo nome, na mesma escola e ano letivo. É uma aproximação por nome (o
+// sistema não tem um cadastro único de pessoa entre turmas), mas é o que
+// permite mostrar desempenho por matéria e não só nota de uma turma.
+export async function detalharAluno(alunoId: string) {
+  const base = await prisma.aluno.findFirst({
+    where: { id: alunoId, excluidoEm: null },
+    select: {
+      id: true,
+      nome: true,
+      situacao: true,
+      dificuldades: true,
+      turma: { select: { id: true, nome: true, escola: true, anoLetivo: true } },
+    },
+  })
+  if (!base) throw AppError.naoEncontrado('Aluno')
+
+  const matriculas = await prisma.aluno.findMany({
+    where: {
+      excluidoEm: null,
+      nome: base.nome,
+      turma: { escola: base.turma.escola, anoLetivo: base.turma.anoLetivo, excluidoEm: null },
+    },
+    select: {
+      id: true,
+      dificuldades: true,
+      turma: { select: { id: true, nome: true, disciplina: true } },
+    },
+  })
+  const idsMatriculas = matriculas.map((m) => m.id)
+
+  const [percentuaisPorAluno, notasPorMatricula, acompanhamentos] = await Promise.all([
+    adminService.calcularFrequenciaPorAluno(),
+    prisma.nota.findMany({
+      where: { alunoId: { in: idsMatriculas }, valor: { not: null } },
+      select: { alunoId: true, valor: true },
+    }),
+    prisma.acompanhamentoAluno.findMany({
+      where: { alunoId: { in: idsMatriculas } },
+      orderBy: { criadoEm: 'desc' },
+      include: { autor: { select: { nome: true } } },
+    }),
+  ])
+
+  const desempenho = matriculas.map((m) => {
+    const notas = notasPorMatricula.filter((n) => n.alunoId === m.id).map((n) => n.valor as number)
+    const media = notas.length > 0 ? Math.round((notas.reduce((s, v) => s + v, 0) / notas.length) * 10) / 10 : null
+    return {
+      turmaId: m.turma.id,
+      materia: m.turma.disciplina ?? m.turma.nome,
+      media,
+    }
+  })
+
+  const percentuais = idsMatriculas
+    .map((id) => percentuaisPorAluno.get(id))
+    .filter((v): v is number => v != null)
+  const frequenciaPercentual =
+    percentuais.length > 0 ? Math.round(percentuais.reduce((s, v) => s + v, 0) / percentuais.length) : null
+
+  const dificuldades = base.dificuldades ?? matriculas.find((m) => m.dificuldades)?.dificuldades ?? null
+
+  return {
+    id: base.id,
+    nome: base.nome,
+    situacao: base.situacao,
+    turmaNome: base.turma.nome,
+    frequenciaPercentual,
+    desempenho,
+    dificuldades,
+    acompanhamentos: acompanhamentos.map((a) => ({
+      id: a.id,
+      texto: a.texto,
+      criadoEm: a.criadoEm.toISOString(),
+      autorNome: a.autor.nome,
+    })),
+  }
+}
+
+export async function criarAcompanhamento(alunoId: string, autorId: string, dados: CriarAcompanhamentoDto) {
+  const aluno = await prisma.aluno.findFirst({ where: { id: alunoId, excluidoEm: null } })
+  if (!aluno) throw AppError.naoEncontrado('Aluno')
+
+  await prisma.acompanhamentoAluno.create({
+    data: { alunoId, autorId, texto: dados.texto },
+  })
+  return detalharAluno(alunoId)
 }

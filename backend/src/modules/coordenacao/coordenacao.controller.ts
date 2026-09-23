@@ -3,6 +3,7 @@ import { paramId } from '../../utils/params'
 import * as coordenacaoService from './coordenacao.service'
 import {
   atualizarReuniaoDto,
+  criarAcompanhamentoDto,
   criarEncaminhamentoDto,
   criarObservacaoDto,
   criarReuniaoDto,
@@ -34,6 +35,17 @@ export async function listarAlunos(_req: Request, res: Response) {
 
 export async function listarEventos(_req: Request, res: Response) {
   res.json(await coordenacaoService.listarEventosDaEscola())
+}
+
+export async function detalharAluno(req: Request, res: Response) {
+  res.json(await coordenacaoService.detalharAluno(paramId(req.params.id)))
+}
+
+export async function criarAcompanhamento(req: Request, res: Response) {
+  const dados = criarAcompanhamentoDto.parse(req.body)
+  res
+    .status(201)
+    .json(await coordenacaoService.criarAcompanhamento(paramId(req.params.id), req.professorId, dados))
 }
 
 export async function criarReuniao(req: Request, res: Response) {

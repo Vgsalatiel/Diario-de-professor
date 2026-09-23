@@ -72,6 +72,38 @@ export interface ObservacaoPedagogica {
   turmaNome: string | null
 }
 
+// Entrada da linha do tempo pedagógica de um aluno — diferente de
+// "dificuldades" (nota única que qualquer edição substitui), cada uma
+// dessas fica registrada pra sempre.
+export interface AcompanhamentoAluno {
+  id: string
+  texto: string
+  criadoEm: string
+  autorNome: string
+}
+
+// Média do aluno numa matéria — "matéria" aqui é o campo disciplina da
+// turma (ou o nome dela, se a disciplina não tiver sido definida).
+export interface DesempenhoMateria {
+  turmaId: string
+  materia: string
+  media: number | null
+}
+
+// Detalhe individual do aluno, visto pela coordenação — agrega as
+// matrículas do mesmo aluno (mesmo nome, escola e ano letivo) em turmas
+// diferentes, já que cada turma aqui é uma disciplina/professor.
+export interface AlunoDetalheCoordenacao {
+  id: string
+  nome: string
+  situacao: SituacaoMatricula
+  turmaNome: string
+  frequenciaPercentual: number | null
+  desempenho: DesempenhoMateria[]
+  dificuldades: string | null
+  acompanhamentos: AcompanhamentoAluno[]
+}
+
 // Um professor na tabela "Professores" da coordenação — turmas, quantas
 // aulas já dadas tiveram o resumo registrado (X/Y) e o semáforo disso.
 export interface ProfessorResumoCoordenacao {
