@@ -125,7 +125,9 @@ export function Coordenacao() {
   const [erro, setErro] = useState('')
 
   const [professorAberto, setProfessorAberto] = useState<ProfessorDetalheCoordenacao | null>(null)
+  const [carregandoProfessor, setCarregandoProfessor] = useState(false)
   const [turmaAberta, setTurmaAberta] = useState<TurmaDetalheCoordenacao | null>(null)
+  const [carregandoTurma, setCarregandoTurma] = useState(false)
   const [turmaDrawerModo, setTurmaDrawerModo] = useState<'completo' | 'frequencia'>('completo')
 
   const [modalReuniao, setModalReuniao] = useState(false)
@@ -133,12 +135,14 @@ export function Coordenacao() {
   const [salvandoReuniao, setSalvandoReuniao] = useState(false)
 
   const [reuniaoAberta, setReuniaoAberta] = useState<ReuniaoDetalhe | null>(null)
+  const [carregandoReuniao, setCarregandoReuniao] = useState(false)
   const [ataRascunho, setAtaRascunho] = useState('')
   const [salvandoAta, setSalvandoAta] = useState(false)
   const [novoEncaminhamento, setNovoEncaminhamento] = useState({ texto: '', responsavelId: '' })
   const [salvandoEncaminhamento, setSalvandoEncaminhamento] = useState(false)
 
   const [alunoAberto, setAlunoAberto] = useState<AlunoDetalheCoordenacao | null>(null)
+  const [carregandoAluno, setCarregandoAluno] = useState(false)
   const [novoAcompanhamento, setNovoAcompanhamento] = useState('')
   const [salvandoAcompanhamento, setSalvandoAcompanhamento] = useState(false)
 
@@ -228,21 +232,27 @@ export function Coordenacao() {
   useEffect(carregar, [])
 
   async function abrirProfessor(id: string) {
+    setCarregandoProfessor(true)
     try {
       const detalhe = await api.get<ProfessorDetalheCoordenacao>(`/coordenacao/professores/${id}`)
       setProfessorAberto(detalhe)
     } catch (e) {
       notificar(e instanceof ApiError ? e.message : 'Não foi possível abrir esse professor.')
+    } finally {
+      setCarregandoProfessor(false)
     }
   }
 
   async function abrirTurma(id: string, modo: 'completo' | 'frequencia' = 'completo') {
+    setCarregandoTurma(true)
     try {
       const detalhe = await api.get<TurmaDetalheCoordenacao>(`/coordenacao/turmas/${id}`)
       setTurmaAberta(detalhe)
       setTurmaDrawerModo(modo)
     } catch (e) {
       notificar(e instanceof ApiError ? e.message : 'Não foi possível abrir essa turma.')
+    } finally {
+      setCarregandoTurma(false)
     }
   }
 
@@ -338,6 +348,7 @@ export function Coordenacao() {
   }
 
   async function abrirReuniao(id: string) {
+    setCarregandoReuniao(true)
     try {
       const detalhe = await api.get<ReuniaoDetalhe>(`/coordenacao/reunioes/${id}`)
       setReuniaoAberta(detalhe)
@@ -345,6 +356,8 @@ export function Coordenacao() {
       setNovoEncaminhamento({ texto: '', responsavelId: '' })
     } catch (e) {
       notificar(e instanceof ApiError ? e.message : 'Não foi possível abrir essa reunião.')
+    } finally {
+      setCarregandoReuniao(false)
     }
   }
 
@@ -431,12 +444,15 @@ export function Coordenacao() {
   }
 
   async function abrirAluno(id: string) {
+    setCarregandoAluno(true)
     try {
       const detalhe = await api.get<AlunoDetalheCoordenacao>(`/coordenacao/alunos/${id}`)
       setAlunoAberto(detalhe)
       setNovoAcompanhamento('')
     } catch (e) {
       notificar(e instanceof ApiError ? e.message : 'Não foi possível abrir esse aluno.')
+    } finally {
+      setCarregandoAluno(false)
     }
   }
 
@@ -914,10 +930,16 @@ export function Coordenacao() {
       )}
 
       <Drawer
-        aberto={!!professorAberto}
-        titulo={professorAberto?.nome ?? ''}
-        onFechar={() => setProfessorAberto(null)}
+        aberto={carregandoProfessor || !!professorAberto}
+        titulo={professorAberto?.nome ?? 'Carregando...'}
+        onFechar={() => {
+          setProfessorAberto(null)
+          setCarregandoProfessor(false)
+        }}
       >
+        {!professorAberto && carregandoProfessor && (
+          <p className="texto-suave">Carregando...</p>
+        )}
         {professorAberto && (
           <div className="stack-md">
             <p className="texto-suave">{professorAberto.email}</p>
@@ -1082,7 +1104,15 @@ export function Coordenacao() {
         )}
       </Drawer>
 
-      <Drawer aberto={!!turmaAberta} titulo={turmaAberta?.nome ?? ''} onFechar={() => setTurmaAberta(null)}>
+      <Drawer
+        aberto={carregandoTurma || !!turmaAberta}
+        titulo={turmaAberta?.nome ?? 'Carregando...'}
+        onFechar={() => {
+          setTurmaAberta(null)
+          setCarregandoTurma(false)
+        }}
+      >
+        {!turmaAberta && carregandoTurma && <p className="texto-suave">Carregando...</p>}
         {turmaAberta && turmaDrawerModo === 'frequencia' && (
           <div className="stack-md">
             <p className="texto-suave">
@@ -1374,7 +1404,15 @@ export function Coordenacao() {
         )}
       </Drawer>
 
-      <Drawer aberto={!!reuniaoAberta} titulo={reuniaoAberta?.titulo ?? ''} onFechar={() => setReuniaoAberta(null)}>
+      <Drawer
+        aberto={carregandoReuniao || !!reuniaoAberta}
+        titulo={reuniaoAberta?.titulo ?? 'Carregando...'}
+        onFechar={() => {
+          setReuniaoAberta(null)
+          setCarregandoReuniao(false)
+        }}
+      >
+        {!reuniaoAberta && carregandoReuniao && <p className="texto-suave">Carregando...</p>}
         {reuniaoAberta && (
           <div className="stack-md">
             <p className="texto-suave">
@@ -1486,7 +1524,15 @@ export function Coordenacao() {
         )}
       </Drawer>
 
-      <Drawer aberto={!!alunoAberto} titulo={alunoAberto?.nome ?? ''} onFechar={() => setAlunoAberto(null)}>
+      <Drawer
+        aberto={carregandoAluno || !!alunoAberto}
+        titulo={alunoAberto?.nome ?? 'Carregando...'}
+        onFechar={() => {
+          setAlunoAberto(null)
+          setCarregandoAluno(false)
+        }}
+      >
+        {!alunoAberto && carregandoAluno && <p className="texto-suave">Carregando...</p>}
         {alunoAberto && (
           <div className="stack-md">
             <p className="texto-suave">
