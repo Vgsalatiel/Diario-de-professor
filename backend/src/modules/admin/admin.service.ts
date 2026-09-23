@@ -194,37 +194,65 @@ export async function obterDashboard() {
     percentuais.length > 0 ? Math.round(percentuais.reduce((a, b) => a + b, 0) / percentuais.length) : null
   const alunosComBaixaFrequencia = percentuais.filter((p) => p < LIMIAR_BAIXA_FREQUENCIA).length
 
-  const [aulasPrevistasHojeConta, eventosHoje, proximasProvas, proximasReunioes, proximosOutros] =
-    await Promise.all([
-      hojeEhFeriado
-        ? Promise.resolve(0)
-        : prisma.turma.count({
-            where: { excluidoEm: null, anoLetivo: anoAtual, diasAula: { has: weekdayHoje } },
-          }),
-      prisma.evento.groupBy({
-        by: ['tipo'],
-        where: { data: new Date(`${hoje}T00:00:00.000Z`) },
-        _count: { _all: true },
-      }),
-      prisma.evento.findMany({
-        where: { tipo: 'prova', concluido: false, data: { gte: new Date(`${hoje}T00:00:00.000Z`) } },
-        orderBy: { data: 'asc' },
-        take: 5,
-        include: { turma: { select: { nome: true } } },
-      }),
-      prisma.evento.findMany({
-        where: { tipo: 'reuniao', concluido: false, data: { gte: new Date(`${hoje}T00:00:00.000Z`) } },
-        orderBy: { data: 'asc' },
-        take: 5,
-        include: { turma: { select: { nome: true } } },
-      }),
-      prisma.evento.findMany({
-        where: { tipo: 'outro', concluido: false, data: { gte: new Date(`${hoje}T00:00:00.000Z`) } },
-        orderBy: { data: 'asc' },
-        take: 5,
-        include: { turma: { select: { nome: true } } },
-      }),
-    ])
+  // Professores com pelo menos uma pendência (turma sem registro de ontem
+  // ou com avaliação sem nota) — turma pode ter vários professores agora,
+  // então a pendência da turma não aponta sozinha pra um professor só.
+  const idsTurmasPendentes = Array.from(new Set([...idsSemRegistroOntem, ...idsAvaliacaoPendente]))
+  const professoresPendentesPromise =
+    idsTurmasPendentes.length > 0
+      ? prisma.turmaProfessor.findMany({
+          where: { turmaId: { in: idsTurmasPendentes } },
+          select: { professorId: true },
+          distinct: ['professorId'],
+        })
+      : Promise.resolve([])
+
+  const [
+    aulasPrevistasHojeConta,
+    eventosHoje,
+    proximasProvas,
+    proximasReunioes,
+    proximosOutros,
+    agendaHoje,
+    professoresPendentes,
+  ] = await Promise.all([
+    hojeEhFeriado
+      ? Promise.resolve(0)
+      : prisma.turma.count({
+          where: { excluidoEm: null, anoLetivo: anoAtual, diasAula: { has: weekdayHoje } },
+        }),
+    prisma.evento.groupBy({
+      by: ['tipo'],
+      where: { data: new Date(`${hoje}T00:00:00.000Z`) },
+      _count: { _all: true },
+    }),
+    prisma.evento.findMany({
+      where: { tipo: 'prova', concluido: false, data: { gte: new Date(`${hoje}T00:00:00.000Z`) } },
+      orderBy: { data: 'asc' },
+      take: 5,
+      include: { turma: { select: { nome: true } } },
+    }),
+    prisma.evento.findMany({
+      where: { tipo: 'reuniao', concluido: false, data: { gte: new Date(`${hoje}T00:00:00.000Z`) } },
+      orderBy: { data: 'asc' },
+      take: 5,
+      include: { turma: { select: { nome: true } } },
+    }),
+    prisma.evento.findMany({
+      where: { tipo: 'outro', concluido: false, data: { gte: new Date(`${hoje}T00:00:00.000Z`) } },
+      orderBy: { data: 'asc' },
+      take: 5,
+      include: { turma: { select: { nome: true } } },
+    }),
+    // Agenda do dia — todo evento de hoje (qualquer tipo), ordenado por
+    // horário, pra responder "o que tenho hoje" numa lista só.
+    prisma.evento.findMany({
+      where: { data: new Date(`${hoje}T00:00:00.000Z`) },
+      orderBy: [{ hora: 'asc' }, { titulo: 'asc' }],
+      include: { turma: { select: { nome: true } } },
+    }),
+    professoresPendentesPromise,
+  ])
 
   function contarTipo(tipo: string): number {
     return eventosHoje.find((e) => e.tipo === tipo)?._count._all ?? 0
@@ -233,6 +261,7 @@ export async function obterDashboard() {
   function serializarEvento(e: {
     id: string
     titulo: string
+    tipo?: string
     data: Date
     hora: string | null
     turma: { nome: string } | null
@@ -240,6 +269,7 @@ export async function obterDashboard() {
     return {
       id: e.id,
       titulo: e.titulo,
+      tipo: e.tipo,
       data: e.data.toISOString().slice(0, 10),
       hora: e.hora,
       turmaNome: e.turma?.nome ?? null,
@@ -270,9 +300,11 @@ export async function obterDashboard() {
     proximasProvas: proximasProvas.map(serializarEvento),
     proximasReunioes: proximasReunioes.map(serializarEvento),
     proximosEventos: proximosOutros.map(serializarEvento),
+    agendaHoje: agendaHoje.map(serializarEvento),
     pendencias: {
       turmasSemRegistroOntem: idsSemRegistroOntem.size,
       turmasComAvaliacaoPendente: idsAvaliacaoPendente.size,
+      professoresComPendencia: professoresPendentes.length,
     },
   }
 }
