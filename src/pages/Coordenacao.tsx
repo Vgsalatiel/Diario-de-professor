@@ -21,7 +21,7 @@ import type {
 
 const ROTULO_TURNO: Record<Turno, string> = { manha: 'Manhã', tarde: 'Tarde', noite: 'Noite' }
 
-type Aba = 'professores' | 'turmas' | 'alunos' | 'calendario' | 'observacoes'
+type Aba = 'professores' | 'turmas' | 'frequencia' | 'alunos' | 'calendario' | 'observacoes'
 
 const REUNIAO_VAZIA = { titulo: '', data: '', hora: '', turmaId: '', conteudo: '' }
 const OBSERVACAO_VAZIA: { professorAlvoId: string; turmaId: string; texto: string; tipo: TipoObservacao } = {
@@ -45,9 +45,21 @@ function ratioTexto(feitas: number, esperadas: number): string {
 const TITULO_ABA: Record<Aba, string> = {
   professores: 'Professores',
   turmas: 'Turmas',
+  frequencia: 'Frequência',
   alunos: 'Alunos',
   calendario: 'Calendário',
   observacoes: 'Observações',
+}
+
+// Limiar mais rígido que o "baixa frequência" (75%) usado pro aluno
+// individual em todo o resto do sistema — aqui é a média da turma
+// inteira, então um número mais alto já indica algo sistêmico, não só um
+// aluno faltoso isolado.
+function iconeFrequenciaTurma(percentual: number | null): string {
+  if (percentual == null) return ''
+  if (percentual < 90) return '🔴'
+  if (percentual < 95) return '⚠️'
+  return ''
 }
 
 function badgeObservacao(o: ObservacaoPedagogica) {
@@ -99,6 +111,19 @@ export function Coordenacao() {
           (serieFiltro === 'todas' || t.serie === serieFiltro),
       ),
     [turmas, turnoFiltro, serieFiltro],
+  )
+
+  // Pior frequência primeiro — quem precisa de atenção aparece no topo,
+  // sem a coordenação ter que caçar manualmente.
+  const turmasPorFrequencia = useMemo(
+    () =>
+      [...turmas].sort((a, b) => {
+        if (a.frequenciaMedia == null && b.frequenciaMedia == null) return 0
+        if (a.frequenciaMedia == null) return 1
+        if (b.frequenciaMedia == null) return -1
+        return a.frequenciaMedia - b.frequenciaMedia
+      }),
+    [turmas],
   )
 
   function carregar() {
@@ -378,6 +403,35 @@ export function Coordenacao() {
                     ))}
                   </div>
                 )}
+              </div>
+            ))}
+
+          {aba === 'frequencia' &&
+            (turmas.length === 0 ? (
+              <div className="vazio painel">
+                <p>Nenhuma turma cadastrada ainda.</p>
+              </div>
+            ) : (
+              <div className="painel sem-padding">
+                <ul className="lista-eventos">
+                  {turmasPorFrequencia.map((t) => (
+                    <li key={t.id} className="evento-item">
+                      <button className="link-botao" onClick={() => abrirTurma(t.id)}>
+                        {t.nome}
+                      </button>
+                      <div className="evento-info">
+                        <span className="evento-turma">
+                          {t.professorNome}
+                          {t.turno && ` · ${ROTULO_TURNO[t.turno]}`}
+                        </span>
+                      </div>
+                      <span className="evento-data">
+                        {t.frequenciaMedia == null ? '—' : `${t.frequenciaMedia}%`}{' '}
+                        {iconeFrequenciaTurma(t.frequenciaMedia)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             ))}
 

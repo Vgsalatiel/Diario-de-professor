@@ -37,6 +37,7 @@ const LINKS_COORDENACAO: LinkNav[] = [
   { to: '/', rotulo: 'Início', icone: '◧', exato: true },
   { to: '/coordenacao/professores', rotulo: 'Professores', icone: '☺' },
   { to: '/coordenacao/turmas', rotulo: 'Turmas', icone: '▦' },
+  { to: '/coordenacao/frequencia', rotulo: 'Frequência', icone: '☑' },
   { to: '/coordenacao/alunos', rotulo: 'Alunos', icone: '◑' },
   { to: '/coordenacao/calendario', rotulo: 'Calendário', icone: '▣' },
   { to: '/perfil', rotulo: 'Perfil', icone: '◔' },
