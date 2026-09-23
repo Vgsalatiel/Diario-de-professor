@@ -55,11 +55,10 @@ const TITULO_ABA: Record<Aba, string> = {
 // individual em todo o resto do sistema — aqui é a média da turma
 // inteira, então um número mais alto já indica algo sistêmico, não só um
 // aluno faltoso isolado.
-function iconeFrequenciaTurma(percentual: number | null): string {
-  if (percentual == null) return ''
-  if (percentual < 90) return '🔴'
-  if (percentual < 95) return '⚠️'
-  return ''
+function pillFrequenciaTurma(percentual: number | null) {
+  if (percentual == null) return <span className="pill pill-sem-nota">—</span>
+  const classe = percentual < 90 ? 'pill-recuperacao' : percentual < 95 ? 'pill-atencao' : 'pill-aprovado'
+  return <span className={`pill ${classe}`}>{percentual}%</span>
 }
 
 function badgeObservacao(o: ObservacaoPedagogica) {
@@ -86,6 +85,7 @@ export function Coordenacao() {
 
   const [professorAberto, setProfessorAberto] = useState<ProfessorDetalheCoordenacao | null>(null)
   const [turmaAberta, setTurmaAberta] = useState<TurmaDetalheCoordenacao | null>(null)
+  const [turmaDrawerModo, setTurmaDrawerModo] = useState<'completo' | 'frequencia'>('completo')
 
   const [modalReuniao, setModalReuniao] = useState(false)
   const [formReuniao, setFormReuniao] = useState(REUNIAO_VAZIA)
@@ -158,10 +158,11 @@ export function Coordenacao() {
     }
   }
 
-  async function abrirTurma(id: string) {
+  async function abrirTurma(id: string, modo: 'completo' | 'frequencia' = 'completo') {
     try {
       const detalhe = await api.get<TurmaDetalheCoordenacao>(`/coordenacao/turmas/${id}`)
       setTurmaAberta(detalhe)
+      setTurmaDrawerModo(modo)
     } catch (e) {
       notificar(e instanceof ApiError ? e.message : 'Não foi possível abrir essa turma.')
     }
@@ -219,7 +220,7 @@ export function Coordenacao() {
       setModalObservacao(false)
       carregar()
       if (professorAberto?.id === formObservacao.professorAlvoId) abrirProfessor(professorAberto.id)
-      if (turmaAberta?.id === formObservacao.turmaId) abrirTurma(turmaAberta.id)
+      if (turmaAberta?.id === formObservacao.turmaId) abrirTurma(turmaAberta.id, turmaDrawerModo)
     } catch (e) {
       notificar(e instanceof ApiError ? e.message : 'Não foi possível salvar a observação.')
     } finally {
@@ -412,26 +413,31 @@ export function Coordenacao() {
                 <p>Nenhuma turma cadastrada ainda.</p>
               </div>
             ) : (
-              <div className="painel sem-padding">
-                <ul className="lista-eventos">
-                  {turmasPorFrequencia.map((t) => (
-                    <li key={t.id} className="evento-item">
-                      <button className="link-botao" onClick={() => abrirTurma(t.id)}>
-                        {t.nome}
-                      </button>
-                      <div className="evento-info">
-                        <span className="evento-turma">
-                          {t.professorNome}
-                          {t.turno && ` · ${ROTULO_TURNO[t.turno]}`}
-                        </span>
-                      </div>
-                      <span className="evento-data">
-                        {t.frequenciaMedia == null ? '—' : `${t.frequenciaMedia}%`}{' '}
-                        {iconeFrequenciaTurma(t.frequenciaMedia)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+              <div className="painel sem-padding rolagem-x">
+                <table className="tabela tabela-responsiva">
+                  <thead>
+                    <tr>
+                      <th>Turma</th>
+                      <th>Professor(a)</th>
+                      <th>Turno</th>
+                      <th>Frequência</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {turmasPorFrequencia.map((t) => (
+                      <tr key={t.id}>
+                        <td className="celula-nome">
+                          <button className="link-botao" onClick={() => abrirTurma(t.id, 'frequencia')}>
+                            {t.nome}
+                          </button>
+                        </td>
+                        <td data-label="Professor(a)">{t.professorNome}</td>
+                        <td data-label="Turno">{t.turno ? ROTULO_TURNO[t.turno] : '—'}</td>
+                        <td data-label="Frequência">{pillFrequenciaTurma(t.frequenciaMedia)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             ))}
 
@@ -715,7 +721,60 @@ export function Coordenacao() {
       </Drawer>
 
       <Drawer aberto={!!turmaAberta} titulo={turmaAberta?.nome ?? ''} onFechar={() => setTurmaAberta(null)}>
-        {turmaAberta && (
+        {turmaAberta && turmaDrawerModo === 'frequencia' && (
+          <div className="stack-md">
+            <p className="texto-suave">
+              {turmaAberta.escola}
+              {turmaAberta.serie && ` · ${turmaAberta.serie}`}
+              {turmaAberta.turno && ` · ${ROTULO_TURNO[turmaAberta.turno]}`} · {turmaAberta.totalAlunos} aluno(s)
+            </p>
+
+            <div>
+              <h3 className="titulo-secao">Frequência</h3>
+              <p>
+                Frequência média da turma:{' '}
+                <strong>{turmaAberta.frequenciaMedia == null ? '—' : `${turmaAberta.frequenciaMedia}%`}</strong>
+              </p>
+              {turmaAberta.alunos.length === 0 ? (
+                <p className="texto-suave">Nenhum aluno cadastrado.</p>
+              ) : (
+                <ul className="lista-simples">
+                  {turmaAberta.alunos.map((a) => (
+                    <li key={a.id}>
+                      <span>{a.nome}</span>
+                      {pillFrequencia(a.frequenciaPercentual)}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div>
+              <h3 className="titulo-secao">Professor(a) responsável</h3>
+              <p className="texto-suave">
+                {turmaAberta.professor.nome} · {turmaAberta.professor.email}
+              </p>
+              <div className="grupo-botoes">
+                <button
+                  className="btn btn-fantasma btn-pequeno"
+                  onClick={() => abrirNovaObservacao(turmaAberta.professor.id, 'comentario', '', turmaAberta.id)}
+                >
+                  + Comentário
+                </button>
+                <button
+                  className="btn btn-fantasma btn-pequeno"
+                  onClick={() =>
+                    abrirNovaObservacao(turmaAberta.professor.id, 'solicitacaoCorrecao', '', turmaAberta.id)
+                  }
+                >
+                  + Solicitar correção
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {turmaAberta && turmaDrawerModo === 'completo' && (
           <div className="stack-md">
             <p className="texto-suave">
               {turmaAberta.escola}

@@ -885,6 +885,7 @@ input:focus, select:focus, textarea:focus {
 .pill-aprovado { background: var(--verde-claro); color: var(--verde-texto); }
 .pill-recuperacao { background: var(--vermelho-claro); color: var(--vermelho-texto); }
 .pill-sem-nota { background: var(--paper); color: var(--muted); }
+.pill-atencao { background: rgba(232, 163, 61, 0.16); color: var(--amber); }
 .pill-info { background: var(--indigo-claro); color: var(--indigo); }
 .pill-btn { border: none; cursor: pointer; font: inherit; min-width: 44px; }
 .pill-btn:hover { filter: brightness(0.95); }
