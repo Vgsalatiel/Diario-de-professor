@@ -15,15 +15,16 @@ export function AlunosEscolaPainel() {
   const [alunos, setAlunos] = useState<AlunoResumoAdmin[]>([])
   const [resumo, setResumo] = useState<ResumoAlunosEscola | null>(null)
   const [busca, setBusca] = useState('')
+  const [turmaFiltroId, setTurmaFiltroId] = useState('todas')
+  const [professorFiltroId, setProfessorFiltroId] = useState('todos')
   const [alunoSelecionadoId, setAlunoSelecionadoId] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
 
   const [searchParams, setSearchParams] = useSearchParams()
-  const [turmaFiltroId, setTurmaFiltroId] = useState<string | null>(null)
 
-  // Veio de "Ver alunos" numa turma específica — filtra só nela, sem
-  // precisar digitar o nome de cada um pra achar.
+  // Veio de "Ver alunos" numa turma específica — já abre com o filtro de
+  // turma selecionado, sem precisar escolher de novo.
   useEffect(() => {
     const turmaParam = searchParams.get('turma')
     if (!turmaParam) return
@@ -44,18 +45,29 @@ export function AlunosEscolaPainel() {
       .finally(() => setCarregando(false))
   }, [])
 
-  const turmaFiltroNome = turmaFiltroId
-    ? alunos.find((a) => a.turmaId === turmaFiltroId)?.turmaNome ?? null
-    : null
+  const turmasDisponiveis = useMemo(() => {
+    const mapa = new Map<string, string>()
+    for (const a of alunos) mapa.set(a.turmaId, a.turmaNome)
+    return Array.from(mapa, ([id, nome]) => ({ id, nome })).sort((x, y) => x.nome.localeCompare(y.nome))
+  }, [alunos])
+
+  const professoresDisponiveis = useMemo(() => {
+    const mapa = new Map<string, string>()
+    for (const a of alunos) {
+      for (const p of a.professores) mapa.set(p.id, p.nome)
+    }
+    return Array.from(mapa, ([id, nome]) => ({ id, nome })).sort((x, y) => x.nome.localeCompare(y.nome))
+  }, [alunos])
 
   const alunosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase()
     return alunos.filter((a) => {
-      if (turmaFiltroId && a.turmaId !== turmaFiltroId) return false
+      if (turmaFiltroId !== 'todas' && a.turmaId !== turmaFiltroId) return false
+      if (professorFiltroId !== 'todos' && !a.professores.some((p) => p.id === professorFiltroId)) return false
       if (termo && !a.nome.toLowerCase().includes(termo)) return false
       return true
     })
-  }, [alunos, busca, turmaFiltroId])
+  }, [alunos, busca, turmaFiltroId, professorFiltroId])
 
   if (carregando) return <p className="texto-suave">Carregando…</p>
   if (erro) return <div className="alerta-erro">{erro}</div>
@@ -91,21 +103,40 @@ export function AlunosEscolaPainel() {
         </div>
       )}
 
-      {turmaFiltroId && (
-        <div className="alerta-info">
-          Mostrando só os alunos de <strong>{turmaFiltroNome ?? 'turma selecionada'}</strong>.{' '}
-          <button className="link-botao" onClick={() => setTurmaFiltroId(null)}>
-            Ver todos os alunos
-          </button>
-        </div>
-      )}
-
-      <input
-        style={{ maxWidth: 360 }}
-        value={busca}
-        onChange={(e) => setBusca(e.target.value)}
-        placeholder="Pesquisar aluno pelo nome..."
-      />
+      <div className="barra-filtros">
+        <select
+          className="select"
+          aria-label="Turma"
+          value={turmaFiltroId}
+          onChange={(e) => setTurmaFiltroId(e.target.value)}
+        >
+          <option value="todas">Todas as turmas</option>
+          {turmasDisponiveis.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.nome}
+            </option>
+          ))}
+        </select>
+        <select
+          className="select"
+          aria-label="Professor"
+          value={professorFiltroId}
+          onChange={(e) => setProfessorFiltroId(e.target.value)}
+        >
+          <option value="todos">Todos os professores</option>
+          {professoresDisponiveis.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.nome}
+            </option>
+          ))}
+        </select>
+        <input
+          style={{ maxWidth: 280 }}
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Pesquisar aluno pelo nome..."
+        />
+      </div>
 
       {alunos.length === 0 ? (
         <div className="vazio painel">
@@ -113,7 +144,7 @@ export function AlunosEscolaPainel() {
         </div>
       ) : alunosFiltrados.length === 0 ? (
         <div className="vazio painel">
-          <p>Nenhum aluno encontrado{busca ? ` para "${busca}"` : ''}.</p>
+          <p>Nenhum aluno encontrado com esses filtros.</p>
         </div>
       ) : (
         <div className="painel sem-padding rolagem-x">

@@ -260,6 +260,7 @@ export interface AlunoResumoAdmin {
   turmaId: string
   turmaNome: string
   escola: string
+  professores: { id: string; nome: string }[]
   professorNome: string
   frequenciaPercentual: number | null
 }

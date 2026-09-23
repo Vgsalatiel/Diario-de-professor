@@ -400,7 +400,7 @@ export async function listarAlunosDetalhado() {
           select: {
             nome: true,
             escola: true,
-            professores: { select: { professor: { select: { nome: true } } } },
+            professores: { select: { professorId: true, professor: { select: { nome: true } } } },
           },
         },
       },
@@ -417,6 +417,7 @@ export async function listarAlunosDetalhado() {
       turmaId: a.turmaId,
       turmaNome: a.turma.nome,
       escola: a.turma.escola,
+      professores: a.turma.professores.map((p) => ({ id: p.professorId, nome: p.professor.nome })),
       professorNome: a.turma.professores.map((p) => p.professor.nome).join(', ') || '—',
       frequenciaPercentual: percentuaisPorAluno.get(a.id) ?? null,
     }))
