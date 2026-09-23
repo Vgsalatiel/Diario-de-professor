@@ -5,7 +5,7 @@ import { alunoDoProfessor, eventoDoProfessor } from '../../utils/ownership'
 // (prova/trabalho) igual faz hoje com o MapaDeFrequencia.
 export function listarEntregas(professorId: string) {
   return prisma.entrega.findMany({
-    where: { aluno: { excluidoEm: null, turma: { professorId, excluidoEm: null } } },
+    where: { aluno: { excluidoEm: null }, evento: { professorId } },
   })
 }
 

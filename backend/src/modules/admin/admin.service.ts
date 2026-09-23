@@ -105,8 +105,9 @@ export async function obterTurmasComMetricas() {
           turno: true,
           escola: true,
           anoLetivo: true,
-          professorId: true,
-          professor: { select: { nome: true } },
+          professores: {
+            select: { professorId: true, disciplina: true, professor: { select: { nome: true } } },
+          },
         },
         orderBy: { nome: 'asc' },
       }),
@@ -148,8 +149,11 @@ export async function obterTurmasComMetricas() {
       turno: t.turno,
       escola: t.escola,
       anoLetivo: t.anoLetivo,
-      professorId: t.professorId,
-      professorNome: t.professor.nome,
+      professores: t.professores.map((p) => ({
+        professorId: p.professorId,
+        professorNome: p.professor.nome,
+        disciplina: p.disciplina,
+      })),
       totalAlunos: alunoIds.length,
       frequenciaMedia,
       aulaRegistradaHoje: idsComAulaRegistradaHoje.has(t.id),
@@ -284,14 +288,16 @@ export async function listarProfessores() {
         materias: true,
         isAdmin: true,
         criadoEm: true,
-        _count: { select: { turmas: true } },
+        _count: { select: { turmasAtribuidas: true } },
       },
     }),
     obterTurmasComMetricas(),
   ])
 
   return professores.map((p) => {
-    const turmasDoProfessor = turmasComMetricas.filter((t) => t.professorId === p.id)
+    const turmasDoProfessor = turmasComMetricas.filter((t) =>
+      t.professores.some((pr) => pr.professorId === p.id),
+    )
     return {
       id: p.id,
       nome: p.nome,
@@ -299,7 +305,7 @@ export async function listarProfessores() {
       materias: p.materias,
       isAdmin: p.isAdmin,
       criadoEm: p.criadoEm.toISOString(),
-      totalTurmas: p._count.turmas,
+      totalTurmas: p._count.turmasAtribuidas,
       aulasRegistradasHoje: turmasDoProfessor.filter((t) => t.aulaRegistradaHoje).length,
       pendencias: turmasDoProfessor.filter((t) => t.semRegistroOntem || t.avaliacaoPendente).length,
     }
@@ -323,7 +329,13 @@ export async function listarAlunosDetalhado() {
         id: true,
         nome: true,
         situacao: true,
-        turma: { select: { nome: true, escola: true, professor: { select: { nome: true } } } },
+        turma: {
+          select: {
+            nome: true,
+            escola: true,
+            professores: { select: { professor: { select: { nome: true } } } },
+          },
+        },
       },
       orderBy: { nome: 'asc' },
     }),
@@ -337,7 +349,7 @@ export async function listarAlunosDetalhado() {
       situacao: a.situacao,
       turmaNome: a.turma.nome,
       escola: a.turma.escola,
-      professorNome: a.turma.professor.nome,
+      professorNome: a.turma.professores.map((p) => p.professor.nome).join(', ') || '—',
       frequenciaPercentual: percentuaisPorAluno.get(a.id) ?? null,
     }))
     .sort((a, b) => {
@@ -356,6 +368,22 @@ export async function excluirProfessor(professorId: string, quemPediuId: string)
   const professor = await prisma.professor.findUnique({ where: { id: professorId } })
   if (!professor) throw AppError.naoEncontrado('Professor')
 
-  // Cascade do schema já apaga turmas, alunos, notas, eventos, planos etc.
+  // Turmas passaram a ser da escola, não do professor — apagar a conta não
+  // pode mais arrastar turmas compartilhadas com outros professores. Só a
+  // atribuição dele (TurmaProfessor) cai em cascata; avaliações, datas de
+  // aula, planos e registros ficam retidos como histórico, então bloqueiam
+  // a exclusão até serem removidos manualmente.
+  const [avaliacoes, datasAula, planos, registros] = await Promise.all([
+    prisma.avaliacao.count({ where: { professorId } }),
+    prisma.dataAula.count({ where: { professorId } }),
+    prisma.planoDeAula.count({ where: { professorId } }),
+    prisma.registroAula.count({ where: { professorId } }),
+  ])
+  if (avaliacoes + datasAula + planos + registros > 0) {
+    throw AppError.requisicaoInvalida(
+      'Esse professor ainda tem avaliações, frequência, planos ou registros de aula lançados — remova as atribuições de turma dele antes de excluir a conta.',
+    )
+  }
+
   await prisma.professor.delete({ where: { id: professorId } })
 }

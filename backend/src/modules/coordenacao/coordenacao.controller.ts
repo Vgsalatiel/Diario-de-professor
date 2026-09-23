@@ -2,12 +2,14 @@ import type { Request, Response } from 'express'
 import { paramId } from '../../utils/params'
 import * as coordenacaoService from './coordenacao.service'
 import {
+  atribuirProfessorDto,
   atualizarReuniaoDto,
   criarAcompanhamentoDto,
   criarEncaminhamentoDto,
   criarObservacaoDto,
   criarReuniaoDto,
 } from './coordenacao.dto'
+import { atualizarTurmaDto, criarTurmaDto, promoverTurmaDto } from '../turmas/turmas.dto'
 
 export async function dashboard(_req: Request, res: Response) {
   res.json(await coordenacaoService.obterDashboard())
@@ -27,6 +29,40 @@ export async function listarTurmas(_req: Request, res: Response) {
 
 export async function detalharTurma(req: Request, res: Response) {
   res.json(await coordenacaoService.detalharTurma(paramId(req.params.id)))
+}
+
+export async function criarTurma(req: Request, res: Response) {
+  const dados = criarTurmaDto.parse(req.body)
+  const turma = await coordenacaoService.criarTurma(dados)
+  res.status(201).json(turma)
+}
+
+export async function atualizarTurma(req: Request, res: Response) {
+  const dados = atualizarTurmaDto.parse(req.body)
+  const turma = await coordenacaoService.atualizarTurma(paramId(req.params.id), dados)
+  res.json(turma)
+}
+
+export async function removerTurma(req: Request, res: Response) {
+  await coordenacaoService.removerTurma(paramId(req.params.id))
+  res.status(204).send()
+}
+
+export async function promoverTurma(req: Request, res: Response) {
+  const dados = promoverTurmaDto.parse(req.body)
+  const resultado = await coordenacaoService.promoverTurma(paramId(req.params.id), dados)
+  res.status(201).json(resultado)
+}
+
+export async function atribuirProfessor(req: Request, res: Response) {
+  const dados = atribuirProfessorDto.parse(req.body)
+  const atribuicao = await coordenacaoService.atribuirProfessor(paramId(req.params.id), dados)
+  res.status(201).json(atribuicao)
+}
+
+export async function removerProfessor(req: Request, res: Response) {
+  await coordenacaoService.removerProfessor(paramId(req.params.id), paramId(req.params.professorId))
+  res.status(204).send()
 }
 
 export async function listarAlunos(_req: Request, res: Response) {

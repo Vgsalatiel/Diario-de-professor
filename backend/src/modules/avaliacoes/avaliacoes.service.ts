@@ -1,18 +1,19 @@
 import { prisma } from '../../lib/prisma'
-import { avaliacaoDoProfessor, turmaDoProfessor } from '../../utils/ownership'
+import { avaliacaoDoProfessor, turmaAtribuidaAoProfessor } from '../../utils/ownership'
 import type { AtualizarAvaliacaoDto, CriarAvaliacaoDto } from './avaliacoes.dto'
 
-// Todas as avaliações de todas as turmas do professor.
+// Todas as avaliações do professor, em todas as turmas em que dá aula —
+// só as dele mesmo, já que agora cada disciplina tem suas próprias.
 export function listarTodas(professorId: string) {
   return prisma.avaliacao.findMany({
-    where: { turma: { professorId, excluidoEm: null } },
+    where: { professorId, turma: { excluidoEm: null } },
     orderBy: { nome: 'asc' },
   })
 }
 
 export async function criar(turmaId: string, professorId: string, dados: CriarAvaliacaoDto) {
-  await turmaDoProfessor(turmaId, professorId)
-  return prisma.avaliacao.create({ data: { ...dados, turmaId } })
+  await turmaAtribuidaAoProfessor(turmaId, professorId)
+  return prisma.avaliacao.create({ data: { ...dados, turmaId, professorId } })
 }
 
 export async function atualizar(

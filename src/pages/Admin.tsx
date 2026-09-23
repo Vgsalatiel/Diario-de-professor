@@ -184,7 +184,19 @@ export function Admin() {
                       <tr key={t.id}>
                         <td className="celula-nome">{t.nome}</td>
                         <td>{t.escola}</td>
-                        <td>{t.professorNome}</td>
+                        <td>
+                          {t.professores.length === 0 ? (
+                            <span className="texto-suave">—</span>
+                          ) : (
+                            <span className="stack-xs">
+                              {t.professores.map((p) => (
+                                <span key={p.professorId} className="pill pill-sem-nota">
+                                  {p.professorNome} · {p.disciplina}
+                                </span>
+                              ))}
+                            </span>
+                          )}
+                        </td>
                         <td>{t.totalAlunos}</td>
                         <td>{pillFrequencia(t.frequenciaMedia)}</td>
                         <td>

@@ -1,6 +1,6 @@
 import type { Aluno, Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
-import { alunoDoProfessor, turmaDoProfessor } from '../../utils/ownership'
+import { alunoDoProfessor, turmaAtribuidaAoProfessor } from '../../utils/ownership'
 import { paraDataISO } from '../../utils/serializers'
 import { gerarExerciciosPersonalizados } from '../../lib/gemini'
 import type { AtualizarAlunoDto, CriarAlunoDto, GerarExerciciosDto } from './alunos.dto'
@@ -13,14 +13,17 @@ function serializar(aluno: Aluno) {
 // frontend carrega tudo de uma vez e filtra por escola/turma no cliente.
 export async function listarTodos(professorId: string) {
   const alunos = await prisma.aluno.findMany({
-    where: { excluidoEm: null, turma: { professorId, excluidoEm: null } },
+    where: {
+      excluidoEm: null,
+      turma: { professores: { some: { professorId } }, excluidoEm: null },
+    },
     orderBy: { nome: 'asc' },
   })
   return alunos.map(serializar)
 }
 
 export async function criar(turmaId: string, professorId: string, dados: CriarAlunoDto) {
-  await turmaDoProfessor(turmaId, professorId)
+  await turmaAtribuidaAoProfessor(turmaId, professorId)
   const aluno = await prisma.aluno.create({
     data: {
       ...dados,

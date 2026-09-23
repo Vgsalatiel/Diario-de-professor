@@ -1,6 +1,6 @@
 import type { PlanoDeAula, Turma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
-import { planoDoProfessor, turmaDoProfessor } from '../../utils/ownership'
+import { planoDoProfessor, turmaAtribuidaAoProfessor } from '../../utils/ownership'
 import { paraDataISO } from '../../utils/serializers'
 import { AppError } from '../../utils/AppError'
 import * as bncc from '../../lib/bncc'
@@ -47,8 +47,8 @@ function serializar(plano: PlanoDeAula) {
 // habilidade contra a base real da BNCC e contra a etapa/ano/componente
 // da turma — tanto ao gerar quanto ao salvar (alguém poderia montar um
 // POST direto pulando a geração por IA).
-function validarCronograma(turma: Turma, cronograma: CronogramaItemDto[]) {
-  if (!turma.etapaBncc || !turma.anoSerieBncc || !turma.disciplina) {
+function validarCronograma(turma: Turma, disciplina: string | undefined, cronograma: CronogramaItemDto[]) {
+  if (!turma.etapaBncc || !turma.anoSerieBncc || !disciplina) {
     throw AppError.requisicaoInvalida(
       'Esta turma não tem disciplina/etapa/ano (BNCC) definidos — não é possível salvar um cronograma.',
     )
@@ -58,7 +58,7 @@ function validarCronograma(turma: Turma, cronograma: CronogramaItemDto[]) {
     if (
       !habilidade ||
       habilidade.etapa !== turma.etapaBncc ||
-      habilidade.componente !== turma.disciplina ||
+      habilidade.componente !== disciplina ||
       (habilidade.anos.length > 0 && !habilidade.anos.includes(turma.anoSerieBncc))
     ) {
       throw AppError.requisicaoInvalida(`Habilidade BNCC inválida para esta turma: ${item.habilidadeCodigo}.`)
@@ -66,18 +66,19 @@ function validarCronograma(turma: Turma, cronograma: CronogramaItemDto[]) {
   }
 }
 
-// Todos os planos de aula de todas as turmas do professor.
+// Todos os planos de aula do professor, em todas as turmas em que dá aula.
 export async function listarTodos(professorId: string) {
   const planos = await prisma.planoDeAula.findMany({
-    where: { turma: { professorId, excluidoEm: null } },
+    where: { professorId, turma: { excluidoEm: null } },
     orderBy: { dataInicio: 'desc' },
   })
   return planos.map(serializar)
 }
 
 export async function criar(turmaId: string, professorId: string, dados: CriarPlanoDto) {
-  const turma = await turmaDoProfessor(turmaId, professorId)
-  if (dados.cronograma) validarCronograma(turma, dados.cronograma)
+  const turma = await turmaAtribuidaAoProfessor(turmaId, professorId)
+  const disciplina = turma.professores[0]?.disciplina
+  if (dados.cronograma) validarCronograma(turma, disciplina, dados.cronograma)
 
   const plano = await prisma.planoDeAula.create({
     data: {
@@ -86,6 +87,7 @@ export async function criar(turmaId: string, professorId: string, dados: CriarPl
       dataInicio: new Date(dados.dataInicio),
       dataFim: new Date(dados.dataFim),
       turmaId,
+      professorId,
     },
   })
   return serializar(plano)
@@ -93,7 +95,9 @@ export async function criar(turmaId: string, professorId: string, dados: CriarPl
 
 export async function atualizar(planoId: string, professorId: string, dados: AtualizarPlanoDto) {
   const plano0 = await planoDoProfessor(planoId, professorId)
-  if (dados.cronograma) validarCronograma(plano0.turma, dados.cronograma)
+  if (dados.cronograma) {
+    validarCronograma(plano0.turma, plano0.turma.professores[0]?.disciplina, dados.cronograma)
+  }
 
   const plano = await prisma.planoDeAula.update({
     where: { id: planoId },
@@ -121,9 +125,10 @@ export async function remover(planoId: string, professorId: string) {
 // cronograma cobrindo o período inteiro — devolve só uma prévia, não
 // salva nada ainda. O professor decide se usa ao criar o plano de verdade.
 export async function gerarComIA(turmaId: string, professorId: string, dados: GerarPlanoIaDto) {
-  const turma = await turmaDoProfessor(turmaId, professorId)
+  const turma = await turmaAtribuidaAoProfessor(turmaId, professorId)
+  const disciplina = turma.professores[0]?.disciplina
 
-  if (!turma.disciplina || !turma.etapaBncc || !turma.anoSerieBncc) {
+  if (!disciplina || !turma.etapaBncc || !turma.anoSerieBncc) {
     throw AppError.requisicaoInvalida(
       'Defina a disciplina, a etapa e o ano (BNCC) desta turma antes de usar o assistente de IA.',
     )
@@ -135,7 +140,7 @@ export async function gerarComIA(turmaId: string, professorId: string, dados: Ge
   const habilidadesCandidatas = bncc.listarHabilidades({
     etapa: turma.etapaBncc,
     ano: turma.anoSerieBncc,
-    componente: turma.disciplina,
+    componente: disciplina,
   })
   if (habilidadesCandidatas.length === 0) {
     throw AppError.requisicaoInvalida(
@@ -159,7 +164,7 @@ export async function gerarComIA(turmaId: string, professorId: string, dados: Ge
     gerarCronogramaComIA({
       etapa: turma.etapaBncc,
       ano: turma.anoSerieBncc,
-      componente: turma.disciplina,
+      componente: disciplina,
       faixaEtaria,
       temaGeral: dados.temaGeral,
       quantidadeAulas: datas.length,
@@ -168,7 +173,7 @@ export async function gerarComIA(turmaId: string, professorId: string, dados: Ge
     gerarSugestoesAvaliacoesComIA({
       etapa: turma.etapaBncc,
       ano: turma.anoSerieBncc,
-      componente: turma.disciplina,
+      componente: disciplina,
       faixaEtaria,
       temaGeral: dados.temaGeral,
       quantidadeAtividades: QUANTIDADE_ATIVIDADES_SUGERIDAS,

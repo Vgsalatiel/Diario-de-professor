@@ -1,6 +1,6 @@
 import type { RegistroAula } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
-import { planoDoProfessor, turmaDoProfessor } from '../../utils/ownership'
+import { planoDoProfessor, turmaAtribuidaAoProfessor } from '../../utils/ownership'
 import { paraDataISO } from '../../utils/serializers'
 import { AppError } from '../../utils/AppError'
 import type { CronogramaItemDto } from '../planos/planos.dto'
@@ -15,18 +15,18 @@ function serializar(registro: RegistroAula) {
 // combinação turma + data.
 export async function listarTodos(professorId: string) {
   const registros = await prisma.registroAula.findMany({
-    where: { turma: { professorId, excluidoEm: null } },
+    where: { professorId, turma: { excluidoEm: null } },
   })
   return registros.map(serializar)
 }
 
-// find-or-update por turma+data (equivalente a um "upsert").
+// find-or-update por turma+professor+data (equivalente a um "upsert").
 export async function definir(
   turmaId: string,
   professorId: string,
   dados: DefinirRegistroAulaDto,
 ) {
-  await turmaDoProfessor(turmaId, professorId)
+  await turmaAtribuidaAoProfessor(turmaId, professorId)
   const planoId = dados.planoId ?? null
   let bnccCodigo: string | null = null
   let bnccTexto: string | null = null
@@ -51,9 +51,18 @@ export async function definir(
   const planoItemNumero = dados.planoItemNumero ?? null
 
   const registro = await prisma.registroAula.upsert({
-    where: { turmaId_data: { turmaId, data } },
+    where: { turmaId_professorId_data: { turmaId, professorId, data } },
     update: { resumo: dados.resumo, planoId, planoItemNumero, bnccCodigo, bnccTexto },
-    create: { turmaId, data, resumo: dados.resumo, planoId, planoItemNumero, bnccCodigo, bnccTexto },
+    create: {
+      turmaId,
+      professorId,
+      data,
+      resumo: dados.resumo,
+      planoId,
+      planoItemNumero,
+      bnccCodigo,
+      bnccTexto,
+    },
   })
   return serializar(registro)
 }

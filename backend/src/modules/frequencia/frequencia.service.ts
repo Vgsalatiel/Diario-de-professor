@@ -1,6 +1,6 @@
 import type { DataAula } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
-import { alunoDoProfessor, dataAulaDoProfessor, turmaDoProfessor } from '../../utils/ownership'
+import { alunoDoProfessor, dataAulaDoProfessor, turmaAtribuidaAoProfessor } from '../../utils/ownership'
 import { paraDataISO } from '../../utils/serializers'
 import type { GarantirDataAulaDto } from './frequencia.dto'
 
@@ -12,14 +12,14 @@ function serializarDataAula(dataAula: DataAula) {
 // presença e falta em cima dessas listas planas.
 export async function listarDatasAula(professorId: string) {
   const datas = await prisma.dataAula.findMany({
-    where: { turma: { professorId, excluidoEm: null } },
+    where: { professorId, turma: { excluidoEm: null } },
   })
   return datas.map(serializarDataAula)
 }
 
 export function listarFrequencia(professorId: string) {
   return prisma.frequencia.findMany({
-    where: { aluno: { excluidoEm: null, turma: { professorId, excluidoEm: null } } },
+    where: { aluno: { excluidoEm: null }, dataAula: { professorId } },
   })
 }
 
@@ -29,16 +29,16 @@ export async function garantirDataAula(
   professorId: string,
   dados: GarantirDataAulaDto,
 ) {
-  await turmaDoProfessor(turmaId, professorId)
+  await turmaAtribuidaAoProfessor(turmaId, professorId)
   const data = new Date(dados.data)
 
   const existente = await prisma.dataAula.findUnique({
-    where: { turmaId_data: { turmaId, data } },
+    where: { turmaId_professorId_data: { turmaId, professorId, data } },
   })
   if (existente) return serializarDataAula(existente)
 
   const criado = await prisma.dataAula.create({
-    data: { turmaId, data, periodo: dados.periodo },
+    data: { turmaId, professorId, data, periodo: dados.periodo },
   })
   return serializarDataAula(criado)
 }
@@ -49,11 +49,11 @@ export async function alternarSemAula(
   professorId: string,
   dados: GarantirDataAulaDto,
 ) {
-  await turmaDoProfessor(turmaId, professorId)
+  await turmaAtribuidaAoProfessor(turmaId, professorId)
   const data = new Date(dados.data)
 
   const existente = await prisma.dataAula.findUnique({
-    where: { turmaId_data: { turmaId, data } },
+    where: { turmaId_professorId_data: { turmaId, professorId, data } },
   })
 
   if (existente) {
@@ -65,7 +65,7 @@ export async function alternarSemAula(
   }
 
   const criado = await prisma.dataAula.create({
-    data: { turmaId, data, periodo: dados.periodo, semAula: true },
+    data: { turmaId, professorId, data, periodo: dados.periodo, semAula: true },
   })
   return serializarDataAula(criado)
 }

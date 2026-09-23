@@ -6,7 +6,7 @@ import type { DefinirNotaDto } from './notas.dto'
 // "mapa" (aluno::avaliação -> valor/conceito) a partir dessa lista.
 export function listarTodas(professorId: string) {
   return prisma.nota.findMany({
-    where: { aluno: { excluidoEm: null, turma: { professorId, excluidoEm: null } } },
+    where: { aluno: { excluidoEm: null }, avaliacao: { professorId } },
   })
 }
 

@@ -3,12 +3,14 @@ import { AppError } from '../../utils/AppError'
 import { paraDataISO } from '../../utils/serializers'
 import * as adminService from '../admin/admin.service'
 import type {
+  AtribuirProfessorDto,
   AtualizarReuniaoDto,
   CriarAcompanhamentoDto,
   CriarEncaminhamentoDto,
   CriarObservacaoDto,
   CriarReuniaoDto,
 } from './coordenacao.dto'
+import type { AtualizarTurmaDto, CriarTurmaDto, PromoverTurmaDto } from '../turmas/turmas.dto'
 
 // A coordenação acompanha a mesma visão geral (dashboard, turmas, alunos)
 // que o painel de diretor(a) já calcula — reaproveita em vez de duplicar a
@@ -107,34 +109,53 @@ export async function listarProfessores() {
       nome: true,
       email: true,
       materias: true,
-      turmas: {
-        where: { excluidoEm: null },
+      turmasAtribuidas: {
+        where: { turma: { excluidoEm: null } },
         select: {
-          nome: true,
-          datasAula: { where: { semAula: false }, select: { data: true } },
-          registrosAula: { select: { data: true } },
+          turma: { select: { id: true, nome: true } },
         },
       },
     },
   })
 
+  const professorIds = professores.map((p) => p.id)
+  const [datasAula, registrosAula] = await Promise.all([
+    prisma.dataAula.findMany({
+      where: { professorId: { in: professorIds }, semAula: false, turma: { excluidoEm: null } },
+      select: { professorId: true, data: true },
+    }),
+    prisma.registroAula.findMany({
+      where: { professorId: { in: professorIds }, turma: { excluidoEm: null } },
+      select: { professorId: true, data: true },
+    }),
+  ])
+
+  const datasPorProfessor = new Map<string, string[]>()
+  for (const d of datasAula) {
+    const arr = datasPorProfessor.get(d.professorId) ?? []
+    arr.push(paraDataISO(d.data)!)
+    datasPorProfessor.set(d.professorId, arr)
+  }
+  const registrosPorProfessor = new Map<string, Set<string>>()
+  for (const r of registrosAula) {
+    const set = registrosPorProfessor.get(r.professorId) ?? new Set()
+    set.add(paraDataISO(r.data)!)
+    registrosPorProfessor.set(r.professorId, set)
+  }
+
   return professores.map((p) => {
-    let esperadas = 0
-    let feitas = 0
-    for (const t of p.turmas) {
-      esperadas += t.datasAula.length
-      const datasComRegistro = new Set(t.registrosAula.map((r) => paraDataISO(r.data)))
-      feitas += t.datasAula.filter((d) => datasComRegistro.has(paraDataISO(d.data))).length
-    }
+    const datas = datasPorProfessor.get(p.id) ?? []
+    const registros = registrosPorProfessor.get(p.id) ?? new Set()
+    const feitas = datas.filter((d) => registros.has(d)).length
     return {
       id: p.id,
       nome: p.nome,
       email: p.email,
       materias: p.materias,
-      turmasNomes: p.turmas.map((t) => t.nome),
+      turmasNomes: p.turmasAtribuidas.map((ta) => ta.turma.nome),
       registrosFeitos: feitas,
-      registrosEsperados: esperadas,
-      situacaoRegistro: situacaoRegistro(feitas, esperadas),
+      registrosEsperados: datas.length,
+      situacaoRegistro: situacaoRegistro(feitas, datas.length),
     }
   })
 }
@@ -152,22 +173,31 @@ export async function detalharProfessor(professorId: string) {
       email: true,
       materias: true,
       criadoEm: true,
-      turmas: {
-        where: { excluidoEm: null },
+      turmasAtribuidas: {
+        where: { turma: { excluidoEm: null } },
         select: {
-          id: true,
-          nome: true,
-          datasAula: {
-            where: { semAula: false },
-            select: { id: true, data: true, frequencias: { select: { presente: true } } },
+          turma: {
+            select: {
+              id: true,
+              nome: true,
+              datasAula: {
+                where: { semAula: false, professorId },
+                select: { id: true, data: true, frequencias: { select: { presente: true } } },
+              },
+              registrosAula: { where: { professorId }, select: { data: true } },
+              avaliacoes: {
+                where: { professorId },
+                select: { id: true, notas: { select: { valor: true } } },
+              },
+            },
           },
-          registrosAula: { select: { data: true } },
-          avaliacoes: { select: { id: true, notas: { select: { valor: true } } } },
         },
       },
     },
   })
   if (!professor) throw AppError.naoEncontrado('Professor')
+
+  const turmasDoProfessor = professor.turmasAtribuidas.map((ta) => ta.turma)
 
   let aulasEsperadas = 0
   let aulasFeitas = 0
@@ -177,7 +207,7 @@ export async function detalharProfessor(professorId: string) {
   let avaliacoesComNota = 0
   const pendencias: string[] = []
 
-  for (const t of professor.turmas) {
+  for (const t of turmasDoProfessor) {
     aulasEsperadas += t.datasAula.length
     const datasComRegistro = new Set(t.registrosAula.map((r) => paraDataISO(r.data)))
     const aulasFeitasNaTurma = t.datasAula.filter((d) => datasComRegistro.has(paraDataISO(d.data))).length
@@ -202,7 +232,7 @@ export async function detalharProfessor(professorId: string) {
 
   const [planos, alunosComDificuldade, observacoes] = await Promise.all([
     prisma.planoDeAula.findMany({
-      where: { turma: { professorId, excluidoEm: null } },
+      where: { professorId, turma: { excluidoEm: null } },
       select: {
         id: true,
         titulo: true,
@@ -214,7 +244,11 @@ export async function detalharProfessor(professorId: string) {
       take: 10,
     }),
     prisma.aluno.findMany({
-      where: { turma: { professorId, excluidoEm: null }, excluidoEm: null, dificuldades: { not: null } },
+      where: {
+        turma: { professores: { some: { professorId } }, excluidoEm: null },
+        excluidoEm: null,
+        dificuldades: { not: null },
+      },
       select: { id: true, nome: true, dificuldades: true, turma: { select: { nome: true } } },
     }),
     prisma.observacaoPedagogica.findMany({
@@ -231,7 +265,7 @@ export async function detalharProfessor(professorId: string) {
     email: professor.email,
     materias: professor.materias,
     criadoEm: professor.criadoEm.toISOString(),
-    turmas: professor.turmas.map((t) => ({ id: t.id, nome: t.nome })),
+    turmas: turmasDoProfessor.map((t) => ({ id: t.id, nome: t.nome })),
     registros: {
       aulas: { feitas: aulasFeitas, esperadas: aulasEsperadas },
       frequencia: { feitas: frequenciaFeita, esperadas: frequenciaEsperada },
@@ -268,7 +302,12 @@ export async function detalharTurma(turmaId: string) {
       turno: true,
       escola: true,
       anoLetivo: true,
-      professor: { select: { id: true, nome: true, email: true, materias: true } },
+      professores: {
+        select: {
+          disciplina: true,
+          professor: { select: { id: true, nome: true, email: true, materias: true } },
+        },
+      },
     },
   })
   if (!turma) throw AppError.naoEncontrado('Turma')
@@ -340,7 +379,7 @@ export async function detalharTurma(turmaId: string) {
     turno: turma.turno,
     escola: turma.escola,
     anoLetivo: turma.anoLetivo,
-    professor: turma.professor,
+    professores: turma.professores.map((tp) => ({ ...tp.professor, disciplina: tp.disciplina })),
     totalAlunos: alunos.filter((a) => a.situacao === 'ativo').length,
     frequenciaMedia,
     mediaTurma,
@@ -627,7 +666,13 @@ export async function detalharAluno(alunoId: string) {
     select: {
       id: true,
       dificuldades: true,
-      turma: { select: { id: true, nome: true, disciplina: true } },
+      turma: {
+        select: {
+          id: true,
+          nome: true,
+          professores: { select: { professorId: true, disciplina: true } },
+        },
+      },
     },
   })
   const idsMatriculas = matriculas.map((m) => m.id)
@@ -636,7 +681,7 @@ export async function detalharAluno(alunoId: string) {
     adminService.calcularFrequenciaPorAluno(),
     prisma.nota.findMany({
       where: { alunoId: { in: idsMatriculas }, valor: { not: null } },
-      select: { alunoId: true, valor: true },
+      select: { alunoId: true, valor: true, avaliacao: { select: { professorId: true } } },
     }),
     prisma.acompanhamentoAluno.findMany({
       where: { alunoId: { in: idsMatriculas } },
@@ -645,15 +690,24 @@ export async function detalharAluno(alunoId: string) {
     }),
   ])
 
-  const desempenho = matriculas.map((m) => {
-    const notas = notasPorMatricula.filter((n) => n.alunoId === m.id).map((n) => n.valor as number)
-    const media = notas.length > 0 ? Math.round((notas.reduce((s, v) => s + v, 0) / notas.length) * 10) / 10 : null
-    return {
-      turmaId: m.turma.id,
-      materia: m.turma.disciplina ?? m.turma.nome,
-      media,
-    }
-  })
+  // Cada disciplina da turma (TurmaProfessor) vira uma linha de desempenho
+  // própria — antes, com "1 turma = 1 professor", cada matrícula já era
+  // uma disciplina só; agora uma turma pode ter várias, então agrupa as
+  // notas por professor dentro de cada matrícula.
+  const desempenho = matriculas.flatMap((m) =>
+    m.turma.professores.map((tp) => {
+      const notas = notasPorMatricula
+        .filter((n) => n.alunoId === m.id && n.avaliacao.professorId === tp.professorId)
+        .map((n) => n.valor as number)
+      const media =
+        notas.length > 0 ? Math.round((notas.reduce((s, v) => s + v, 0) / notas.length) * 10) / 10 : null
+      return {
+        turmaId: m.turma.id,
+        materia: tp.disciplina,
+        media,
+      }
+    }),
+  )
 
   const percentuais = idsMatriculas
     .map((id) => percentuaisPorAluno.get(id))
@@ -688,4 +742,120 @@ export async function criarAcompanhamento(alunoId: string, autorId: string, dado
     data: { alunoId, autorId, texto: dados.texto },
   })
   return detalharAluno(alunoId)
+}
+
+// Turma é da escola, não de um professor — criar/editar/excluir/promover
+// e atribuir professores é papel da coordenação/diretoria daqui pra frente.
+export function criarTurma(dados: CriarTurmaDto) {
+  return prisma.turma.create({ data: dados, include: { professores: true } })
+}
+
+export async function atualizarTurma(turmaId: string, dados: AtualizarTurmaDto) {
+  await turmaExistente(turmaId)
+  return prisma.turma.update({ where: { id: turmaId }, data: dados, include: { professores: true } })
+}
+
+export async function removerTurma(turmaId: string) {
+  await turmaExistente(turmaId)
+  // Soft delete — os dados (alunos, notas, frequência...) continuam no
+  // banco, só somem das telas.
+  await prisma.turma.update({ where: { id: turmaId }, data: { excluidoEm: new Date() } })
+}
+
+async function turmaExistente(turmaId: string) {
+  const turma = await prisma.turma.findFirst({ where: { id: turmaId, excluidoEm: null } })
+  if (!turma) throw AppError.naoEncontrado('Turma')
+  return turma
+}
+
+// Cria a turma do ano seguinte a partir de uma turma existente, copiando
+// escola/sistema/cor/dias/professores e levando só os alunos ativos — a
+// turma antiga não é alterada, continua intacta como histórico daquele ano.
+export async function promoverTurma(turmaId: string, dados: PromoverTurmaDto) {
+  const turmaAtual = await prisma.turma.findFirst({
+    where: { id: turmaId, excluidoEm: null },
+    include: { professores: true },
+  })
+  if (!turmaAtual) throw AppError.naoEncontrado('Turma')
+
+  const alunosAtivos = await prisma.aluno.findMany({
+    where: { turmaId, excluidoEm: null, situacao: 'ativo' },
+  })
+
+  return prisma.$transaction(async (tx) => {
+    const novaTurma = await tx.turma.create({
+      data: {
+        nome: dados.nome,
+        serie: dados.serie,
+        anoLetivo: dados.anoLetivo,
+        escola: turmaAtual.escola,
+        sistemaPeriodo: turmaAtual.sistemaPeriodo,
+        cor: turmaAtual.cor,
+        diasAula: turmaAtual.diasAula,
+        professores: {
+          create: turmaAtual.professores.map((p) => ({
+            professorId: p.professorId,
+            disciplina: p.disciplina,
+          })),
+        },
+      },
+      include: { professores: true },
+    })
+
+    if (alunosAtivos.length > 0) {
+      await tx.aluno.createMany({
+        data: alunosAtivos.map((a) => ({
+          nome: a.nome,
+          email: a.email,
+          telefonePais: a.telefonePais,
+          matricula: a.matricula,
+          dataNascimento: a.dataNascimento,
+          situacao: 'ativo' as const,
+          turmaId: novaTurma.id,
+        })),
+      })
+    }
+
+    const novosAlunos = await tx.aluno.findMany({ where: { turmaId: novaTurma.id } })
+    return {
+      turma: novaTurma,
+      alunos: novosAlunos.map((a) => ({
+        ...a,
+        dataNascimento: paraDataISO(a.dataNascimento),
+      })),
+    }
+  })
+}
+
+export async function atribuirProfessor(turmaId: string, dados: AtribuirProfessorDto) {
+  await turmaExistente(turmaId)
+  const professor = await prisma.professor.findUnique({ where: { id: dados.professorId } })
+  if (!professor) throw AppError.naoEncontrado('Professor')
+
+  const atribuicao = await prisma.turmaProfessor.upsert({
+    where: { turmaId_professorId: { turmaId, professorId: dados.professorId } },
+    update: { disciplina: dados.disciplina },
+    create: { turmaId, professorId: dados.professorId, disciplina: dados.disciplina },
+  })
+
+  // Toda atribuição nova já ganha uma configuração de cálculo padrão —
+  // mesmo comportamento de quando o professor criava a própria turma.
+  await prisma.configCalculo.upsert({
+    where: { turmaId_professorId: { turmaId, professorId: dados.professorId } },
+    update: {},
+    create: { turmaId, professorId: dados.professorId },
+  })
+
+  return atribuicao
+}
+
+// Remove só a atribuição — avaliações/notas/frequência/planos/registros
+// desse professor nessa turma continuam no banco como histórico órfão de
+// atribuição, mesma filosofia do soft delete de Turma.excluidoEm.
+export async function removerProfessor(turmaId: string, professorId: string) {
+  const atribuicao = await prisma.turmaProfessor.findUnique({
+    where: { turmaId_professorId: { turmaId, professorId } },
+  })
+  if (!atribuicao) throw AppError.naoEncontrado('Atribuição')
+  await prisma.turmaProfessor.delete({ where: { id: atribuicao.id } })
 }

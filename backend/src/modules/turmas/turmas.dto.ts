@@ -14,7 +14,6 @@ export const criarTurmaDto = z.object({
   diasAula: z
     .array(z.number().int().min(0).max(6))
     .min(1, 'Marque pelo menos um dia de aula.'),
-  disciplina: z.string().trim().nullable().optional(),
   etapaBncc: etapaBnccEnum.nullable().optional(),
   anoSerieBncc: z.number().int().min(1).max(9).nullable().optional(),
   turno: turnoEnum.nullable().optional(),

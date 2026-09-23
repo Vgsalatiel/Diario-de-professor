@@ -17,6 +17,7 @@ import type {
   ProfessorDetalheCoordenacao,
   ProfessorResumoCoordenacao,
   ReuniaoDetalhe,
+  SistemaPeriodo,
   TipoObservacao,
   Turno,
   TurmaDetalheCoordenacao,
@@ -42,6 +43,18 @@ const OBSERVACAO_VAZIA: { professorAlvoId: string; turmaId: string; texto: strin
   turmaId: '',
   texto: '',
   tipo: 'comentario',
+}
+
+const CORES_TURMA = ['#4759a8', '#2f9e6b', '#e8a33d', '#b05ac0', '#d05a5a', '#3aa0b5']
+
+const TURMA_VAZIA = {
+  nome: '',
+  serie: '',
+  anoLetivo: String(new Date().getFullYear()),
+  escola: '',
+  sistemaPeriodo: 'semestre' as SistemaPeriodo,
+  cor: CORES_TURMA[0],
+  diasAula: [1, 2, 3, 4, 5] as number[],
 }
 
 const ROTULO_SITUACAO_REGISTRO: Record<string, string> = {
@@ -133,6 +146,13 @@ export function Coordenacao() {
   const [formObservacao, setFormObservacao] = useState(OBSERVACAO_VAZIA)
   const [salvandoObservacao, setSalvandoObservacao] = useState(false)
 
+  const [modalNovaTurma, setModalNovaTurma] = useState(false)
+  const [formNovaTurma, setFormNovaTurma] = useState(TURMA_VAZIA)
+  const [salvandoTurma, setSalvandoTurma] = useState(false)
+
+  const [formAtribuirProfessor, setFormAtribuirProfessor] = useState({ professorId: '', disciplina: '' })
+  const [salvandoAtribuicao, setSalvandoAtribuicao] = useState(false)
+
   const [turnoFiltro, setTurnoFiltro] = useState<'todos' | Turno>('todos')
   const [serieFiltro, setSerieFiltro] = useState('todas')
   const [tipoEventoFiltro, setTipoEventoFiltro] = useState<'todos' | 'reuniao' | 'prova' | 'trabalho'>('todos')
@@ -223,6 +243,69 @@ export function Coordenacao() {
       setTurmaDrawerModo(modo)
     } catch (e) {
       notificar(e instanceof ApiError ? e.message : 'Não foi possível abrir essa turma.')
+    }
+  }
+
+  function abrirNovaTurma() {
+    setFormNovaTurma(TURMA_VAZIA)
+    setModalNovaTurma(true)
+  }
+
+  async function salvarNovaTurma() {
+    if (!formNovaTurma.nome.trim() || !formNovaTurma.escola.trim()) {
+      notificar('Informe o nome e a escola da turma.')
+      return
+    }
+    setSalvandoTurma(true)
+    try {
+      await api.post('/coordenacao/turmas', {
+        ...formNovaTurma,
+        nome: formNovaTurma.nome.trim(),
+        escola: formNovaTurma.escola.trim(),
+      })
+      notificar('Turma criada.')
+      setModalNovaTurma(false)
+      carregar()
+    } catch (e) {
+      notificar(e instanceof ApiError ? e.message : 'Não foi possível criar a turma.')
+    } finally {
+      setSalvandoTurma(false)
+    }
+  }
+
+  async function atribuirProfessorNaTurma() {
+    if (!turmaAberta) return
+    if (!formAtribuirProfessor.professorId || !formAtribuirProfessor.disciplina.trim()) {
+      notificar('Escolha o professor e informe a disciplina.')
+      return
+    }
+    setSalvandoAtribuicao(true)
+    try {
+      await api.post(`/coordenacao/turmas/${turmaAberta.id}/professores`, {
+        professorId: formAtribuirProfessor.professorId,
+        disciplina: formAtribuirProfessor.disciplina.trim(),
+      })
+      notificar('Professor atribuído à turma.')
+      setFormAtribuirProfessor({ professorId: '', disciplina: '' })
+      await abrirTurma(turmaAberta.id, turmaDrawerModo)
+      carregar()
+    } catch (e) {
+      notificar(e instanceof ApiError ? e.message : 'Não foi possível atribuir o professor.')
+    } finally {
+      setSalvandoAtribuicao(false)
+    }
+  }
+
+  async function removerProfessorDaTurma(professorId: string) {
+    if (!turmaAberta) return
+    if (!confirm('Remover esse professor da turma?')) return
+    try {
+      await api.delete(`/coordenacao/turmas/${turmaAberta.id}/professores/${professorId}`)
+      notificar('Professor removido da turma.')
+      await abrirTurma(turmaAberta.id, turmaDrawerModo)
+      carregar()
+    } catch (e) {
+      notificar(e instanceof ApiError ? e.message : 'Não foi possível remover o professor.')
     }
   }
 
@@ -420,7 +503,7 @@ export function Coordenacao() {
   }
 
   const turmasDoProfessorObservacao = formObservacao.professorAlvoId
-    ? turmas.filter((t) => t.professorId === formObservacao.professorAlvoId)
+    ? turmas.filter((t) => t.professores.some((p) => p.professorId === formObservacao.professorAlvoId))
     : []
 
   return (
@@ -481,14 +564,22 @@ export function Coordenacao() {
               </div>
             ))}
 
-          {aba === 'turmas' &&
-            (turmas.length === 0 ? (
-              <div className="vazio painel">
-                <p>Nenhuma turma cadastrada ainda.</p>
+          {aba === 'turmas' && (
+            <div className="stack-md">
+              <div className="pagina-head">
+                <div />
+                <button className="btn btn-primario" onClick={abrirNovaTurma}>
+                  Nova turma
+                </button>
               </div>
-            ) : (
-              <div className="stack-md">
-                <div className="barra-filtros">
+
+              {turmas.length === 0 ? (
+                <div className="vazio painel">
+                  <p>Nenhuma turma cadastrada ainda.</p>
+                </div>
+              ) : (
+                <div className="stack-md">
+                  <div className="barra-filtros">
                   <select
                     className="select"
                     aria-label="Série"
@@ -572,7 +663,9 @@ export function Coordenacao() {
                             Média:{' '}
                             <strong>{t.mediaTurma == null ? '—' : String(t.mediaTurma).replace('.', ',')}</strong>
                           </p>
-                          <p className="texto-suave">Professor responsável: {t.professorNome}</p>
+                          <p className="texto-suave">
+                            Professor(es): {t.professores.map((p) => p.professorNome).join(', ') || '—'}
+                          </p>
                           {(t.semRegistroOntem || t.avaliacaoPendente) && (
                             <div className="stack-xs card-turma-pendencias">
                               {t.semRegistroOntem && (
@@ -594,8 +687,10 @@ export function Coordenacao() {
                     ))}
                   </div>
                 )}
-              </div>
-            ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {aba === 'frequencia' &&
             (turmas.length === 0 ? (
@@ -621,7 +716,9 @@ export function Coordenacao() {
                             {t.nome}
                           </button>
                         </td>
-                        <td data-label="Professor(a)">{t.professorNome}</td>
+                        <td data-label="Professor(a)">
+                          {t.professores.map((p) => p.professorNome).join(', ') || '—'}
+                        </td>
                         <td data-label="Turno">{t.turno ? ROTULO_TURNO[t.turno] : '—'}</td>
                         <td data-label="Frequência">{pillFrequenciaTurma(t.frequenciaMedia)}</td>
                       </tr>
@@ -1015,26 +1112,37 @@ export function Coordenacao() {
             </div>
 
             <div>
-              <h3 className="titulo-secao">Professor(a) responsável</h3>
-              <p className="texto-suave">
-                {turmaAberta.professor.nome} · {turmaAberta.professor.email}
-              </p>
-              <div className="grupo-botoes">
-                <button
-                  className="btn btn-fantasma btn-pequeno"
-                  onClick={() => abrirNovaObservacao(turmaAberta.professor.id, 'comentario', '', turmaAberta.id)}
-                >
-                  + Comentário
-                </button>
-                <button
-                  className="btn btn-fantasma btn-pequeno"
-                  onClick={() =>
-                    abrirNovaObservacao(turmaAberta.professor.id, 'solicitacaoCorrecao', '', turmaAberta.id)
-                  }
-                >
-                  + Solicitar correção
-                </button>
-              </div>
+              <h3 className="titulo-secao">Professor(es)</h3>
+              {turmaAberta.professores.length === 0 ? (
+                <p className="texto-suave">Nenhum professor atribuído.</p>
+              ) : (
+                <ul className="lista-simples">
+                  {turmaAberta.professores.map((p) => (
+                    <li key={p.id} className="stack-xs">
+                      <div>
+                        <span>
+                          {p.nome} · {p.disciplina}
+                        </span>
+                        <p className="texto-suave">{p.email}</p>
+                      </div>
+                      <div className="grupo-botoes">
+                        <button
+                          className="btn btn-fantasma btn-pequeno"
+                          onClick={() => abrirNovaObservacao(p.id, 'comentario', '', turmaAberta.id)}
+                        >
+                          + Comentário
+                        </button>
+                        <button
+                          className="btn btn-fantasma btn-pequeno"
+                          onClick={() => abrirNovaObservacao(p.id, 'solicitacaoCorrecao', '', turmaAberta.id)}
+                        >
+                          + Solicitar correção
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         )}
@@ -1149,31 +1257,73 @@ export function Coordenacao() {
 
             <div>
               <h3 className="titulo-secao">Professor(es)</h3>
-              <ul className="lista-simples">
-                <li>
-                  <span>
-                    <strong>{turmaAberta.professor.nome}</strong>
-                    <br />
-                    <span className="texto-suave">
-                      {turmaAberta.professor.email} · {turmaAberta.professor.materias.join(', ') || 'sem matéria definida'}
-                    </span>
-                  </span>
-                </li>
-              </ul>
-              <div className="grupo-botoes">
-                <button
-                  className="btn btn-fantasma btn-pequeno"
-                  onClick={() => abrirNovaObservacao(turmaAberta.professor.id, 'comentario', '', turmaAberta.id)}
-                >
-                  + Comentário
-                </button>
-                <button
-                  className="btn btn-fantasma btn-pequeno"
-                  onClick={() =>
-                    abrirNovaObservacao(turmaAberta.professor.id, 'solicitacaoCorrecao', '', turmaAberta.id)
+              {turmaAberta.professores.length === 0 ? (
+                <p className="texto-suave">Nenhum professor atribuído ainda.</p>
+              ) : (
+                <ul className="lista-simples">
+                  {turmaAberta.professores.map((p) => (
+                    <li key={p.id}>
+                      <span>
+                        <strong>
+                          {p.nome} · {p.disciplina}
+                        </strong>
+                        <br />
+                        <span className="texto-suave">{p.email}</span>
+                      </span>
+                      <div className="grupo-botoes">
+                        <button
+                          className="btn btn-fantasma btn-pequeno"
+                          onClick={() => abrirNovaObservacao(p.id, 'comentario', '', turmaAberta.id)}
+                        >
+                          + Comentário
+                        </button>
+                        <button
+                          className="btn btn-fantasma btn-pequeno"
+                          onClick={() => abrirNovaObservacao(p.id, 'solicitacaoCorrecao', '', turmaAberta.id)}
+                        >
+                          + Solicitar correção
+                        </button>
+                        <button
+                          className="btn btn-perigo-fantasma btn-pequeno"
+                          onClick={() => removerProfessorDaTurma(p.id)}
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="form-linha">
+                <select
+                  className="select"
+                  aria-label="Professor"
+                  value={formAtribuirProfessor.professorId}
+                  onChange={(e) =>
+                    setFormAtribuirProfessor((f) => ({ ...f, professorId: e.target.value }))
                   }
                 >
-                  + Solicitar correção
+                  <option value="">— Escolha o professor —</option>
+                  {professores.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nome}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  value={formAtribuirProfessor.disciplina}
+                  onChange={(e) =>
+                    setFormAtribuirProfessor((f) => ({ ...f, disciplina: e.target.value }))
+                  }
+                  placeholder="Disciplina (ex.: Matemática)"
+                />
+                <button
+                  className="btn btn-fantasma btn-pequeno"
+                  disabled={salvandoAtribuicao}
+                  onClick={atribuirProfessorNaTurma}
+                >
+                  + Atribuir professor
                 </button>
               </div>
             </div>
@@ -1413,6 +1563,74 @@ export function Coordenacao() {
       </Drawer>
 
       <Modal
+        aberto={modalNovaTurma}
+        titulo="Nova turma"
+        onFechar={() => setModalNovaTurma(false)}
+        rodape={
+          <>
+            <button className="btn btn-fantasma" onClick={() => setModalNovaTurma(false)}>
+              Cancelar
+            </button>
+            <button className="btn btn-primario" onClick={salvarNovaTurma} disabled={salvandoTurma}>
+              {salvandoTurma ? 'Salvando...' : 'Criar turma'}
+            </button>
+          </>
+        }
+      >
+        <div className="form-grid">
+          <label className="campo campo-largo">
+            <span>Nome da turma</span>
+            <input
+              value={formNovaTurma.nome}
+              onChange={(e) => setFormNovaTurma({ ...formNovaTurma, nome: e.target.value })}
+              placeholder="Ex.: 9º Ano A"
+              autoFocus
+            />
+          </label>
+          <label className="campo">
+            <span>Série</span>
+            <input
+              value={formNovaTurma.serie}
+              onChange={(e) => setFormNovaTurma({ ...formNovaTurma, serie: e.target.value })}
+              placeholder="Ex.: Ensino Fundamental II"
+            />
+          </label>
+          <label className="campo">
+            <span>Ano letivo</span>
+            <input
+              value={formNovaTurma.anoLetivo}
+              onChange={(e) => setFormNovaTurma({ ...formNovaTurma, anoLetivo: e.target.value })}
+            />
+          </label>
+          <label className="campo campo-largo">
+            <span>Escola</span>
+            <input
+              value={formNovaTurma.escola}
+              onChange={(e) => setFormNovaTurma({ ...formNovaTurma, escola: e.target.value })}
+              placeholder="Ex.: Escola Estadual Pedro Álvares"
+            />
+          </label>
+          <label className="campo campo-largo">
+            <span>Sistema de avaliação dessa escola</span>
+            <select
+              className="select"
+              value={formNovaTurma.sistemaPeriodo}
+              onChange={(e) =>
+                setFormNovaTurma({ ...formNovaTurma, sistemaPeriodo: e.target.value as SistemaPeriodo })
+              }
+            >
+              <option value="semestre">Semestre (1º e 2º)</option>
+              <option value="trimestre">Trimestre (1º ao 3º)</option>
+              <option value="bimestre">Bimestre (1º ao 4º)</option>
+            </select>
+          </label>
+          <p className="texto-suave campo-largo">
+            Depois de criar, atribua os professores (um por disciplina) abrindo a turma na lista.
+          </p>
+        </div>
+      </Modal>
+
+      <Modal
         aberto={modalReuniao}
         titulo="Nova reunião pedagógica"
         onFechar={() => setModalReuniao(false)}
@@ -1447,7 +1665,7 @@ export function Coordenacao() {
               <option value="">— Nenhuma —</option>
               {turmas.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.nome} — {t.professorNome}
+                  {t.nome} — {t.professores.map((p) => p.professorNome).join(', ') || 'sem professor'}
                 </option>
               ))}
             </select>

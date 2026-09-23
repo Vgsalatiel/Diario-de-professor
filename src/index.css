@@ -159,6 +159,9 @@ button { font-family: inherit; }
 
 .grupo-botoes { display: flex; gap: 10px; flex-wrap: wrap; }
 
+.form-linha { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.form-linha .select, .form-linha input { width: auto; min-width: 160px; }
+
 /* ---------- campos ---------- */
 .campo { display: flex; flex-direction: column; gap: 6px; }
 .campo-checkbox {

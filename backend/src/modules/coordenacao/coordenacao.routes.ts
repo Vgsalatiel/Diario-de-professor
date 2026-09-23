@@ -7,7 +7,16 @@ coordenacaoRouter.get('/dashboard', coordenacaoController.dashboard)
 coordenacaoRouter.get('/professores', coordenacaoController.listarProfessores)
 coordenacaoRouter.get('/professores/:id', coordenacaoController.detalharProfessor)
 coordenacaoRouter.get('/turmas', coordenacaoController.listarTurmas)
+coordenacaoRouter.post('/turmas', coordenacaoController.criarTurma)
 coordenacaoRouter.get('/turmas/:id', coordenacaoController.detalharTurma)
+coordenacaoRouter.patch('/turmas/:id', coordenacaoController.atualizarTurma)
+coordenacaoRouter.delete('/turmas/:id', coordenacaoController.removerTurma)
+coordenacaoRouter.post('/turmas/:id/promover', coordenacaoController.promoverTurma)
+coordenacaoRouter.post('/turmas/:id/professores', coordenacaoController.atribuirProfessor)
+coordenacaoRouter.delete(
+  '/turmas/:id/professores/:professorId',
+  coordenacaoController.removerProfessor,
+)
 coordenacaoRouter.get('/alunos', coordenacaoController.listarAlunos)
 coordenacaoRouter.get('/alunos/:id', coordenacaoController.detalharAluno)
 coordenacaoRouter.post('/alunos/:id/acompanhamento', coordenacaoController.criarAcompanhamento)

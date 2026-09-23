@@ -172,7 +172,7 @@ export interface TurmaDetalheCoordenacao {
   turno: Turno | null
   escola: string
   anoLetivo: string
-  professor: { id: string; nome: string; email: string; materias: string[] }
+  professores: { id: string; nome: string; email: string; materias: string[]; disciplina: string }[]
   totalAlunos: number
   frequenciaMedia: number | null
   mediaTurma: number | null
@@ -229,6 +229,14 @@ export interface ReuniaoDetalhe {
 
 // Turma vista pelo painel do(a) diretor(a) — todas as turmas da escola,
 // não só as do professor logado.
+// Um professor+disciplina, na forma resumida usada pelas telas de
+// Admin/Coordenação (cartão de turma, badges).
+export interface ProfessorResumoNaTurma {
+  professorId: string
+  professorNome: string
+  disciplina: string
+}
+
 export interface TurmaResumoAdmin {
   id: string
   nome: string
@@ -236,8 +244,7 @@ export interface TurmaResumoAdmin {
   turno: Turno | null
   escola: string
   anoLetivo: string
-  professorId: string
-  professorNome: string
+  professores: ProfessorResumoNaTurma[]
   totalAlunos: number
   frequenciaMedia: number | null
   aulaRegistradaHoje: boolean
@@ -267,6 +274,14 @@ export type EtapaBncc = 'fundamental' | 'medio'
 // de manhã e à tarde, com professores diferentes.
 export type Turno = 'manha' | 'tarde' | 'noite'
 
+// Um professor atribuído a uma turma, com a disciplina que ele dá ali —
+// uma turma tem vários (um por disciplina), todos dando aula pro mesmo
+// grupo de alunos.
+export interface ProfessorDaTurma {
+  professorId: string
+  disciplina: string
+}
+
 export interface Turma {
   id: string
   nome: string // ex.: "9º Ano A"
@@ -277,10 +292,18 @@ export interface Turma {
   cor: string // cor de identificação da turma
   // Dias da semana em que há aula dessa turma — 0=domingo .. 6=sábado
   diasAula: number[]
-  disciplina?: string | null // componente curricular fixo da turma, ex.: "Matemática"
   etapaBncc?: EtapaBncc | null
   anoSerieBncc?: number | null // 1-9 no Fundamental, 1-3 no Médio
   turno?: Turno | null
+  // Todos os professores atribuídos a essa turma (coordenação/diretor vê
+  // a lista inteira; GET /turmas do professor logado também manda, mas
+  // "config" abaixo já vem resolvido pra ele mesmo).
+  professores: ProfessorDaTurma[]
+  // Presentes só na resposta de GET /turmas (visão do professor logado):
+  // a disciplina/config dele mesmo nessa turma, já resolvidos, pra não
+  // obrigar a tela a filtrar "professores" pra achar o próprio.
+  disciplina?: string | null
+  config?: ConfigCalculo
 }
 
 // Uma habilidade da BNCC (código + descrição reais, nunca inventados —
@@ -344,9 +367,11 @@ export type TipoAvaliacao = 'nota' | 'conceito'
 // A = nota máxima ... D = nota baixa/reprovado.
 export const OPCOES_CONCEITO = ['A', 'B', 'C', 'D'] as const
 
-// Configuração de como a média é calculada em cada turma
+// Configuração de como a média é calculada em cada turma — agora por
+// professor/disciplina dentro da turma, já que uma turma tem vários.
 export interface ConfigCalculo {
   turmaId: string
+  professorId: string
   modelo: ModeloCalculo
   mediaAprovacao: number
   tipoAvaliacao: TipoAvaliacao

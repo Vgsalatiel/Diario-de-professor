@@ -41,3 +41,9 @@ export const criarAcompanhamentoDto = z.object({
   texto: z.string().trim().min(1).max(2000),
 })
 export type CriarAcompanhamentoDto = z.infer<typeof criarAcompanhamentoDto>
+
+export const atribuirProfessorDto = z.object({
+  professorId: z.string().min(1),
+  disciplina: z.string().trim().min(1, 'Informe a disciplina.'),
+})
+export type AtribuirProfessorDto = z.infer<typeof atribuirProfessorDto>

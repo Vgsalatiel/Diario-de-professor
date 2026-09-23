@@ -1,9 +1,10 @@
 // Schema do banco de dados do Diário — espelha os tipos de
 // /src/types.ts do frontend, agora como tabelas relacionais de verdade.
-// Cada Turma pertence a um Professor (via professorId), e tudo o mais
-// (Aluno, Avaliacao, Evento, DataAula...) pertence a uma Turma — é essa
-// cadeia de relações que isola os dados de cada professor no banco,
-// no lugar do prefixo de chave que o app usa hoje no localStorage.
+// Uma Turma é da escola, não de um professor só: vários professores se
+// atribuem a ela (um por disciplina, via TurmaProfessor) e todos dão aula
+// pro mesmo grupo de Alunos. Avaliacao/DataAula/RegistroAula/PlanoDeAula
+// carregam o professorId direto (cada disciplina tem seu próprio recorte
+// dentro da turma); Nota/Frequencia continuam só com o hop indireto.
 
 generator client {
   provider = "prisma-client-js"
@@ -48,9 +49,14 @@ model Professor {
 
   criadoEm DateTime @default(now())
 
-  turmas   Turma[]
+  turmasAtribuidas TurmaProfessor[]
   eventos  Evento[]
   feriados Feriado[]
+  avaliacoes    Avaliacao[]
+  datasAula     DataAula[]
+  planosDeAula  PlanoDeAula[]
+  registrosAula RegistroAula[]
+  configsCalculo ConfigCalculo[]
 
   // Observações pedagógicas — as que essa conta escreveu (coordenação) e,
   // se for professor, as que recebeu sobre o próprio trabalho.
@@ -151,36 +157,48 @@ model Turma {
   // Opcional pra não quebrar turma já cadastrada antes desse campo existir.
   turno Turno?
 
-  // Componente curricular fixo dessa turma (ex.: "Matemática") — usado pra
-  // já vir preenchido no plano de aula e pra filtrar as habilidades BNCC
-  // do Assistente de planejamento contextual.
-  disciplina String?
-
   // Etapa + ano/série no vocabulário da BNCC — sem isso não dá pra saber
   // com segurança quais habilidades (EF05MA.. vs EM13MAT..) valem pra essa
   // turma. Opcionais pra não quebrar turmas já cadastradas.
   etapaBncc     EtapaBncc?
   anoSerieBncc  Int? // 1-9 no Fundamental, 1-3 no Médio
 
-  professorId String
-  professor   Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
-
   // Soft delete: "excluir" turma só marca essa data — os dados continuam no
   // banco, só somem das telas. Sem isso, apagar por engano perde tudo (alunos,
   // notas, frequência...) sem chance de recuperar.
   excluidoEm DateTime?
 
+  professores   TurmaProfessor[]
   alunos        Aluno[]
   avaliacoes    Avaliacao[]
   datasAula     DataAula[]
   eventos       Evento[]
-  config        ConfigCalculo?
+  configs       ConfigCalculo[]
   planosDeAula  PlanoDeAula[]
   registrosAula RegistroAula[]
   observacoes   ObservacaoPedagogica[]
 
-  @@index([professorId])
   @@map("turmas")
+}
+
+// Atribuição de um professor a uma turma, com a disciplina que ele dá ali —
+// uma turma tem vários professores (um por disciplina), todos dando aula
+// pro mesmo grupo de alunos. Disciplina mora aqui (não em Turma) porque
+// cada atribuição tem a sua.
+model TurmaProfessor {
+  id         String @id @default(cuid())
+  disciplina String // ex.: "Matemática"
+
+  turmaId String
+  turma   Turma  @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+
+  professorId String
+  professor   Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+
+  criadoEm DateTime @default(now())
+
+  @@unique([turmaId, professorId])
+  @@map("turmas_professores")
 }
 
 enum SituacaoMatricula {
@@ -269,9 +287,13 @@ model Avaliacao {
   turmaId String
   turma   Turma  @relation(fields: [turmaId], references: [id], onDelete: Cascade)
 
+  professorId String
+  professor   Professor @relation(fields: [professorId], references: [id])
+
   notas Nota[]
 
   @@index([turmaId])
+  @@index([professorId])
   @@map("avaliacoes")
 }
 
@@ -305,9 +327,13 @@ model DataAula {
   turmaId String
   turma   Turma  @relation(fields: [turmaId], references: [id], onDelete: Cascade)
 
+  professorId String
+  professor   Professor @relation(fields: [professorId], references: [id])
+
   frequencias Frequencia[]
 
-  @@unique([turmaId, data])
+  @@unique([turmaId, professorId, data])
+  @@index([professorId])
   @@map("datas_aula")
 }
 
@@ -344,9 +370,13 @@ model ConfigCalculo {
   mediaAprovacao Float         @default(6)
   tipoAvaliacao  TipoAvaliacao @default(nota)
 
-  turmaId String @unique
+  turmaId String
   turma   Turma  @relation(fields: [turmaId], references: [id], onDelete: Cascade)
 
+  professorId String
+  professor   Professor @relation(fields: [professorId], references: [id])
+
+  @@unique([turmaId, professorId])
   @@map("configs_calculo")
 }
 
@@ -467,10 +497,14 @@ model PlanoDeAula {
   turmaId String
   turma   Turma  @relation(fields: [turmaId], references: [id], onDelete: Cascade)
 
+  professorId String
+  professor   Professor @relation(fields: [professorId], references: [id])
+
   provas    Evento[]
   registros RegistroAula[]
 
   @@index([turmaId])
+  @@index([professorId])
   @@map("planos_de_aula")
 }
 
@@ -484,6 +518,9 @@ model RegistroAula {
   turmaId String
   turma   Turma  @relation(fields: [turmaId], references: [id], onDelete: Cascade)
 
+  professorId String
+  professor   Professor @relation(fields: [professorId], references: [id])
+
   planoId String?
   plano   PlanoDeAula? @relation(fields: [planoId], references: [id], onDelete: SetNull)
 
@@ -496,8 +533,9 @@ model RegistroAula {
   bnccCodigo      String?
   bnccTexto       String?
 
-  @@unique([turmaId, data])
+  @@unique([turmaId, professorId, data])
   @@index([turmaId])
+  @@index([professorId])
   @@index([planoId])
   @@map("registros_aula")
 }

@@ -1,6 +1,6 @@
 import type { Evento } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
-import { eventoDoProfessor, planoDoProfessor, turmaDoProfessor } from '../../utils/ownership'
+import { eventoDoProfessor, planoDoProfessor, turmaAtribuidaAoProfessor } from '../../utils/ownership'
 import { paraDataISO } from '../../utils/serializers'
 import type { AtualizarEventoDto, CriarEventoDto } from './eventos.dto'
 
@@ -15,8 +15,8 @@ export async function listarTodos(professorId: string) {
         // Meus próprios eventos avulsos (sem turma).
         { professorId, turmaId: null },
         // Qualquer evento — meu ou de outra conta (ex.: uma reunião marcada
-        // pela coordenação) — ligado a uma turma que é minha.
-        { turma: { professorId, excluidoEm: null } },
+        // pela coordenação) — ligado a uma turma em que dou aula.
+        { turma: { professores: { some: { professorId } }, excluidoEm: null } },
       ],
     },
     orderBy: { data: 'asc' },
@@ -25,7 +25,7 @@ export async function listarTodos(professorId: string) {
 }
 
 export async function criar(professorId: string, dados: CriarEventoDto) {
-  if (dados.turmaId) await turmaDoProfessor(dados.turmaId, professorId)
+  if (dados.turmaId) await turmaAtribuidaAoProfessor(dados.turmaId, professorId)
   if (dados.planoId) await planoDoProfessor(dados.planoId, professorId)
 
   const evento = await prisma.evento.create({
@@ -41,7 +41,7 @@ export async function criar(professorId: string, dados: CriarEventoDto) {
 
 export async function atualizar(eventoId: string, professorId: string, dados: AtualizarEventoDto) {
   await eventoDoProfessor(eventoId, professorId)
-  if (dados.turmaId) await turmaDoProfessor(dados.turmaId, professorId)
+  if (dados.turmaId) await turmaAtribuidaAoProfessor(dados.turmaId, professorId)
   if (dados.planoId) await planoDoProfessor(dados.planoId, professorId)
 
   const evento = await prisma.evento.update({
