@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useToast } from '../context/ToastContext'
 import { api, ApiError } from '../lib/api'
 import { Modal } from '../components/Modal'
@@ -18,7 +18,7 @@ import type {
   TurmaResumoAdmin,
 } from '../types'
 
-type Aba = 'professores' | 'turmas' | 'alunos' | 'reunioes' | 'observacoes'
+type Aba = 'professores' | 'turmas' | 'alunos' | 'calendario' | 'observacoes'
 
 const REUNIAO_VAZIA = { titulo: '', data: '', hora: '', turmaId: '', conteudo: '' }
 const OBSERVACAO_VAZIA: { professorAlvoId: string; turmaId: string; texto: string; tipo: TipoObservacao } = {
@@ -39,6 +39,14 @@ function ratioTexto(feitas: number, esperadas: number): string {
   return `${feitas}/${esperadas}`
 }
 
+const TITULO_ABA: Record<Aba, string> = {
+  professores: 'Professores',
+  turmas: 'Turmas',
+  alunos: 'Alunos',
+  calendario: 'Calendário',
+  observacoes: 'Observações',
+}
+
 function badgeObservacao(o: ObservacaoPedagogica) {
   if (o.tipo !== 'solicitacaoCorrecao') return null
   return (
@@ -50,8 +58,8 @@ function badgeObservacao(o: ObservacaoPedagogica) {
 
 export function Coordenacao() {
   const { notificar } = useToast()
-  const [params, setParams] = useSearchParams()
-  const aba = (params.get('aba') as Aba) || 'professores'
+  const { aba: abaParam } = useParams<{ aba: string }>()
+  const aba = (abaParam as Aba) || 'professores'
 
   const [professores, setProfessores] = useState<ProfessorResumoCoordenacao[]>([])
   const [turmas, setTurmas] = useState<TurmaResumoAdmin[]>([])
@@ -71,10 +79,6 @@ export function Coordenacao() {
   const [modalObservacao, setModalObservacao] = useState(false)
   const [formObservacao, setFormObservacao] = useState(OBSERVACAO_VAZIA)
   const [salvandoObservacao, setSalvandoObservacao] = useState(false)
-
-  function trocarAba(nova: Aba) {
-    setParams(nova === 'professores' ? {} : { aba: nova })
-  }
 
   function carregar() {
     setCarregando(true)
@@ -190,31 +194,13 @@ export function Coordenacao() {
     <div className="stack-lg">
       <header className="pagina-head">
         <div>
-          <h1>Coordenação pedagógica</h1>
+          <h1>Coordenação pedagógica — {TITULO_ABA[aba]}</h1>
           <p className="pagina-sub">
             Acompanhe professores, turmas e o pedagógico da escola — aulas, frequência,
             avaliações, planejamento e alunos com dificuldade.
           </p>
         </div>
       </header>
-
-      <div className="abas">
-        <button className={`aba ${aba === 'professores' ? 'ativa' : ''}`} onClick={() => trocarAba('professores')}>
-          Professores {professores.length > 0 && `(${professores.length})`}
-        </button>
-        <button className={`aba ${aba === 'turmas' ? 'ativa' : ''}`} onClick={() => trocarAba('turmas')}>
-          Turmas {turmas.length > 0 && `(${turmas.length})`}
-        </button>
-        <button className={`aba ${aba === 'alunos' ? 'ativa' : ''}`} onClick={() => trocarAba('alunos')}>
-          Alunos {alunos.length > 0 && `(${alunos.length})`}
-        </button>
-        <button className={`aba ${aba === 'reunioes' ? 'ativa' : ''}`} onClick={() => trocarAba('reunioes')}>
-          Calendário {eventos.length > 0 && `(${eventos.length})`}
-        </button>
-        <button className={`aba ${aba === 'observacoes' ? 'ativa' : ''}`} onClick={() => trocarAba('observacoes')}>
-          Observações {observacoes.length > 0 && `(${observacoes.length})`}
-        </button>
-      </div>
 
       {erro && <div className="alerta-erro">{erro}</div>}
 
@@ -332,7 +318,7 @@ export function Coordenacao() {
               </div>
             ))}
 
-          {aba === 'reunioes' && (
+          {aba === 'calendario' && (
             <div className="stack-md">
               <div>
                 <button className="btn btn-primario" onClick={abrirNovaReuniao}>

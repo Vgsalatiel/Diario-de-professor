@@ -27,15 +27,20 @@ const LINKS: LinkNav[] = [
 ]
 
 const LINK_ADMIN: LinkNav = { to: '/admin', rotulo: 'Administração', icone: '⚙', exato: true }
-const LINK_COORDENACAO: LinkNav = { to: '/coordenacao', rotulo: 'Coordenação', icone: '◈', exato: true }
+const LINK_COORDENACAO: LinkNav = { to: '/coordenacao/professores', rotulo: 'Coordenação', icone: '◈' }
 
 // Conta de coordenação pedagógica pura (sem ser também diretor) não dá
 // aula — as telas de Notas/Presença/Plano de aula etc. não fazem sentido
-// pra ela, então o menu fica só com o essencial.
+// pra ela, então o menu fica só com o essencial: cada área da coordenação
+// como item próprio (não abas dentro de uma única tela).
 const LINKS_COORDENACAO: LinkNav[] = [
   { to: '/', rotulo: 'Início', icone: '◧', exato: true },
-  LINK_COORDENACAO,
-  { to: '/perfil', rotulo: 'Perfil', icone: '◑' },
+  { to: '/coordenacao/professores', rotulo: 'Professores', icone: '☺' },
+  { to: '/coordenacao/turmas', rotulo: 'Turmas', icone: '▦' },
+  { to: '/coordenacao/alunos', rotulo: 'Alunos', icone: '◑' },
+  { to: '/coordenacao/calendario', rotulo: 'Calendário', icone: '▣' },
+  { to: '/perfil', rotulo: 'Perfil', icone: '◔' },
+  { to: '/coordenacao/observacoes', rotulo: 'Observações', icone: '✎' },
 ]
 
 export function Layout() {

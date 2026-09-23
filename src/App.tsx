@@ -65,6 +65,10 @@ export default function App() {
                     />
                     <Route
                       path="/coordenacao"
+                      element={<Navigate to="/coordenacao/professores" replace />}
+                    />
+                    <Route
+                      path="/coordenacao/:aba"
                       element={
                         <ProtectedRoute somenteCoordenacao>
                           <Coordenacao />

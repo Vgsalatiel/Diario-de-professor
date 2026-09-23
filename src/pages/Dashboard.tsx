@@ -57,7 +57,7 @@ export function Dashboard() {
     return (
       <DashboardDiretor
         apiPath="/coordenacao/dashboard"
-        linkBase="/coordenacao"
+        montarLink={(aba) => `/coordenacao/${aba}`}
         saudacaoRotulo="Coordenador(a)"
       />
     )
