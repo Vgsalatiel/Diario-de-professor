@@ -8,8 +8,32 @@ import type { CriarObservacaoDto, CriarReuniaoDto } from './coordenacao.dto'
 // que o painel de diretor(a) já calcula — reaproveita em vez de duplicar a
 // lógica de pendências/frequência.
 export const obterDashboard = adminService.obterDashboard
-export const listarTurmasDetalhado = adminService.listarTurmasDetalhado
 export const listarAlunosDetalhado = adminService.listarAlunosDetalhado
+
+// Lista pra tela "Turmas" da coordenação — mesma base do painel de
+// diretor(a) (alunos, frequência, pendências), só que com a média geral
+// de notas da turma a mais, que o diretor não precisa mas a coordenação
+// quer ver de cara no card.
+export async function listarTurmas() {
+  const [turmasComMetricas, avaliacoes] = await Promise.all([
+    adminService.obterTurmasComMetricas(),
+    prisma.avaliacao.findMany({ select: { turmaId: true, notas: { select: { valor: true } } } }),
+  ])
+
+  const notasPorTurma = new Map<string, number[]>()
+  for (const av of avaliacoes) {
+    const arr = notasPorTurma.get(av.turmaId) ?? []
+    for (const n of av.notas) if (n.valor != null) arr.push(n.valor)
+    notasPorTurma.set(av.turmaId, arr)
+  }
+
+  return turmasComMetricas.map((t) => {
+    const notas = notasPorTurma.get(t.id) ?? []
+    const mediaTurma =
+      notas.length > 0 ? Math.round((notas.reduce((s, v) => s + v, 0) / notas.length) * 10) / 10 : null
+    return { ...t, mediaTurma }
+  })
+}
 
 // "Registro em dia" = tem resumo da aula (RegistroAula) pra cada data em
 // que a chamada foi feita (DataAula, ignorando dias marcados "sem aula").
@@ -181,9 +205,9 @@ export async function detalharProfessor(professorId: string) {
   }
 }
 
-// Detalhe pedagógico de uma turma: médias por avaliação, último registro
-// de aula, plano em andamento e alunos com dificuldade — visão da turma
-// sem depender do professor abrir cada tela pra coordenação ver.
+// Detalhe de uma turma pra coordenação — as 7 frentes que ela acompanha:
+// Alunos, Frequência, Avaliações, Aulas, Professor(es), Atividades e
+// Observações, tudo numa única chamada só.
 export async function detalharTurma(turmaId: string) {
   const turma = await prisma.turma.findFirst({
     where: { id: turmaId, excluidoEm: null },
@@ -192,21 +216,34 @@ export async function detalharTurma(turmaId: string) {
       nome: true,
       escola: true,
       anoLetivo: true,
-      professor: { select: { id: true, nome: true } },
+      professor: { select: { id: true, nome: true, email: true, materias: true } },
     },
   })
   if (!turma) throw AppError.naoEncontrado('Turma')
 
-  const [alunos, avaliacoes, notas, ultimoRegistro, planoAtivo] = await Promise.all([
-    prisma.aluno.findMany({
-      where: { turmaId, excluidoEm: null },
-      select: { id: true, nome: true, dificuldades: true, situacao: true },
-    }),
-    prisma.avaliacao.findMany({ where: { turmaId }, orderBy: { periodo: 'asc' } }),
-    prisma.nota.findMany({ where: { avaliacao: { turmaId } } }),
-    prisma.registroAula.findFirst({ where: { turmaId }, orderBy: { data: 'desc' } }),
-    prisma.planoDeAula.findFirst({ where: { turmaId }, orderBy: { criadoEm: 'desc' } }),
-  ])
+  const [alunos, avaliacoes, notas, aulasRecentes, planoAtivo, eventosAtividade, observacoes, percentuaisPorAluno] =
+    await Promise.all([
+      prisma.aluno.findMany({
+        where: { turmaId, excluidoEm: null },
+        select: { id: true, nome: true, dificuldades: true, situacao: true },
+        orderBy: { nome: 'asc' },
+      }),
+      prisma.avaliacao.findMany({ where: { turmaId }, orderBy: { periodo: 'asc' } }),
+      prisma.nota.findMany({ where: { avaliacao: { turmaId } } }),
+      prisma.registroAula.findMany({ where: { turmaId }, orderBy: { data: 'desc' }, take: 5 }),
+      prisma.planoDeAula.findFirst({ where: { turmaId }, orderBy: { criadoEm: 'desc' } }),
+      prisma.evento.findMany({
+        where: { turmaId, tipo: { in: ['prova', 'trabalho'] } },
+        orderBy: { data: 'desc' },
+        take: 10,
+      }),
+      prisma.observacaoPedagogica.findMany({
+        where: { turmaId },
+        orderBy: { criadoEm: 'desc' },
+        include: { autor: { select: { nome: true } }, turma: { select: { nome: true } } },
+      }),
+      adminService.calcularFrequenciaPorAluno(),
+    ])
 
   const mediasPorAvaliacao = avaliacoes.map((av) => {
     const notasDaAval = notas.filter((n) => n.avaliacaoId === av.id && n.valor != null)
@@ -222,21 +259,39 @@ export async function detalharTurma(turmaId: string) {
     }
   })
 
+  const alunosComFrequencia = alunos.map((a) => ({
+    id: a.id,
+    nome: a.nome,
+    situacao: a.situacao,
+    dificuldades: a.dificuldades,
+    frequenciaPercentual: percentuaisPorAluno.get(a.id) ?? null,
+  }))
+  const percentuaisDaTurma = alunosComFrequencia
+    .map((a) => a.frequenciaPercentual)
+    .filter((v): v is number => v != null)
+  const frequenciaMedia =
+    percentuaisDaTurma.length > 0
+      ? Math.round(percentuaisDaTurma.reduce((s, v) => s + v, 0) / percentuaisDaTurma.length)
+      : null
+
+  const todasAsNotas = notas.filter((n) => n.valor != null).map((n) => n.valor as number)
+  const mediaTurma =
+    todasAsNotas.length > 0
+      ? Math.round((todasAsNotas.reduce((s, v) => s + v, 0) / todasAsNotas.length) * 10) / 10
+      : null
+
   return {
     id: turma.id,
     nome: turma.nome,
     escola: turma.escola,
     anoLetivo: turma.anoLetivo,
-    professorId: turma.professor.id,
-    professorNome: turma.professor.nome,
+    professor: turma.professor,
     totalAlunos: alunos.filter((a) => a.situacao === 'ativo').length,
-    alunosComDificuldade: alunos
-      .filter((a) => a.dificuldades)
-      .map((a) => ({ id: a.id, nome: a.nome, dificuldades: a.dificuldades })),
+    frequenciaMedia,
+    mediaTurma,
+    alunos: alunosComFrequencia,
     mediasPorAvaliacao,
-    ultimoRegistroAula: ultimoRegistro
-      ? { data: paraDataISO(ultimoRegistro.data), resumo: ultimoRegistro.resumo }
-      : null,
+    aulasRecentes: aulasRecentes.map((r) => ({ data: paraDataISO(r.data), resumo: r.resumo })),
     planoAtivo: planoAtivo
       ? {
           id: planoAtivo.id,
@@ -245,6 +300,14 @@ export async function detalharTurma(turmaId: string) {
           dataFim: paraDataISO(planoAtivo.dataFim),
         }
       : null,
+    atividades: eventosAtividade.map((e) => ({
+      id: e.id,
+      titulo: e.titulo,
+      tipo: e.tipo,
+      data: paraDataISO(e.data),
+      concluido: e.concluido,
+    })),
+    observacoes: observacoes.map(serializarObservacao),
   }
 }
 

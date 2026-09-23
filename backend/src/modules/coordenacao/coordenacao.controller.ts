@@ -16,7 +16,7 @@ export async function detalharProfessor(req: Request, res: Response) {
 }
 
 export async function listarTurmas(_req: Request, res: Response) {
-  res.json(await coordenacaoService.listarTurmasDetalhado())
+  res.json(await coordenacaoService.listarTurmas())
 }
 
 export async function detalharTurma(req: Request, res: Response) {

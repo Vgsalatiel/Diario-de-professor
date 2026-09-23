@@ -24,8 +24,11 @@ export interface ProfessorResumo {
   pendencias: number
 }
 
-// Turma vista pela coordenação pedagógica — mesmo formato de TurmaResumoAdmin.
-export type TurmaResumoCoordenacao = TurmaResumoAdmin
+// Turma vista pela coordenação pedagógica — mesmo formato de
+// TurmaResumoAdmin, mais a média geral de notas (que o diretor não vê).
+export interface TurmaResumoCoordenacao extends TurmaResumoAdmin {
+  mediaTurma: number | null
+}
 
 // Plano de aula resumido, visto pela coordenação (sem o cronograma inteiro).
 export interface PlanoResumoCoordenacao {
@@ -99,19 +102,43 @@ export interface ProfessorDetalheCoordenacao {
   observacoes: ObservacaoPedagogica[]
 }
 
-// Detalhe pedagógico de uma turma, visto pela coordenação.
+// Um aluno dentro do detalhe de turma da coordenação — inclui a própria
+// frequência, já que a tela de turma cobre a frente "Frequência" também.
+export interface AlunoDaTurmaCoordenacao {
+  id: string
+  nome: string
+  situacao: SituacaoMatricula
+  dificuldades: string | null
+  frequenciaPercentual: number | null
+}
+
+// Prova/trabalho da turma, visto pela coordenação (seção "Atividades").
+export interface AtividadeTurmaCoordenacao {
+  id: string
+  titulo: string
+  tipo: TipoEvento
+  data: string
+  concluido: boolean
+}
+
+// Detalhe pedagógico de uma turma, visto pela coordenação — as 7 frentes:
+// Alunos, Frequência, Avaliações, Aulas, Professor(es), Atividades e
+// Observações.
 export interface TurmaDetalheCoordenacao {
   id: string
   nome: string
   escola: string
   anoLetivo: string
-  professorId: string
-  professorNome: string
+  professor: { id: string; nome: string; email: string; materias: string[] }
   totalAlunos: number
-  alunosComDificuldade: AlunoDificuldadeCoordenacao[]
+  frequenciaMedia: number | null
+  mediaTurma: number | null
+  alunos: AlunoDaTurmaCoordenacao[]
   mediasPorAvaliacao: { id: string; nome: string; mediaTurma: number | null; totalLancadas: number }[]
-  ultimoRegistroAula: { data: string | null; resumo: string } | null
+  aulasRecentes: { data: string | null; resumo: string }[]
   planoAtivo: { id: string; titulo: string; dataInicio: string; dataFim: string } | null
+  atividades: AtividadeTurmaCoordenacao[]
+  observacoes: ObservacaoPedagogica[]
 }
 
 // Evento visto pela coordenação — de qualquer professor/turma da escola.

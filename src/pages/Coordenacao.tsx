@@ -15,7 +15,7 @@ import type {
   ProfessorResumoCoordenacao,
   TipoObservacao,
   TurmaDetalheCoordenacao,
-  TurmaResumoAdmin,
+  TurmaResumoCoordenacao,
 } from '../types'
 
 type Aba = 'professores' | 'turmas' | 'alunos' | 'calendario' | 'observacoes'
@@ -62,7 +62,7 @@ export function Coordenacao() {
   const aba = (abaParam as Aba) || 'professores'
 
   const [professores, setProfessores] = useState<ProfessorResumoCoordenacao[]>([])
-  const [turmas, setTurmas] = useState<TurmaResumoAdmin[]>([])
+  const [turmas, setTurmas] = useState<TurmaResumoCoordenacao[]>([])
   const [alunos, setAlunos] = useState<AlunoResumoAdmin[]>([])
   const [eventos, setEventos] = useState<EventoEscola[]>([])
   const [observacoes, setObservacoes] = useState<ObservacaoPedagogica[]>([])
@@ -85,7 +85,7 @@ export function Coordenacao() {
     setErro('')
     Promise.all([
       api.get<ProfessorResumoCoordenacao[]>('/coordenacao/professores'),
-      api.get<TurmaResumoAdmin[]>('/coordenacao/turmas'),
+      api.get<TurmaResumoCoordenacao[]>('/coordenacao/turmas'),
       api.get<AlunoResumoAdmin[]>('/coordenacao/alunos'),
       api.get<EventoEscola[]>('/coordenacao/eventos'),
       api.get<ObservacaoPedagogica[]>('/coordenacao/observacoes'),
@@ -147,8 +147,13 @@ export function Coordenacao() {
     }
   }
 
-  function abrirNovaObservacao(professorAlvoId?: string, tipo: TipoObservacao = 'comentario', texto = '') {
-    setFormObservacao({ ...OBSERVACAO_VAZIA, professorAlvoId: professorAlvoId ?? '', tipo, texto })
+  function abrirNovaObservacao(
+    professorAlvoId?: string,
+    tipo: TipoObservacao = 'comentario',
+    texto = '',
+    turmaId = '',
+  ) {
+    setFormObservacao({ ...OBSERVACAO_VAZIA, professorAlvoId: professorAlvoId ?? '', tipo, texto, turmaId })
     setModalObservacao(true)
   }
 
@@ -168,6 +173,7 @@ export function Coordenacao() {
       setModalObservacao(false)
       carregar()
       if (professorAberto?.id === formObservacao.professorAlvoId) abrirProfessor(professorAberto.id)
+      if (turmaAberta?.id === formObservacao.turmaId) abrirTurma(turmaAberta.id)
     } catch (e) {
       notificar(e instanceof ApiError ? e.message : 'Não foi possível salvar a observação.')
     } finally {
@@ -254,33 +260,43 @@ export function Coordenacao() {
                 <p>Nenhuma turma cadastrada ainda.</p>
               </div>
             ) : (
-              <div className="painel sem-padding rolagem-x">
-                <table className="tabela tabela-responsiva">
-                  <thead>
-                    <tr>
-                      <th>Turma</th>
-                      <th>Escola</th>
-                      <th>Professor(a)</th>
-                      <th>Alunos</th>
-                      <th>Frequência média</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {turmas.map((t) => (
-                      <tr key={t.id}>
-                        <td className="celula-nome">
-                          <button className="link-botao" onClick={() => abrirTurma(t.id)}>
-                            {t.nome}
-                          </button>
-                        </td>
-                        <td data-label="Escola">{t.escola}</td>
-                        <td data-label="Professor(a)">{t.professorNome}</td>
-                        <td data-label="Alunos">{t.totalAlunos}</td>
-                        <td data-label="Frequência média">{pillFrequencia(t.frequenciaMedia)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="grid-turmas">
+                {turmas.map((t) => (
+                  <article
+                    key={t.id}
+                    className="card-turma card-turma-clicavel"
+                    onClick={() => abrirTurma(t.id)}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <div
+                      className="card-turma-faixa"
+                      style={{
+                        background:
+                          t.frequenciaMedia == null
+                            ? 'var(--line-forte)'
+                            : t.frequenciaMedia >= 75
+                              ? 'var(--verde-texto)'
+                              : 'var(--vermelho-texto)',
+                      }}
+                    />
+                    <div className="card-turma-corpo">
+                      <h2>{t.nome}</h2>
+                      <p className="texto-suave">{t.escola}</p>
+                      <div className="card-turma-meta">
+                        <span>{t.totalAlunos} aluno(s)</span>
+                      </div>
+                      <p>
+                        Frequência:{' '}
+                        <strong>{t.frequenciaMedia == null ? '—' : `${t.frequenciaMedia}%`}</strong>
+                      </p>
+                      <p>
+                        Média: <strong>{t.mediaTurma == null ? '—' : String(t.mediaTurma).replace('.', ',')}</strong>
+                      </p>
+                      <p className="texto-suave">Professor responsável: {t.professorNome}</p>
+                    </div>
+                  </article>
+                ))}
               </div>
             ))}
 
@@ -567,37 +583,62 @@ export function Coordenacao() {
         {turmaAberta && (
           <div className="stack-md">
             <p className="texto-suave">
-              {turmaAberta.escola} · {turmaAberta.professorNome} · {turmaAberta.totalAlunos} aluno(s)
+              {turmaAberta.escola} · {turmaAberta.totalAlunos} aluno(s)
             </p>
 
             <div>
-              <h3 className="titulo-secao">Plano de aula em andamento</h3>
-              {turmaAberta.planoAtivo ? (
-                <p>
-                  {turmaAberta.planoAtivo.titulo} — {formatarData(turmaAberta.planoAtivo.dataInicio)} a{' '}
-                  {formatarData(turmaAberta.planoAtivo.dataFim)}
-                </p>
+              <h3 className="titulo-secao">Alunos</h3>
+              {turmaAberta.alunos.length === 0 ? (
+                <p className="texto-suave">Nenhum aluno cadastrado.</p>
               ) : (
-                <p className="texto-suave">Nenhum plano cadastrado.</p>
+                <ul className="lista-simples">
+                  {turmaAberta.alunos.map((a) => (
+                    <li key={a.id}>
+                      <span>
+                        <strong>{a.nome}</strong>
+                        {a.situacao !== 'ativo' && (
+                          <span className="texto-suave"> · {a.situacao}</span>
+                        )}
+                        {a.dificuldades && (
+                          <>
+                            <br />
+                            <span className="texto-suave">{a.dificuldades}</span>
+                          </>
+                        )}
+                      </span>
+                      {pillFrequencia(a.frequenciaPercentual)}
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
 
             <div>
-              <h3 className="titulo-secao">Último registro de aula</h3>
-              {turmaAberta.ultimoRegistroAula ? (
-                <p>
-                  <strong>
-                    {turmaAberta.ultimoRegistroAula.data && formatarData(turmaAberta.ultimoRegistroAula.data)}
-                  </strong>{' '}
-                  — {resumoTexto(turmaAberta.ultimoRegistroAula.resumo, 400)}
-                </p>
-              ) : (
-                <p className="texto-suave">Nenhum registro ainda.</p>
+              <h3 className="titulo-secao">Frequência</h3>
+              <p>
+                Frequência média da turma:{' '}
+                <strong>{turmaAberta.frequenciaMedia == null ? '—' : `${turmaAberta.frequenciaMedia}%`}</strong>
+              </p>
+              {turmaAberta.alunos.filter((a) => (a.frequenciaPercentual ?? 100) < 75).length > 0 && (
+                <ul className="lista-simples">
+                  {turmaAberta.alunos
+                    .filter((a) => (a.frequenciaPercentual ?? 100) < 75)
+                    .map((a) => (
+                      <li key={a.id}>
+                        <span>{a.nome}</span>
+                        {pillFrequencia(a.frequenciaPercentual)}
+                      </li>
+                    ))}
+                </ul>
               )}
             </div>
 
             <div>
-              <h3 className="titulo-secao">Médias por avaliação</h3>
+              <h3 className="titulo-secao">Avaliações</h3>
+              <p>
+                Média geral da turma:{' '}
+                <strong>{turmaAberta.mediaTurma == null ? '—' : String(turmaAberta.mediaTurma).replace('.', ',')}</strong>
+              </p>
               {turmaAberta.mediasPorAvaliacao.length === 0 ? (
                 <p className="texto-suave">Nenhuma avaliação cadastrada.</p>
               ) : (
@@ -617,17 +658,97 @@ export function Coordenacao() {
             </div>
 
             <div>
-              <h3 className="titulo-secao">Alunos com dificuldade</h3>
-              {turmaAberta.alunosComDificuldade.length === 0 ? (
-                <p className="texto-suave">Nenhuma registrada.</p>
+              <h3 className="titulo-secao">Aulas</h3>
+              {turmaAberta.planoAtivo && (
+                <p className="texto-suave">
+                  Plano em andamento: {turmaAberta.planoAtivo.titulo} ({formatarData(turmaAberta.planoAtivo.dataInicio)}{' '}
+                  a {formatarData(turmaAberta.planoAtivo.dataFim)})
+                </p>
+              )}
+              {turmaAberta.aulasRecentes.length === 0 ? (
+                <p className="texto-suave">Nenhum registro de aula ainda.</p>
               ) : (
                 <ul className="lista-simples">
-                  {turmaAberta.alunosComDificuldade.map((a) => (
-                    <li key={a.id}>
+                  {turmaAberta.aulasRecentes.map((r, i) => (
+                    <li key={i}>
                       <span>
-                        <strong>{a.nome}</strong>
+                        <strong>{r.data && formatarData(r.data)}</strong>
                       </span>
-                      <span className="texto-suave">{a.dificuldades}</span>
+                      <span className="texto-suave">{resumoTexto(r.resumo, 200)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div>
+              <h3 className="titulo-secao">Professor(es)</h3>
+              <ul className="lista-simples">
+                <li>
+                  <span>
+                    <strong>{turmaAberta.professor.nome}</strong>
+                    <br />
+                    <span className="texto-suave">
+                      {turmaAberta.professor.email} · {turmaAberta.professor.materias.join(', ') || 'sem matéria definida'}
+                    </span>
+                  </span>
+                </li>
+              </ul>
+              <div className="grupo-botoes">
+                <button
+                  className="btn btn-fantasma btn-pequeno"
+                  onClick={() => abrirNovaObservacao(turmaAberta.professor.id, 'comentario', '', turmaAberta.id)}
+                >
+                  + Comentário
+                </button>
+                <button
+                  className="btn btn-fantasma btn-pequeno"
+                  onClick={() =>
+                    abrirNovaObservacao(turmaAberta.professor.id, 'solicitacaoCorrecao', '', turmaAberta.id)
+                  }
+                >
+                  + Solicitar correção
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="titulo-secao">Atividades</h3>
+              {turmaAberta.atividades.length === 0 ? (
+                <p className="texto-suave">Nenhuma prova/atividade agendada.</p>
+              ) : (
+                <ul className="lista-simples">
+                  {turmaAberta.atividades.map((e) => (
+                    <li key={e.id}>
+                      <span>
+                        <span className="evento-tag" style={{ background: corTipo(e.tipo) }}>
+                          {rotuloTipo(e.tipo)}
+                        </span>{' '}
+                        {e.titulo}
+                      </span>
+                      <span className="texto-suave">
+                        {formatarData(e.data)} {e.concluido && '· concluída'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div>
+              <h3 className="titulo-secao">Observações</h3>
+              {turmaAberta.observacoes.length === 0 ? (
+                <p className="texto-suave">Nenhuma observação sobre esta turma ainda.</p>
+              ) : (
+                <ul className="lista-simples">
+                  {turmaAberta.observacoes.map((o) => (
+                    <li key={o.id}>
+                      <span>
+                        {badgeObservacao(o)} {o.texto}
+                      </span>
+                      <span className="texto-suave">
+                        {o.autorNome} · {new Date(o.criadoEm).toLocaleDateString('pt-BR')}
+                      </span>
                     </li>
                   ))}
                 </ul>

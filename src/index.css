@@ -749,6 +749,10 @@ input:focus, select:focus, textarea:focus {
   border-top: 1px solid var(--line);
   flex-wrap: wrap;
 }
+.card-turma-clicavel { cursor: pointer; transition: box-shadow 0.15s ease, transform 0.15s ease; }
+.card-turma-clicavel:hover { box-shadow: var(--sombra); transform: translateY(-2px); }
+.card-turma-clicavel .card-turma-corpo { padding-bottom: 18px; }
+.card-turma-clicavel .card-turma-corpo p { margin: 4px 0; font-size: 13.5px; }
 
 .seletor-cor { display: flex; gap: 10px; }
 .bolha-cor {
