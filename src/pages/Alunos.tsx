@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
+import { useAuth } from '../context/AuthContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
 import type { Aluno, SituacaoMatricula } from '../types'
 import { Modal } from '../components/Modal'
+import { AlunosEscolaPainel } from '../components/AlunosEscolaPainel'
 import { lerAlunosDaPlanilha, type AlunoImportado } from '../lib/importarAlunos'
 import { normalizarNome, validarNome } from '../lib/validarNome'
 import { formatarData } from '../lib/eventos'
@@ -20,6 +22,18 @@ function situacaoInfo(situacao: SituacaoMatricula) {
 }
 
 export function Alunos() {
+  const { professora } = useAuth()
+  // Diretor(a) não é professor(a) de ninguém (turma agora é da escola,
+  // atribuída por disciplina) — a tela pessoal "minhas turmas > meus
+  // alunos" não faz sentido pra essa conta. Mostra a mesma visão da
+  // escola inteira que já existe em Administração, pra não ter duas
+  // telas de "Alunos" diferentes e confusas pra quem só é diretor(a).
+  if (professora.isAdmin) return <AlunosEscolaPainel />
+
+  return <AlunosProfessor />
+}
+
+function AlunosProfessor() {
   const { turmas, alunos, criarAluno, atualizarAluno, removerAluno } = useData()
   const { notificar } = useToast()
   const { anoAtivo, somenteLeitura } = useAnoLetivo()
