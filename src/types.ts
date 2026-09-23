@@ -127,6 +127,8 @@ export interface AtividadeTurmaCoordenacao {
 export interface TurmaDetalheCoordenacao {
   id: string
   nome: string
+  serie: string
+  turno: Turno | null
   escola: string
   anoLetivo: string
   professor: { id: string; nome: string; email: string; materias: string[] }
@@ -158,6 +160,8 @@ export interface EventoEscola {
 export interface TurmaResumoAdmin {
   id: string
   nome: string
+  serie: string
+  turno: Turno | null
   escola: string
   anoLetivo: string
   professorId: string
@@ -187,6 +191,10 @@ export type SistemaPeriodo = 'bimestre' | 'trimestre' | 'semestre'
 // no Assistente de planejamento contextual (ver PlanoDeAula).
 export type EtapaBncc = 'fundamental' | 'medio'
 
+// Turno em que a turma acontece — a mesma escola pode repetir "9º Ano A"
+// de manhã e à tarde, com professores diferentes.
+export type Turno = 'manha' | 'tarde' | 'noite'
+
 export interface Turma {
   id: string
   nome: string // ex.: "9º Ano A"
@@ -200,6 +208,7 @@ export interface Turma {
   disciplina?: string | null // componente curricular fixo da turma, ex.: "Matemática"
   etapaBncc?: EtapaBncc | null
   anoSerieBncc?: number | null // 1-9 no Fundamental, 1-3 no Médio
+  turno?: Turno | null
 }
 
 // Uma habilidade da BNCC (código + descrição reais, nunca inventados —

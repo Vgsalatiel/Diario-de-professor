@@ -101,6 +101,8 @@ export async function obterTurmasComMetricas() {
         select: {
           id: true,
           nome: true,
+          serie: true,
+          turno: true,
           escola: true,
           anoLetivo: true,
           professorId: true,
@@ -142,6 +144,8 @@ export async function obterTurmasComMetricas() {
     return {
       id: t.id,
       nome: t.nome,
+      serie: t.serie,
+      turno: t.turno,
       escola: t.escola,
       anoLetivo: t.anoLetivo,
       professorId: t.professorId,

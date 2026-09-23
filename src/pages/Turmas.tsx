@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
-import type { EtapaBncc, SistemaPeriodo, Turma } from '../types'
+import type { EtapaBncc, SistemaPeriodo, Turma, Turno } from '../types'
 import { Modal } from '../components/Modal'
 
 const ANOS_POR_ETAPA: Record<EtapaBncc, number[]> = {
@@ -33,7 +33,10 @@ const VAZIO = {
   disciplina: '',
   etapaBncc: '' as EtapaBncc | '',
   anoSerieBncc: '' as number | '',
+  turno: '' as Turno | '',
 }
+
+const ROTULO_TURNO: Record<Turno, string> = { manha: 'Manhã', tarde: 'Tarde', noite: 'Noite' }
 
 function diasAulaResumo(dias: number[]): string {
   if (dias.length === 0) return 'Nenhum dia definido'
@@ -146,6 +149,7 @@ export function Turmas() {
       disciplina: t.disciplina ?? '',
       etapaBncc: t.etapaBncc ?? '',
       anoSerieBncc: t.anoSerieBncc ?? '',
+      turno: t.turno ?? '',
     })
     setModal(true)
   }
@@ -199,6 +203,7 @@ export function Turmas() {
       disciplina: form.disciplina.trim() || null,
       etapaBncc: form.etapaBncc || null,
       anoSerieBncc: form.anoSerieBncc === '' ? null : form.anoSerieBncc,
+      turno: form.turno || null,
     }
     if (editando) {
       atualizarTurma(editando.id, dados)
@@ -331,6 +336,12 @@ export function Turmas() {
                     <span>{total} alunos</span>
                     <span>·</span>
                     <span>{t.anoLetivo}</span>
+                    {t.turno && (
+                      <>
+                        <span>·</span>
+                        <span>{ROTULO_TURNO[t.turno]}</span>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div className="card-turma-acoes">
@@ -408,6 +419,19 @@ export function Turmas() {
               value={form.anoLetivo}
               onChange={(e) => setForm({ ...form, anoLetivo: e.target.value })}
             />
+          </label>
+          <label className="campo">
+            <span>Turno</span>
+            <select
+              className="select"
+              value={form.turno}
+              onChange={(e) => setForm({ ...form, turno: e.target.value as Turno | '' })}
+            >
+              <option value="">— Não definido —</option>
+              <option value="manha">Manhã</option>
+              <option value="tarde">Tarde</option>
+              <option value="noite">Noite</option>
+            </select>
           </label>
           <label className="campo campo-largo">
             <span>Escola</span>

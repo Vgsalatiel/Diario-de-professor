@@ -118,6 +118,15 @@ enum SistemaPeriodo {
   semestre
 }
 
+// Turno em que a turma acontece — separa a visão da coordenação/diretoria
+// por manhã/tarde/noite, já que a mesma escola pode repetir "9º Ano A" em
+// turnos diferentes com professores diferentes.
+enum Turno {
+  manha
+  tarde
+  noite
+}
+
 // Etapa de ensino no sentido da BNCC — controla que habilidades aparecem
 // pro Assistente de planejamento contextual. Só cobrimos Fundamental e
 // Médio por enquanto: a Educação Infantil é organizada por campos de
@@ -136,6 +145,9 @@ model Turma {
   sistemaPeriodo SistemaPeriodo
   cor            String
   diasAula       Int[] // dias da semana com aula: 0=domingo .. 6=sábado
+
+  // Opcional pra não quebrar turma já cadastrada antes desse campo existir.
+  turno Turno?
 
   // Componente curricular fixo dessa turma (ex.: "Matemática") — usado pra
   // já vir preenchido no plano de aula e pra filtrar as habilidades BNCC

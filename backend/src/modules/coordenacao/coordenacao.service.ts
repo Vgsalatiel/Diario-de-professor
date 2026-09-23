@@ -214,6 +214,8 @@ export async function detalharTurma(turmaId: string) {
     select: {
       id: true,
       nome: true,
+      serie: true,
+      turno: true,
       escola: true,
       anoLetivo: true,
       professor: { select: { id: true, nome: true, email: true, materias: true } },
@@ -283,6 +285,8 @@ export async function detalharTurma(turmaId: string) {
   return {
     id: turma.id,
     nome: turma.nome,
+    serie: turma.serie,
+    turno: turma.turno,
     escola: turma.escola,
     anoLetivo: turma.anoLetivo,
     professor: turma.professor,

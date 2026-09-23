@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useToast } from '../context/ToastContext'
 import { api, ApiError } from '../lib/api'
@@ -14,9 +14,12 @@ import type {
   ProfessorDetalheCoordenacao,
   ProfessorResumoCoordenacao,
   TipoObservacao,
+  Turno,
   TurmaDetalheCoordenacao,
   TurmaResumoCoordenacao,
 } from '../types'
+
+const ROTULO_TURNO: Record<Turno, string> = { manha: 'Manhã', tarde: 'Tarde', noite: 'Noite' }
 
 type Aba = 'professores' | 'turmas' | 'alunos' | 'calendario' | 'observacoes'
 
@@ -79,6 +82,24 @@ export function Coordenacao() {
   const [modalObservacao, setModalObservacao] = useState(false)
   const [formObservacao, setFormObservacao] = useState(OBSERVACAO_VAZIA)
   const [salvandoObservacao, setSalvandoObservacao] = useState(false)
+
+  const [turnoFiltro, setTurnoFiltro] = useState<'todos' | Turno>('todos')
+  const [serieFiltro, setSerieFiltro] = useState('todas')
+
+  const seriesDisponiveis = useMemo(
+    () => Array.from(new Set(turmas.map((t) => t.serie).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    [turmas],
+  )
+
+  const turmasFiltradas = useMemo(
+    () =>
+      turmas.filter(
+        (t) =>
+          (turnoFiltro === 'todos' || t.turno === turnoFiltro) &&
+          (serieFiltro === 'todas' || t.serie === serieFiltro),
+      ),
+    [turmas, turnoFiltro, serieFiltro],
+  )
 
   function carregar() {
     setCarregando(true)
@@ -260,43 +281,95 @@ export function Coordenacao() {
                 <p>Nenhuma turma cadastrada ainda.</p>
               </div>
             ) : (
-              <div className="grid-turmas">
-                {turmas.map((t) => (
-                  <article
-                    key={t.id}
-                    className="card-turma card-turma-clicavel"
-                    onClick={() => abrirTurma(t.id)}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <div
-                      className="card-turma-faixa"
-                      style={{
-                        background:
-                          t.frequenciaMedia == null
-                            ? 'var(--line-forte)'
-                            : t.frequenciaMedia >= 75
-                              ? 'var(--verde-texto)'
-                              : 'var(--vermelho-texto)',
-                      }}
-                    />
-                    <div className="card-turma-corpo">
-                      <h2>{t.nome}</h2>
-                      <p className="texto-suave">{t.escola}</p>
-                      <div className="card-turma-meta">
-                        <span>{t.totalAlunos} aluno(s)</span>
-                      </div>
-                      <p>
-                        Frequência:{' '}
-                        <strong>{t.frequenciaMedia == null ? '—' : `${t.frequenciaMedia}%`}</strong>
-                      </p>
-                      <p>
-                        Média: <strong>{t.mediaTurma == null ? '—' : String(t.mediaTurma).replace('.', ',')}</strong>
-                      </p>
-                      <p className="texto-suave">Professor responsável: {t.professorNome}</p>
-                    </div>
-                  </article>
-                ))}
+              <div className="stack-md">
+                <div className="barra-filtros">
+                  <div className="abas">
+                    <button
+                      className={`aba ${turnoFiltro === 'todos' ? 'ativa' : ''}`}
+                      onClick={() => setTurnoFiltro('todos')}
+                    >
+                      Todos os turnos
+                    </button>
+                    <button
+                      className={`aba ${turnoFiltro === 'manha' ? 'ativa' : ''}`}
+                      onClick={() => setTurnoFiltro('manha')}
+                    >
+                      Manhã
+                    </button>
+                    <button
+                      className={`aba ${turnoFiltro === 'tarde' ? 'ativa' : ''}`}
+                      onClick={() => setTurnoFiltro('tarde')}
+                    >
+                      Tarde
+                    </button>
+                    <button
+                      className={`aba ${turnoFiltro === 'noite' ? 'ativa' : ''}`}
+                      onClick={() => setTurnoFiltro('noite')}
+                    >
+                      Noite
+                    </button>
+                  </div>
+                  <label className="campo-inline">
+                    <span>Série</span>
+                    <select className="select" value={serieFiltro} onChange={(e) => setSerieFiltro(e.target.value)}>
+                      <option value="todas">Todas as séries</option>
+                      {seriesDisponiveis.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                {turmasFiltradas.length === 0 ? (
+                  <div className="vazio painel">
+                    <p>Nenhuma turma nesse filtro.</p>
+                  </div>
+                ) : (
+                  <div className="grid-turmas">
+                    {turmasFiltradas.map((t) => (
+                      <article
+                        key={t.id}
+                        className="card-turma card-turma-clicavel"
+                        onClick={() => abrirTurma(t.id)}
+                        role="button"
+                        tabIndex={0}
+                      >
+                        <div
+                          className="card-turma-faixa"
+                          style={{
+                            background:
+                              t.frequenciaMedia == null
+                                ? 'var(--line-forte)'
+                                : t.frequenciaMedia >= 75
+                                  ? 'var(--verde-texto)'
+                                  : 'var(--vermelho-texto)',
+                          }}
+                        />
+                        <div className="card-turma-corpo">
+                          <h2>{t.nome}</h2>
+                          <p className="texto-suave">
+                            {t.escola}
+                            {t.turno && ` · ${ROTULO_TURNO[t.turno]}`}
+                          </p>
+                          <div className="card-turma-meta">
+                            <span>{t.totalAlunos} aluno(s)</span>
+                          </div>
+                          <p>
+                            Frequência:{' '}
+                            <strong>{t.frequenciaMedia == null ? '—' : `${t.frequenciaMedia}%`}</strong>
+                          </p>
+                          <p>
+                            Média:{' '}
+                            <strong>{t.mediaTurma == null ? '—' : String(t.mediaTurma).replace('.', ',')}</strong>
+                          </p>
+                          <p className="texto-suave">Professor responsável: {t.professorNome}</p>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
 
@@ -583,7 +656,9 @@ export function Coordenacao() {
         {turmaAberta && (
           <div className="stack-md">
             <p className="texto-suave">
-              {turmaAberta.escola} · {turmaAberta.totalAlunos} aluno(s)
+              {turmaAberta.escola}
+              {turmaAberta.serie && ` · ${turmaAberta.serie}`}
+              {turmaAberta.turno && ` · ${ROTULO_TURNO[turmaAberta.turno]}`} · {turmaAberta.totalAlunos} aluno(s)
             </p>
 
             <div>

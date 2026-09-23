@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 export const sistemaPeriodoEnum = z.enum(['bimestre', 'trimestre', 'semestre'])
 export const etapaBnccEnum = z.enum(['fundamental', 'medio'])
+export const turnoEnum = z.enum(['manha', 'tarde', 'noite'])
 
 export const criarTurmaDto = z.object({
   nome: z.string().trim().min(1, 'Informe o nome da turma.'),
@@ -16,6 +17,7 @@ export const criarTurmaDto = z.object({
   disciplina: z.string().trim().nullable().optional(),
   etapaBncc: etapaBnccEnum.nullable().optional(),
   anoSerieBncc: z.number().int().min(1).max(9).nullable().optional(),
+  turno: turnoEnum.nullable().optional(),
 })
 export type CriarTurmaDto = z.infer<typeof criarTurmaDto>
 
