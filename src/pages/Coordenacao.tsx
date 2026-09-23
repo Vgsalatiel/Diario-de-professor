@@ -103,13 +103,22 @@ export function Coordenacao() {
     [turmas],
   )
 
+  // Turma com pendência (sem registro de ontem ou avaliação sem nota)
+  // aparece primeiro — é o que a coordenação vem procurar quando clica no
+  // link de "Pendências" do início.
   const turmasFiltradas = useMemo(
     () =>
-      turmas.filter(
-        (t) =>
-          (turnoFiltro === 'todos' || t.turno === turnoFiltro) &&
-          (serieFiltro === 'todas' || t.serie === serieFiltro),
-      ),
+      turmas
+        .filter(
+          (t) =>
+            (turnoFiltro === 'todos' || t.turno === turnoFiltro) &&
+            (serieFiltro === 'todas' || t.serie === serieFiltro),
+        )
+        .sort((a, b) => {
+          const pendA = a.semRegistroOntem || a.avaliacaoPendente ? 1 : 0
+          const pendB = b.semRegistroOntem || b.avaliacaoPendente ? 1 : 0
+          return pendB - pendA
+        }),
     [turmas, turnoFiltro, serieFiltro],
   )
 
@@ -393,6 +402,16 @@ export function Coordenacao() {
                             <strong>{t.mediaTurma == null ? '—' : String(t.mediaTurma).replace('.', ',')}</strong>
                           </p>
                           <p className="texto-suave">Professor responsável: {t.professorNome}</p>
+                          {(t.semRegistroOntem || t.avaliacaoPendente) && (
+                            <div className="stack-xs card-turma-pendencias">
+                              {t.semRegistroOntem && (
+                                <span className="pill pill-recuperacao">Sem registro ontem</span>
+                              )}
+                              {t.avaliacaoPendente && (
+                                <span className="pill pill-recuperacao">Avaliação sem nota</span>
+                              )}
+                            </div>
+                          )}
                           {t.tendencia && (
                             <p className={`tendencia tendencia-${t.tendencia.direcao}`}>
                               {t.tendencia.direcao === 'queda' ? '📉' : '📈'}{' '}

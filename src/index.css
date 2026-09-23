@@ -753,6 +753,7 @@ input:focus, select:focus, textarea:focus {
 .card-turma-clicavel:hover { box-shadow: var(--sombra); transform: translateY(-2px); }
 .card-turma-clicavel .card-turma-corpo { padding-bottom: 18px; }
 .card-turma-clicavel .card-turma-corpo p { margin: 4px 0; font-size: 13.5px; }
+.card-turma-pendencias { margin-top: 8px; }
 
 .tendencia {
   margin-top: 8px;

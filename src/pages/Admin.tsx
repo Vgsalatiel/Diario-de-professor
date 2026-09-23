@@ -41,7 +41,15 @@ export function Admin() {
     ])
       .then(([p, t, a]) => {
         setProfessores(p)
-        setTurmas(t)
+        // Turma com pendência primeiro — é o que quem clicou no link de
+        // "Pendências" do início veio procurar.
+        setTurmas(
+          [...t].sort((x, y) => {
+            const pendX = x.semRegistroOntem || x.avaliacaoPendente ? 1 : 0
+            const pendY = y.semRegistroOntem || y.avaliacaoPendente ? 1 : 0
+            return pendY - pendX
+          }),
+        )
         setAlunos(a)
       })
       .catch((e) => setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar.'))
