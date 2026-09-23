@@ -11,6 +11,14 @@ coordenacaoRouter.get('/turmas/:id', coordenacaoController.detalharTurma)
 coordenacaoRouter.get('/alunos', coordenacaoController.listarAlunos)
 coordenacaoRouter.get('/eventos', coordenacaoController.listarEventos)
 coordenacaoRouter.post('/reunioes', coordenacaoController.criarReuniao)
+coordenacaoRouter.get('/reunioes/:id', coordenacaoController.detalharReuniao)
+coordenacaoRouter.patch('/reunioes/:id', coordenacaoController.atualizarReuniao)
+coordenacaoRouter.post('/reunioes/:id/encaminhamentos', coordenacaoController.criarEncaminhamento)
+coordenacaoRouter.patch(
+  '/encaminhamentos/:id/alternar',
+  coordenacaoController.alternarEncaminhamento,
+)
+coordenacaoRouter.delete('/encaminhamentos/:id', coordenacaoController.removerEncaminhamento)
 coordenacaoRouter.get('/observacoes', coordenacaoController.listarObservacoes)
 coordenacaoRouter.post('/observacoes', coordenacaoController.criarObservacao)
 coordenacaoRouter.delete('/observacoes/:id', coordenacaoController.removerObservacao)

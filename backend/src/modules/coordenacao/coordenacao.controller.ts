@@ -1,7 +1,12 @@
 import type { Request, Response } from 'express'
 import { paramId } from '../../utils/params'
 import * as coordenacaoService from './coordenacao.service'
-import { criarObservacaoDto, criarReuniaoDto } from './coordenacao.dto'
+import {
+  atualizarReuniaoDto,
+  criarEncaminhamentoDto,
+  criarObservacaoDto,
+  criarReuniaoDto,
+} from './coordenacao.dto'
 
 export async function dashboard(_req: Request, res: Response) {
   res.json(await coordenacaoService.obterDashboard())
@@ -34,6 +39,28 @@ export async function listarEventos(_req: Request, res: Response) {
 export async function criarReuniao(req: Request, res: Response) {
   const dados = criarReuniaoDto.parse(req.body)
   res.status(201).json(await coordenacaoService.criarReuniao(req.professorId, dados))
+}
+
+export async function detalharReuniao(req: Request, res: Response) {
+  res.json(await coordenacaoService.detalharReuniao(paramId(req.params.id)))
+}
+
+export async function atualizarReuniao(req: Request, res: Response) {
+  const dados = atualizarReuniaoDto.parse(req.body)
+  res.json(await coordenacaoService.atualizarReuniao(paramId(req.params.id), dados))
+}
+
+export async function criarEncaminhamento(req: Request, res: Response) {
+  const dados = criarEncaminhamentoDto.parse(req.body)
+  res.status(201).json(await coordenacaoService.criarEncaminhamento(paramId(req.params.id), dados))
+}
+
+export async function alternarEncaminhamento(req: Request, res: Response) {
+  res.json(await coordenacaoService.alternarEncaminhamento(paramId(req.params.id)))
+}
+
+export async function removerEncaminhamento(req: Request, res: Response) {
+  res.json(await coordenacaoService.removerEncaminhamento(paramId(req.params.id)))
 }
 
 export async function listarObservacoes(req: Request, res: Response) {

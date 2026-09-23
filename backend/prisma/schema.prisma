@@ -56,6 +56,7 @@ model Professor {
   // se for professor, as que recebeu sobre o próprio trabalho.
   observacoesEscritas  ObservacaoPedagogica[] @relation("ObservacoesEscritas")
   observacoesRecebidas ObservacaoPedagogica[] @relation("ObservacoesRecebidas")
+  encaminhamentos      Encaminhamento[]
 
   @@map("professores")
 }
@@ -347,6 +348,13 @@ model Evento {
   // criados de dentro de um plano de aula.
   prazo     DateTime?  @db.Date
 
+  // Usados só em eventos tipo "reuniao", criados pela coordenação —
+  // pauta é a lista de tópicos definida antes; ata é o registro do que
+  // foi discutido, preenchido durante/depois da reunião.
+  pauta         String[]
+  participantes String[]
+  ata           String?
+
   // Todo evento pertence a um professor — a turma é opcional (evento avulso,
   // ex.: reunião pedagógica), mas sem isso um evento sem turma ficaria sem dono.
   professorId String
@@ -360,11 +368,33 @@ model Evento {
   plano   PlanoDeAula? @relation(fields: [planoId], references: [id], onDelete: SetNull)
 
   entregas Entrega[]
+  encaminhamentos Encaminhamento[]
 
   @@index([professorId])
   @@index([turmaId])
   @@index([planoId])
   @@map("eventos")
+}
+
+// Item de ação combinado numa reunião pedagógica — "Professor João revisar
+// atividade", "Coordenação acompanhar 2º B" etc. Só existe pendurado num
+// Evento tipo "reuniao".
+model Encaminhamento {
+  id        String   @id @default(cuid())
+  texto     String
+  concluido Boolean  @default(false)
+  criadoEm  DateTime @default(now())
+
+  eventoId String
+  evento   Evento @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+
+  // Opcional — quando o encaminhamento é endereçado a um professor
+  // específico (ex.: "Professor João revisar atividade").
+  responsavelId String?
+  responsavel   Professor? @relation(fields: [responsavelId], references: [id], onDelete: SetNull)
+
+  @@index([eventoId])
+  @@map("encaminhamentos")
 }
 
 // Status de entrega de uma prova/atividade (Evento) por aluno — o professor

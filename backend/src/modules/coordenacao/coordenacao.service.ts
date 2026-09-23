@@ -2,7 +2,12 @@ import { prisma } from '../../lib/prisma'
 import { AppError } from '../../utils/AppError'
 import { paraDataISO } from '../../utils/serializers'
 import * as adminService from '../admin/admin.service'
-import type { CriarObservacaoDto, CriarReuniaoDto } from './coordenacao.dto'
+import type {
+  AtualizarReuniaoDto,
+  CriarEncaminhamentoDto,
+  CriarObservacaoDto,
+  CriarReuniaoDto,
+} from './coordenacao.dto'
 
 // A coordenação acompanha a mesma visão geral (dashboard, turmas, alunos)
 // que o painel de diretor(a) já calcula — reaproveita em vez de duplicar a
@@ -368,7 +373,12 @@ export async function listarEventosDaEscola() {
   const eventos = await prisma.evento.findMany({
     where: { tipo: { in: ['reuniao', 'prova', 'trabalho'] } },
     orderBy: { data: 'asc' },
-    include: { turma: { select: { nome: true } }, professor: { select: { nome: true } } },
+    include: {
+      turma: { select: { nome: true } },
+      professor: { select: { nome: true } },
+      _count: { select: { encaminhamentos: true } },
+      encaminhamentos: { where: { concluido: false }, select: { id: true } },
+    },
   })
   return eventos.map((e) => ({
     id: e.id,
@@ -379,6 +389,8 @@ export async function listarEventosDaEscola() {
     concluido: e.concluido,
     turmaNome: e.turma?.nome ?? null,
     professorNome: e.professor.nome,
+    totalEncaminhamentos: e._count.encaminhamentos,
+    encaminhamentosAbertos: e.encaminhamentos.length,
   }))
 }
 
@@ -399,9 +411,110 @@ export async function criarReuniao(coordenadorId: string, dados: CriarReuniaoDto
       conteudo: dados.conteudo || undefined,
       turmaId: dados.turmaId || undefined,
       professorId: coordenadorId,
+      pauta: dados.pauta,
+      participantes: dados.participantes,
     },
   })
   return { ...evento, data: paraDataISO(evento.data), prazo: paraDataISO(evento.prazo) }
+}
+
+function serializarEncaminhamento(e: {
+  id: string
+  texto: string
+  concluido: boolean
+  criadoEm: Date
+  responsavel: { id: string; nome: string } | null
+}) {
+  return {
+    id: e.id,
+    texto: e.texto,
+    concluido: e.concluido,
+    criadoEm: e.criadoEm.toISOString(),
+    responsavelId: e.responsavel?.id ?? null,
+    responsavelNome: e.responsavel?.nome ?? null,
+  }
+}
+
+// Detalhe completo de uma reunião — pauta, participantes, ata e os
+// encaminhamentos combinados, pra abrir num drawer sem precisar buscar
+// cada pedaço separado.
+export async function detalharReuniao(eventoId: string) {
+  const evento = await prisma.evento.findFirst({
+    where: { id: eventoId, tipo: 'reuniao' },
+    include: {
+      turma: { select: { nome: true } },
+      professor: { select: { nome: true } },
+      encaminhamentos: {
+        orderBy: { criadoEm: 'asc' },
+        include: { responsavel: { select: { id: true, nome: true } } },
+      },
+    },
+  })
+  if (!evento) throw AppError.naoEncontrado('Reunião')
+
+  return {
+    id: evento.id,
+    titulo: evento.titulo,
+    data: paraDataISO(evento.data),
+    hora: evento.hora,
+    conteudo: evento.conteudo,
+    concluido: evento.concluido,
+    turmaNome: evento.turma?.nome ?? null,
+    professorNome: evento.professor.nome,
+    pauta: evento.pauta,
+    participantes: evento.participantes,
+    ata: evento.ata,
+    encaminhamentos: evento.encaminhamentos.map(serializarEncaminhamento),
+  }
+}
+
+export async function atualizarReuniao(eventoId: string, dados: AtualizarReuniaoDto) {
+  const evento = await prisma.evento.findFirst({ where: { id: eventoId, tipo: 'reuniao' } })
+  if (!evento) throw AppError.naoEncontrado('Reunião')
+
+  await prisma.evento.update({
+    where: { id: eventoId },
+    data: {
+      pauta: dados.pauta,
+      participantes: dados.participantes,
+      ata: dados.ata,
+    },
+  })
+  return detalharReuniao(eventoId)
+}
+
+export async function criarEncaminhamento(eventoId: string, dados: CriarEncaminhamentoDto) {
+  const evento = await prisma.evento.findFirst({ where: { id: eventoId, tipo: 'reuniao' } })
+  if (!evento) throw AppError.naoEncontrado('Reunião')
+
+  if (dados.responsavelId) {
+    const responsavel = await prisma.professor.findUnique({ where: { id: dados.responsavelId } })
+    if (!responsavel) throw AppError.naoEncontrado('Professor')
+  }
+
+  await prisma.encaminhamento.create({
+    data: { eventoId, texto: dados.texto, responsavelId: dados.responsavelId ?? undefined },
+  })
+  return detalharReuniao(eventoId)
+}
+
+export async function alternarEncaminhamento(id: string) {
+  const encaminhamento = await prisma.encaminhamento.findUnique({ where: { id } })
+  if (!encaminhamento) throw AppError.naoEncontrado('Encaminhamento')
+
+  await prisma.encaminhamento.update({
+    where: { id },
+    data: { concluido: !encaminhamento.concluido },
+  })
+  return detalharReuniao(encaminhamento.eventoId)
+}
+
+export async function removerEncaminhamento(id: string) {
+  const encaminhamento = await prisma.encaminhamento.findUnique({ where: { id } })
+  if (!encaminhamento) throw AppError.naoEncontrado('Encaminhamento')
+
+  await prisma.encaminhamento.delete({ where: { id } })
+  return detalharReuniao(encaminhamento.eventoId)
 }
 
 function serializarObservacao(o: {

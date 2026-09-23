@@ -4,6 +4,7 @@ import { useToast } from '../context/ToastContext'
 import { api, ApiError } from '../lib/api'
 import { Modal } from '../components/Modal'
 import { Drawer } from '../components/Drawer'
+import { CampoTags } from '../components/CampoTags'
 import { resumoTexto } from '../lib/texto'
 import { pillFrequencia } from './Admin'
 import { rotuloTipo, corTipo, formatarData } from '../lib/eventos'
@@ -13,6 +14,7 @@ import type {
   ObservacaoPedagogica,
   ProfessorDetalheCoordenacao,
   ProfessorResumoCoordenacao,
+  ReuniaoDetalhe,
   TipoObservacao,
   Turno,
   TurmaDetalheCoordenacao,
@@ -23,7 +25,16 @@ const ROTULO_TURNO: Record<Turno, string> = { manha: 'Manhã', tarde: 'Tarde', n
 
 type Aba = 'professores' | 'turmas' | 'frequencia' | 'alunos' | 'calendario' | 'observacoes'
 
-const REUNIAO_VAZIA = { titulo: '', data: '', hora: '', turmaId: '', conteudo: '' }
+const REUNIAO_VAZIA = {
+  titulo: '',
+  data: '',
+  hora: '',
+  turmaId: '',
+  conteudo: '',
+  participantes: [] as string[],
+  pauta: [] as string[],
+}
+
 const OBSERVACAO_VAZIA: { professorAlvoId: string; turmaId: string; texto: string; tipo: TipoObservacao } = {
   professorAlvoId: '',
   turmaId: '',
@@ -90,6 +101,12 @@ export function Coordenacao() {
   const [modalReuniao, setModalReuniao] = useState(false)
   const [formReuniao, setFormReuniao] = useState(REUNIAO_VAZIA)
   const [salvandoReuniao, setSalvandoReuniao] = useState(false)
+
+  const [reuniaoAberta, setReuniaoAberta] = useState<ReuniaoDetalhe | null>(null)
+  const [ataRascunho, setAtaRascunho] = useState('')
+  const [salvandoAta, setSalvandoAta] = useState(false)
+  const [novoEncaminhamento, setNovoEncaminhamento] = useState({ texto: '', responsavelId: '' })
+  const [salvandoEncaminhamento, setSalvandoEncaminhamento] = useState(false)
 
   const [modalObservacao, setModalObservacao] = useState(false)
   const [formObservacao, setFormObservacao] = useState(OBSERVACAO_VAZIA)
@@ -192,6 +209,8 @@ export function Coordenacao() {
         hora: formReuniao.hora || undefined,
         turmaId: formReuniao.turmaId || undefined,
         conteudo: formReuniao.conteudo.trim() || undefined,
+        participantes: formReuniao.participantes,
+        pauta: formReuniao.pauta,
       })
       notificar('Reunião marcada.')
       setModalReuniao(false)
@@ -200,6 +219,99 @@ export function Coordenacao() {
       notificar(e instanceof ApiError ? e.message : 'Não foi possível marcar a reunião.')
     } finally {
       setSalvandoReuniao(false)
+    }
+  }
+
+  async function abrirReuniao(id: string) {
+    try {
+      const detalhe = await api.get<ReuniaoDetalhe>(`/coordenacao/reunioes/${id}`)
+      setReuniaoAberta(detalhe)
+      setAtaRascunho(detalhe.ata ?? '')
+      setNovoEncaminhamento({ texto: '', responsavelId: '' })
+    } catch (e) {
+      notificar(e instanceof ApiError ? e.message : 'Não foi possível abrir essa reunião.')
+    }
+  }
+
+  function atualizarReuniaoAberta(atualizada: ReuniaoDetalhe) {
+    setReuniaoAberta(atualizada)
+    setEventos((es) =>
+      es.map((e) =>
+        e.id === atualizada.id
+          ? {
+              ...e,
+              totalEncaminhamentos: atualizada.encaminhamentos.length,
+              encaminhamentosAbertos: atualizada.encaminhamentos.filter((x) => !x.concluido).length,
+            }
+          : e,
+      ),
+    )
+  }
+
+  async function salvarPautaEParticipantes(pauta: string[], participantes: string[]) {
+    if (!reuniaoAberta) return
+    try {
+      const atualizada = await api.patch<ReuniaoDetalhe>(`/coordenacao/reunioes/${reuniaoAberta.id}`, {
+        pauta,
+        participantes,
+      })
+      atualizarReuniaoAberta(atualizada)
+    } catch (e) {
+      notificar(e instanceof ApiError ? e.message : 'Não foi possível salvar.')
+    }
+  }
+
+  async function salvarAta() {
+    if (!reuniaoAberta) return
+    setSalvandoAta(true)
+    try {
+      const atualizada = await api.patch<ReuniaoDetalhe>(`/coordenacao/reunioes/${reuniaoAberta.id}`, {
+        ata: ataRascunho.trim() || null,
+      })
+      atualizarReuniaoAberta(atualizada)
+      notificar('Ata salva.')
+    } catch (e) {
+      notificar(e instanceof ApiError ? e.message : 'Não foi possível salvar a ata.')
+    } finally {
+      setSalvandoAta(false)
+    }
+  }
+
+  async function adicionarEncaminhamento() {
+    if (!reuniaoAberta || !novoEncaminhamento.texto.trim()) return
+    setSalvandoEncaminhamento(true)
+    try {
+      const atualizada = await api.post<ReuniaoDetalhe>(
+        `/coordenacao/reunioes/${reuniaoAberta.id}/encaminhamentos`,
+        {
+          texto: novoEncaminhamento.texto.trim(),
+          responsavelId: novoEncaminhamento.responsavelId || undefined,
+        },
+      )
+      atualizarReuniaoAberta(atualizada)
+      setNovoEncaminhamento({ texto: '', responsavelId: '' })
+    } catch (e) {
+      notificar(e instanceof ApiError ? e.message : 'Não foi possível adicionar o encaminhamento.')
+    } finally {
+      setSalvandoEncaminhamento(false)
+    }
+  }
+
+  async function alternarEncaminhamento(id: string) {
+    try {
+      const atualizada = await api.patch<ReuniaoDetalhe>(`/coordenacao/encaminhamentos/${id}/alternar`)
+      atualizarReuniaoAberta(atualizada)
+    } catch (e) {
+      notificar(e instanceof ApiError ? e.message : 'Não foi possível atualizar.')
+    }
+  }
+
+  async function removerEncaminhamento(id: string) {
+    try {
+      const atualizada = await api.delete<ReuniaoDetalhe>(`/coordenacao/encaminhamentos/${id}`)
+      atualizarReuniaoAberta(atualizada)
+    } catch (e) {
+      notificar(e instanceof ApiError ? e.message : 'Não foi possível excluir.')
     }
   }
 
@@ -513,10 +625,28 @@ export function Coordenacao() {
                         {rotuloTipo(e.tipo)}
                       </span>
                       <div className="evento-info">
-                        <strong>{e.titulo}</strong>
+                        {e.tipo === 'reuniao' ? (
+                          <button className="link-botao" onClick={() => abrirReuniao(e.id)}>
+                            {e.titulo}
+                          </button>
+                        ) : (
+                          <strong>{e.titulo}</strong>
+                        )}
                         <span className="evento-turma">
                           {e.professorNome}
                           {e.turmaNome && ` · ${e.turmaNome}`}
+                          {e.tipo === 'reuniao' && e.totalEncaminhamentos > 0 && (
+                            <>
+                              {' · '}
+                              {e.encaminhamentosAbertos > 0 ? (
+                                <span className="pill pill-recuperacao">
+                                  {e.encaminhamentosAbertos} encaminhamento(s) em aberto
+                                </span>
+                              ) : (
+                                <span className="pill pill-aprovado">Encaminhamentos concluídos</span>
+                              )}
+                            </>
+                          )}
                         </span>
                       </div>
                       <span className="evento-data">
@@ -978,6 +1108,118 @@ export function Coordenacao() {
         )}
       </Drawer>
 
+      <Drawer aberto={!!reuniaoAberta} titulo={reuniaoAberta?.titulo ?? ''} onFechar={() => setReuniaoAberta(null)}>
+        {reuniaoAberta && (
+          <div className="stack-md">
+            <p className="texto-suave">
+              {formatarData(reuniaoAberta.data)}
+              {reuniaoAberta.hora && ` às ${reuniaoAberta.hora}`}
+              {reuniaoAberta.turmaNome && ` · ${reuniaoAberta.turmaNome}`} · marcada por{' '}
+              {reuniaoAberta.professorNome}
+            </p>
+
+            <div>
+              <h3 className="titulo-secao">Participantes</h3>
+              <CampoTags
+                valores={reuniaoAberta.participantes}
+                onChange={(participantes) => salvarPautaEParticipantes(reuniaoAberta.pauta, participantes)}
+                placeholder="Ex.: Coordenação, Professores do Ensino Médio…"
+              />
+            </div>
+
+            <div>
+              <h3 className="titulo-secao">Pauta</h3>
+              <CampoTags
+                valores={reuniaoAberta.pauta}
+                onChange={(pauta) => salvarPautaEParticipantes(pauta, reuniaoAberta.participantes)}
+                placeholder="Ex.: Desempenho das turmas, Frequência…"
+              />
+            </div>
+
+            <div>
+              <h3 className="titulo-secao">Ata</h3>
+              <textarea
+                rows={5}
+                value={ataRascunho}
+                onChange={(e) => setAtaRascunho(e.target.value)}
+                placeholder="Registro do que foi discutido na reunião…"
+              />
+              <button className="btn btn-fantasma btn-pequeno" onClick={salvarAta} disabled={salvandoAta}>
+                {salvandoAta ? 'Salvando...' : 'Salvar ata'}
+              </button>
+            </div>
+
+            <div>
+              <h3 className="titulo-secao">Encaminhamentos</h3>
+              {reuniaoAberta.encaminhamentos.length === 0 ? (
+                <p className="texto-suave">Nenhum encaminhamento registrado ainda.</p>
+              ) : (
+                <ul className="lista-simples">
+                  {reuniaoAberta.encaminhamentos.map((enc) => (
+                    <li key={enc.id}>
+                      <label className="campo-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={enc.concluido}
+                          onChange={() => alternarEncaminhamento(enc.id)}
+                        />
+                        <span style={{ textDecoration: enc.concluido ? 'line-through' : 'none' }}>
+                          {enc.texto}
+                          {enc.responsavelNome && (
+                            <span className="texto-suave"> — {enc.responsavelNome}</span>
+                          )}
+                        </span>
+                      </label>
+                      <button
+                        className="icon-btn"
+                        aria-label="Excluir encaminhamento"
+                        onClick={() => removerEncaminhamento(enc.id)}
+                      >
+                        ✕
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="form-grid">
+                <label className="campo campo-largo">
+                  <span>Novo encaminhamento</span>
+                  <input
+                    value={novoEncaminhamento.texto}
+                    onChange={(e) => setNovoEncaminhamento({ ...novoEncaminhamento, texto: e.target.value })}
+                    placeholder="Ex.: Professor João revisar atividade"
+                  />
+                </label>
+                <label className="campo">
+                  <span>Responsável (opcional)</span>
+                  <select
+                    className="select"
+                    value={novoEncaminhamento.responsavelId}
+                    onChange={(e) =>
+                      setNovoEncaminhamento({ ...novoEncaminhamento, responsavelId: e.target.value })
+                    }
+                  >
+                    <option value="">— Nenhum —</option>
+                    {professores.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nome}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <button
+                className="btn btn-primario btn-pequeno"
+                onClick={adicionarEncaminhamento}
+                disabled={salvandoEncaminhamento || !novoEncaminhamento.texto.trim()}
+              >
+                {salvandoEncaminhamento ? 'Adicionando...' : '+ Adicionar encaminhamento'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Drawer>
+
       <Modal
         aberto={modalReuniao}
         titulo="Nova reunião pedagógica"
@@ -1035,7 +1277,23 @@ export function Coordenacao() {
             />
           </label>
           <label className="campo campo-largo">
-            <span>Pauta (opcional)</span>
+            <span>Participantes</span>
+            <CampoTags
+              valores={formReuniao.participantes}
+              onChange={(participantes) => setFormReuniao({ ...formReuniao, participantes })}
+              placeholder="Ex.: Coordenação, Professores do Ensino Médio…"
+            />
+          </label>
+          <label className="campo campo-largo">
+            <span>Pauta</span>
+            <CampoTags
+              valores={formReuniao.pauta}
+              onChange={(pauta) => setFormReuniao({ ...formReuniao, pauta })}
+              placeholder="Ex.: Desempenho das turmas, Frequência…"
+            />
+          </label>
+          <label className="campo campo-largo">
+            <span>Observações (opcional)</span>
             <textarea
               rows={3}
               value={formReuniao.conteudo}

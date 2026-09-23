@@ -163,6 +163,36 @@ export interface EventoEscola {
   concluido: boolean
   turmaNome: string | null
   professorNome: string
+  totalEncaminhamentos: number
+  encaminhamentosAbertos: number
+}
+
+// Item de ação combinado numa reunião pedagógica — "Professor João revisar
+// atividade" etc. — que a coordenação acompanha até ficar concluído.
+export interface Encaminhamento {
+  id: string
+  texto: string
+  concluido: boolean
+  criadoEm: string
+  responsavelId: string | null
+  responsavelNome: string | null
+}
+
+// Detalhe completo de uma reunião pedagógica — pauta, participantes, ata
+// e os encaminhamentos combinados.
+export interface ReuniaoDetalhe {
+  id: string
+  titulo: string
+  data: string
+  hora: string | null
+  conteudo: string | null
+  concluido: boolean
+  turmaNome: string | null
+  professorNome: string
+  pauta: string[]
+  participantes: string[]
+  ata: string | null
+  encaminhamentos: Encaminhamento[]
 }
 
 // Turma vista pelo painel do(a) diretor(a) — todas as turmas da escola,
