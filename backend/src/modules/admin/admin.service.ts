@@ -392,6 +392,41 @@ export async function listarAlunosDetalhado() {
     })
 }
 
+// Resumo da escola inteira em números — pro(a) diretor(a) enxergar
+// "quantos alunos precisam de atenção" sem abrir a lista completa.
+export async function obterResumoAlunos() {
+  const [porSituacao, percentuaisPorAluno, alunosComAcompanhamento] = await Promise.all([
+    prisma.aluno.groupBy({
+      by: ['situacao'],
+      where: { excluidoEm: null, turma: { excluidoEm: null } },
+      _count: { _all: true },
+    }),
+    calcularFrequenciaPorAluno(),
+    prisma.acompanhamentoAluno.findMany({
+      where: { aluno: { excluidoEm: null, turma: { excluidoEm: null } } },
+      select: { alunoId: true },
+      distinct: ['alunoId'],
+    }),
+  ])
+
+  function contarSituacao(situacao: string): number {
+    return porSituacao.find((s) => s.situacao === situacao)?._count._all ?? 0
+  }
+
+  const baixaFrequencia = Array.from(percentuaisPorAluno.values()).filter(
+    (p) => p < LIMIAR_BAIXA_FREQUENCIA,
+  ).length
+
+  return {
+    total: porSituacao.reduce((soma, s) => soma + s._count._all, 0),
+    ativos: contarSituacao('ativo'),
+    transferidos: contarSituacao('transferido'),
+    inativos: contarSituacao('inativo'),
+    baixaFrequencia,
+    comAcompanhamento: alunosComAcompanhamento.length,
+  }
+}
+
 export async function excluirProfessor(professorId: string, quemPediuId: string) {
   if (professorId === quemPediuId) {
     throw AppError.requisicaoInvalida('Você não pode excluir a própria conta enquanto estiver logado nela.')

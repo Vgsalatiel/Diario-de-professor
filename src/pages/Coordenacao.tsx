@@ -5,12 +5,12 @@ import { api, ApiError } from '../lib/api'
 import { Modal } from '../components/Modal'
 import { Drawer } from '../components/Drawer'
 import { CampoTags } from '../components/CampoTags'
+import { AlunoDetalheDrawer } from '../components/AlunoDetalheDrawer'
 import { resumoTexto } from '../lib/texto'
 import { pillFrequencia } from './Admin'
 import { rotuloTipo, corTipo, formatarData } from '../lib/eventos'
 import { hojeISO } from '../lib/data'
 import type {
-  AlunoDetalheCoordenacao,
   AlunoResumoAdmin,
   EventoEscola,
   ObservacaoPedagogica,
@@ -93,14 +93,6 @@ function pillFrequenciaTurma(percentual: number | null) {
   return <span className={`pill ${classe}`}>{percentual}%</span>
 }
 
-// A pill de frequência do aluno (pillFrequencia) já sinaliza abaixo de
-// 75% em vermelho — esse ⚠️ extra é só um alerta prévio pra faixa logo
-// acima disso (75–84%), pra chamar atenção antes de virar um problema
-// mais sério.
-function alertaFrequenciaAluno(percentual: number | null): string {
-  if (percentual == null) return ''
-  return percentual >= 75 && percentual < 85 ? ' ⚠️' : ''
-}
 
 function badgeObservacao(o: ObservacaoPedagogica) {
   if (o.tipo !== 'solicitacaoCorrecao') return null
@@ -141,10 +133,7 @@ export function Coordenacao() {
   const [novoEncaminhamento, setNovoEncaminhamento] = useState({ texto: '', responsavelId: '' })
   const [salvandoEncaminhamento, setSalvandoEncaminhamento] = useState(false)
 
-  const [alunoAberto, setAlunoAberto] = useState<AlunoDetalheCoordenacao | null>(null)
-  const [carregandoAluno, setCarregandoAluno] = useState(false)
-  const [novoAcompanhamento, setNovoAcompanhamento] = useState('')
-  const [salvandoAcompanhamento, setSalvandoAcompanhamento] = useState(false)
+  const [alunoAbertoId, setAlunoAbertoId] = useState<string | null>(null)
 
   const [modalObservacao, setModalObservacao] = useState(false)
   const [formObservacao, setFormObservacao] = useState(OBSERVACAO_VAZIA)
@@ -443,34 +432,8 @@ export function Coordenacao() {
     }
   }
 
-  async function abrirAluno(id: string) {
-    setCarregandoAluno(true)
-    try {
-      const detalhe = await api.get<AlunoDetalheCoordenacao>(`/coordenacao/alunos/${id}`)
-      setAlunoAberto(detalhe)
-      setNovoAcompanhamento('')
-    } catch (e) {
-      notificar(e instanceof ApiError ? e.message : 'Não foi possível abrir esse aluno.')
-    } finally {
-      setCarregandoAluno(false)
-    }
-  }
-
-  async function adicionarAcompanhamento() {
-    if (!alunoAberto || !novoAcompanhamento.trim()) return
-    setSalvandoAcompanhamento(true)
-    try {
-      const atualizado = await api.post<AlunoDetalheCoordenacao>(
-        `/coordenacao/alunos/${alunoAberto.id}/acompanhamento`,
-        { texto: novoAcompanhamento.trim() },
-      )
-      setAlunoAberto(atualizado)
-      setNovoAcompanhamento('')
-    } catch (e) {
-      notificar(e instanceof ApiError ? e.message : 'Não foi possível salvar o acompanhamento.')
-    } finally {
-      setSalvandoAcompanhamento(false)
-    }
+  function abrirAluno(id: string) {
+    setAlunoAbertoId(id)
   }
 
   function abrirNovaObservacao(
@@ -1524,89 +1487,7 @@ export function Coordenacao() {
         )}
       </Drawer>
 
-      <Drawer
-        aberto={carregandoAluno || !!alunoAberto}
-        titulo={alunoAberto?.nome ?? 'Carregando...'}
-        onFechar={() => {
-          setAlunoAberto(null)
-          setCarregandoAluno(false)
-        }}
-      >
-        {!alunoAberto && carregandoAluno && <p className="texto-suave">Carregando...</p>}
-        {alunoAberto && (
-          <div className="stack-md">
-            <p className="texto-suave">
-              {alunoAberto.turmaNome}
-              {alunoAberto.situacao !== 'ativo' && ` · ${alunoAberto.situacao}`}
-            </p>
-
-            <div>
-              <h3 className="titulo-secao">Frequência</h3>
-              <p>
-                {pillFrequencia(alunoAberto.frequenciaPercentual)}
-                {alertaFrequenciaAluno(alunoAberto.frequenciaPercentual)}
-              </p>
-            </div>
-
-            <div>
-              <h3 className="titulo-secao">Desempenho</h3>
-              {alunoAberto.desempenho.length === 0 ? (
-                <p className="texto-suave">Nenhuma nota lançada ainda.</p>
-              ) : (
-                <ul className="lista-simples">
-                  {alunoAberto.desempenho.map((d) => (
-                    <li key={d.turmaId}>
-                      <span>{d.materia}</span>
-                      <span className="texto-suave">
-                        {d.media == null ? 'Sem notas lançadas' : String(d.media).replace('.', ',')}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div>
-              <h3 className="titulo-secao">Observações pedagógicas</h3>
-              <p className="texto-suave">{alunoAberto.dificuldades || 'Nenhuma registrada.'}</p>
-            </div>
-
-            <div>
-              <h3 className="titulo-secao">Acompanhamento</h3>
-              {alunoAberto.acompanhamentos.length === 0 ? (
-                <p className="texto-suave">Nenhum acompanhamento registrado ainda.</p>
-              ) : (
-                <ul className="lista-simples">
-                  {alunoAberto.acompanhamentos.map((a) => (
-                    <li key={a.id}>
-                      <span>{a.texto}</span>
-                      <span className="texto-suave">
-                        {new Date(a.criadoEm).toLocaleDateString('pt-BR')} · {a.autorNome}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <label className="campo campo-largo">
-                <span>Novo acompanhamento</span>
-                <textarea
-                  rows={3}
-                  value={novoAcompanhamento}
-                  onChange={(e) => setNovoAcompanhamento(e.target.value)}
-                  placeholder="Ex.: Professor relatou dificuldade em matemática."
-                />
-              </label>
-              <button
-                className="btn btn-primario btn-pequeno"
-                onClick={adicionarAcompanhamento}
-                disabled={salvandoAcompanhamento || !novoAcompanhamento.trim()}
-              >
-                {salvandoAcompanhamento ? 'Salvando...' : '+ Adicionar ao histórico'}
-              </button>
-            </div>
-          </div>
-        )}
-      </Drawer>
+      <AlunoDetalheDrawer alunoId={alunoAbertoId} onFechar={() => setAlunoAbertoId(null)} />
 
       <Modal
         aberto={modalNovaTurma}

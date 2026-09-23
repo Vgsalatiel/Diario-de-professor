@@ -17,6 +17,11 @@ export async function listarAlunos(_req: Request, res: Response) {
   res.json(alunos)
 }
 
+export async function obterResumoAlunos(_req: Request, res: Response) {
+  const resumo = await adminService.obterResumoAlunos()
+  res.json(resumo)
+}
+
 export async function obterDashboard(_req: Request, res: Response) {
   const dashboard = await adminService.obterDashboard()
   res.json(dashboard)

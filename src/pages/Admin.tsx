@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { api, ApiError } from '../lib/api'
-import type { AlunoResumoAdmin, ProfessorResumo, TurmaResumoAdmin } from '../types'
+import { AlunoDetalheDrawer } from '../components/AlunoDetalheDrawer'
+import type { AlunoResumoAdmin, ProfessorResumo, ResumoAlunosEscola, TurmaResumoAdmin } from '../types'
 
 type Aba = 'professores' | 'turmas' | 'alunos'
 
@@ -23,6 +24,9 @@ export function Admin() {
   const [professores, setProfessores] = useState<ProfessorResumo[]>([])
   const [turmas, setTurmas] = useState<TurmaResumoAdmin[]>([])
   const [alunos, setAlunos] = useState<AlunoResumoAdmin[]>([])
+  const [resumoAlunos, setResumoAlunos] = useState<ResumoAlunosEscola | null>(null)
+  const [buscaAluno, setBuscaAluno] = useState('')
+  const [alunoSelecionadoId, setAlunoSelecionadoId] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
   const [excluindoId, setExcluindoId] = useState<string | null>(null)
@@ -38,8 +42,9 @@ export function Admin() {
       api.get<ProfessorResumo[]>('/admin/professores'),
       api.get<TurmaResumoAdmin[]>('/admin/turmas'),
       api.get<AlunoResumoAdmin[]>('/admin/alunos'),
+      api.get<ResumoAlunosEscola>('/admin/alunos/resumo'),
     ])
-      .then(([p, t, a]) => {
+      .then(([p, t, a, resumo]) => {
         setProfessores(p)
         // Turma com pendência primeiro — é o que quem clicou no link de
         // "Pendências" do início veio procurar.
@@ -51,12 +56,19 @@ export function Admin() {
           }),
         )
         setAlunos(a)
+        setResumoAlunos(resumo)
       })
       .catch((e) => setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar.'))
       .finally(() => setCarregando(false))
   }
 
   useEffect(carregar, [])
+
+  const alunosFiltrados = useMemo(() => {
+    const termo = buscaAluno.trim().toLowerCase()
+    if (!termo) return alunos
+    return alunos.filter((a) => a.nome.toLowerCase().includes(termo))
+  }, [alunos, buscaAluno])
 
   async function excluir(p: ProfessorResumo) {
     const aviso =
@@ -220,41 +232,90 @@ export function Admin() {
               </div>
             ))}
 
-          {aba === 'alunos' &&
-            (alunos.length === 0 ? (
-              <div className="vazio painel">
-                <p>Nenhum aluno cadastrado ainda.</p>
-              </div>
-            ) : (
-              <div className="painel sem-padding rolagem-x">
-                <table className="tabela">
-                  <thead>
-                    <tr>
-                      <th>Aluno</th>
-                      <th>Turma</th>
-                      <th>Escola</th>
-                      <th>Professor(a)</th>
-                      <th>Situação</th>
-                      <th>Frequência</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {alunos.map((a) => (
-                      <tr key={a.id}>
-                        <td className="celula-nome">{a.nome}</td>
-                        <td>{a.turmaNome}</td>
-                        <td>{a.escola}</td>
-                        <td>{a.professorNome}</td>
-                        <td>{a.situacao}</td>
-                        <td>{pillFrequencia(a.frequenciaPercentual)}</td>
+          {aba === 'alunos' && (
+            <div className="stack-md">
+              {resumoAlunos && (
+                <div className="cards-numero cards-numero-6">
+                  <div className="card-numero">
+                    <span className="card-numero-valor">{resumoAlunos.total}</span>
+                    <span className="card-numero-rotulo">Total</span>
+                  </div>
+                  <div className="card-numero">
+                    <span className="card-numero-valor">{resumoAlunos.ativos}</span>
+                    <span className="card-numero-rotulo">Ativos</span>
+                  </div>
+                  <div className="card-numero">
+                    <span className="card-numero-valor">{resumoAlunos.transferidos}</span>
+                    <span className="card-numero-rotulo">Transferidos</span>
+                  </div>
+                  <div className="card-numero">
+                    <span className="card-numero-valor">{resumoAlunos.inativos}</span>
+                    <span className="card-numero-rotulo">Inativos</span>
+                  </div>
+                  <div className={`card-numero ${resumoAlunos.baixaFrequencia > 0 ? 'destaque' : ''}`}>
+                    <span className="card-numero-valor">⚠️ {resumoAlunos.baixaFrequencia}</span>
+                    <span className="card-numero-rotulo">Baixa frequência</span>
+                  </div>
+                  <div className={`card-numero ${resumoAlunos.comAcompanhamento > 0 ? 'destaque' : ''}`}>
+                    <span className="card-numero-valor">⚠️ {resumoAlunos.comAcompanhamento}</span>
+                    <span className="card-numero-rotulo">Em acompanhamento</span>
+                  </div>
+                </div>
+              )}
+
+              <input
+                style={{ maxWidth: 360 }}
+                value={buscaAluno}
+                onChange={(e) => setBuscaAluno(e.target.value)}
+                placeholder="Pesquisar aluno pelo nome..."
+              />
+
+              {alunos.length === 0 ? (
+                <div className="vazio painel">
+                  <p>Nenhum aluno cadastrado ainda.</p>
+                </div>
+              ) : alunosFiltrados.length === 0 ? (
+                <div className="vazio painel">
+                  <p>Nenhum aluno encontrado para "{buscaAluno}".</p>
+                </div>
+              ) : (
+                <div className="painel sem-padding rolagem-x">
+                  <table className="tabela">
+                    <thead>
+                      <tr>
+                        <th>Aluno</th>
+                        <th>Turma</th>
+                        <th>Escola</th>
+                        <th>Professor(a)</th>
+                        <th>Situação</th>
+                        <th>Frequência</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ))}
+                    </thead>
+                    <tbody>
+                      {alunosFiltrados.map((a) => (
+                        <tr key={a.id}>
+                          <td className="celula-nome">
+                            <button className="link-botao" onClick={() => setAlunoSelecionadoId(a.id)}>
+                              {a.nome}
+                            </button>
+                          </td>
+                          <td>{a.turmaNome}</td>
+                          <td>{a.escola}</td>
+                          <td>{a.professorNome}</td>
+                          <td>{a.situacao}</td>
+                          <td>{pillFrequencia(a.frequenciaPercentual)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
+
+      <AlunoDetalheDrawer alunoId={alunoSelecionadoId} onFechar={() => setAlunoSelecionadoId(null)} />
     </div>
   )
 }

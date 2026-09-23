@@ -263,6 +263,17 @@ export interface AlunoResumoAdmin {
   frequenciaPercentual: number | null
 }
 
+// Números da escola inteira — pro(a) diretor(a) enxergar "quantos alunos
+// precisam de atenção" sem abrir a lista completa de 486 nomes.
+export interface ResumoAlunosEscola {
+  total: number
+  ativos: number
+  transferidos: number
+  inativos: number
+  baixaFrequencia: number
+  comAcompanhamento: number
+}
+
 // Cada escola tem seu próprio jeito de dividir o ano letivo
 export type SistemaPeriodo = 'bimestre' | 'trimestre' | 'semestre'
 
