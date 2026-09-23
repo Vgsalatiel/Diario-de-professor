@@ -8,6 +8,7 @@ import { CampoTags } from '../components/CampoTags'
 import { resumoTexto } from '../lib/texto'
 import { pillFrequencia } from './Admin'
 import { rotuloTipo, corTipo, formatarData } from '../lib/eventos'
+import { hojeISO } from '../lib/data'
 import type {
   AlunoResumoAdmin,
   EventoEscola,
@@ -51,6 +52,12 @@ const ROTULO_SITUACAO_REGISTRO: Record<string, string> = {
 
 function ratioTexto(feitas: number, esperadas: number): string {
   return `${feitas}/${esperadas}`
+}
+
+function mesAbrev(iso: string): string {
+  const meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+  const mes = Number(iso.split('-')[1]) - 1
+  return meses[mes] ?? ''
 }
 
 const TITULO_ABA: Record<Aba, string> = {
@@ -114,6 +121,8 @@ export function Coordenacao() {
 
   const [turnoFiltro, setTurnoFiltro] = useState<'todos' | Turno>('todos')
   const [serieFiltro, setSerieFiltro] = useState('todas')
+  const [tipoEventoFiltro, setTipoEventoFiltro] = useState<'todos' | 'reuniao' | 'prova' | 'trabalho'>('todos')
+  const [periodoEventoFiltro, setPeriodoEventoFiltro] = useState<'proximos' | 'todos'>('proximos')
 
   const seriesDisponiveis = useMemo(
     () => Array.from(new Set(turmas.map((t) => t.serie).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
@@ -151,6 +160,15 @@ export function Coordenacao() {
       }),
     [turmas],
   )
+
+  const eventosFiltrados = useMemo(() => {
+    const hoje = hojeISO()
+    return eventos.filter(
+      (e) =>
+        (tipoEventoFiltro === 'todos' || e.tipo === tipoEventoFiltro) &&
+        (periodoEventoFiltro === 'todos' || e.data >= hoje),
+    )
+  }, [eventos, tipoEventoFiltro, periodoEventoFiltro])
 
   function carregar() {
     setCarregando(true)
@@ -608,54 +626,107 @@ export function Coordenacao() {
 
           {aba === 'calendario' && (
             <div className="stack-md">
-              <div>
+              <div className="barra-filtros">
                 <button className="btn btn-primario" onClick={abrirNovaReuniao}>
                   Nova reunião
                 </button>
+                <div className="abas abas-pequeno">
+                  <button
+                    className={`aba ${tipoEventoFiltro === 'todos' ? 'ativa' : ''}`}
+                    onClick={() => setTipoEventoFiltro('todos')}
+                  >
+                    Todos
+                  </button>
+                  <button
+                    className={`aba ${tipoEventoFiltro === 'reuniao' ? 'ativa' : ''}`}
+                    onClick={() => setTipoEventoFiltro('reuniao')}
+                  >
+                    Reuniões
+                  </button>
+                  <button
+                    className={`aba ${tipoEventoFiltro === 'prova' ? 'ativa' : ''}`}
+                    onClick={() => setTipoEventoFiltro('prova')}
+                  >
+                    Provas
+                  </button>
+                  <button
+                    className={`aba ${tipoEventoFiltro === 'trabalho' ? 'ativa' : ''}`}
+                    onClick={() => setTipoEventoFiltro('trabalho')}
+                  >
+                    Trabalhos
+                  </button>
+                </div>
+                <div className="abas abas-pequeno">
+                  <button
+                    className={`aba ${periodoEventoFiltro === 'proximos' ? 'ativa' : ''}`}
+                    onClick={() => setPeriodoEventoFiltro('proximos')}
+                  >
+                    Próximos
+                  </button>
+                  <button
+                    className={`aba ${periodoEventoFiltro === 'todos' ? 'ativa' : ''}`}
+                    onClick={() => setPeriodoEventoFiltro('todos')}
+                  >
+                    Todos os períodos
+                  </button>
+                </div>
               </div>
-              {eventos.length === 0 ? (
+
+              {eventosFiltrados.length === 0 ? (
                 <div className="vazio painel">
-                  <p>Nada no calendário pedagógico ainda.</p>
+                  <p>Nada no calendário pedagógico nesse filtro.</p>
                 </div>
               ) : (
-                <ul className="lista-eventos">
-                  {eventos.map((e) => (
-                    <li key={e.id} className="evento-item">
-                      <span className="evento-tag" style={{ background: corTipo(e.tipo) }}>
-                        {rotuloTipo(e.tipo)}
-                      </span>
-                      <div className="evento-info">
-                        {e.tipo === 'reuniao' ? (
-                          <button className="link-botao" onClick={() => abrirReuniao(e.id)}>
-                            {e.titulo}
-                          </button>
-                        ) : (
-                          <strong>{e.titulo}</strong>
-                        )}
-                        <span className="evento-turma">
-                          {e.professorNome}
-                          {e.turmaNome && ` · ${e.turmaNome}`}
-                          {e.tipo === 'reuniao' && e.totalEncaminhamentos > 0 && (
-                            <>
-                              {' · '}
-                              {e.encaminhamentosAbertos > 0 ? (
-                                <span className="pill pill-recuperacao">
-                                  {e.encaminhamentosAbertos} encaminhamento(s) em aberto
-                                </span>
-                              ) : (
-                                <span className="pill pill-aprovado">Encaminhamentos concluídos</span>
-                              )}
-                            </>
-                          )}
-                        </span>
+                <div className="timeline">
+                  {eventosFiltrados.map((e) => (
+                    <article key={e.id} className={`evento-cartao ${e.concluido ? 'concluido' : ''}`}>
+                      <div className="evento-cartao-barra" style={{ background: corTipo(e.tipo) }} />
+                      <div className="evento-cartao-data">
+                        <span className="dia">{e.data.split('-')[2]}</span>
+                        <span className="mes">{mesAbrev(e.data)}</span>
                       </div>
-                      <span className="evento-data">
-                        {formatarData(e.data)}
-                        {e.hora && ` às ${e.hora}`}
-                      </span>
-                    </li>
+                      <div className="evento-cartao-corpo">
+                        <div className="evento-cartao-topo">
+                          <span className="evento-tag" style={{ background: corTipo(e.tipo) }}>
+                            {rotuloTipo(e.tipo)}
+                          </span>
+                          {e.hora && <span className="evento-hora">{e.hora}</span>}
+                          {e.turmaNome && <span className="evento-turma">{e.turmaNome}</span>}
+                        </div>
+                        {e.tipo === 'reuniao' ? (
+                          <h3>
+                            <button className="link-botao" onClick={() => abrirReuniao(e.id)}>
+                              {e.titulo}
+                            </button>
+                          </h3>
+                        ) : (
+                          <h3>{e.titulo}</h3>
+                        )}
+                        <span className="evento-data-completa">
+                          {formatarData(e.data)} · {e.professorNome}
+                        </span>
+                        {e.tipo === 'reuniao' && e.totalEncaminhamentos > 0 && (
+                          <p>
+                            {e.encaminhamentosAbertos > 0 ? (
+                              <span className="pill pill-recuperacao">
+                                {e.encaminhamentosAbertos} encaminhamento(s) em aberto
+                              </span>
+                            ) : (
+                              <span className="pill pill-aprovado">Encaminhamentos concluídos</span>
+                            )}
+                          </p>
+                        )}
+                      </div>
+                      {e.tipo === 'reuniao' && (
+                        <div className="evento-cartao-acoes">
+                          <button className="btn btn-fantasma btn-pequeno" onClick={() => abrirReuniao(e.id)}>
+                            Abrir
+                          </button>
+                        </div>
+                      )}
+                    </article>
                   ))}
-                </ul>
+                </div>
               )}
             </div>
           )}
