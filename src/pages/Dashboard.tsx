@@ -41,6 +41,17 @@ export function Dashboard() {
       })
   }, [])
 
+  function resolverObservacao(id: string) {
+    api
+      .patch<ObservacaoPedagogica>(`/observacoes-recebidas/${id}/resolver`)
+      .then((atualizada) => {
+        setObservacoesRecebidas((os) => os.map((o) => (o.id === id ? atualizada : o)))
+      })
+      .catch(() => {
+        // silencioso — mesmo painel opcional, não interrompe o resto do dashboard
+      })
+  }
+
   if (professora.isAdmin) return <DashboardDiretor />
   if (professora.isCoordenador) {
     return (
@@ -321,10 +332,25 @@ export function Dashboard() {
           <ul className="lista-simples">
             {observacoesRecebidas.slice(0, 5).map((o) => (
               <li key={o.id}>
-                <span>{o.texto}</span>
+                <span>
+                  {o.tipo === 'solicitacaoCorrecao' && (
+                    <span className={`pill ${o.resolvida ? 'pill-aprovado' : 'pill-recuperacao'}`}>
+                      {o.resolvida ? 'Resolvida' : 'Pede correção'}
+                    </span>
+                  )}{' '}
+                  {o.texto}
+                </span>
                 <span className="texto-suave">
                   {o.autorNome} · {new Date(o.criadoEm).toLocaleDateString('pt-BR')}
                   {o.turmaNome && ` · ${o.turmaNome}`}
+                  {o.tipo === 'solicitacaoCorrecao' && !o.resolvida && (
+                    <>
+                      {' · '}
+                      <button className="link-botao" onClick={() => resolverObservacao(o.id)}>
+                        Marcar como resolvida
+                      </button>
+                    </>
+                  )}
                 </span>
               </li>
             ))}

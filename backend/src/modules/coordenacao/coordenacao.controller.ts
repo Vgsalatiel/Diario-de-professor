@@ -56,3 +56,8 @@ export async function removerObservacao(req: Request, res: Response) {
 export async function minhasObservacoes(req: Request, res: Response) {
   res.json(await coordenacaoService.listarObservacoes(req.professorId))
 }
+
+// E marcando uma solicitação de correção como resolvida.
+export async function resolverObservacao(req: Request, res: Response) {
+  res.json(await coordenacaoService.resolverObservacao(paramId(req.params.id), req.professorId))
+}

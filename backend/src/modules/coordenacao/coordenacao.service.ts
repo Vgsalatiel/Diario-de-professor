@@ -4,26 +4,129 @@ import { paraDataISO } from '../../utils/serializers'
 import * as adminService from '../admin/admin.service'
 import type { CriarObservacaoDto, CriarReuniaoDto } from './coordenacao.dto'
 
-// A coordenação acompanha a mesma visão geral (dashboard, professores,
-// turmas, alunos) que o painel de diretor(a) já calcula — reaproveita em
-// vez de duplicar a lógica de pendências/frequência.
+// A coordenação acompanha a mesma visão geral (dashboard, turmas, alunos)
+// que o painel de diretor(a) já calcula — reaproveita em vez de duplicar a
+// lógica de pendências/frequência.
 export const obterDashboard = adminService.obterDashboard
-export const listarProfessores = adminService.listarProfessores
 export const listarTurmasDetalhado = adminService.listarTurmasDetalhado
 export const listarAlunosDetalhado = adminService.listarAlunosDetalhado
 
-// Detalhe pedagógico de um professor: turmas com métricas, planos de aula
-// recentes, alunos com dificuldade registrada e observações já feitas —
-// tudo que a coordenação precisa pra "acompanhar" sem abrir cada turma.
+// "Registro em dia" = tem resumo da aula (RegistroAula) pra cada data em
+// que a chamada foi feita (DataAula, ignorando dias marcados "sem aula").
+// Serve de proxy honesto pra "professor está documentando as aulas que dá"
+// sem precisar recalcular o calendário letivo inteiro.
+function situacaoRegistro(feitas: number, esperadas: number): 'boa' | 'atencao' | 'critica' | 'semDados' {
+  if (esperadas === 0) return 'semDados'
+  const proporcao = feitas / esperadas
+  if (proporcao >= 0.9) return 'boa'
+  if (proporcao >= 0.5) return 'atencao'
+  return 'critica'
+}
+
+// Lista pra tabela "Professores" da coordenação: turmas, quantas aulas já
+// deram tiveram o resumo registrado (X/Y) e o semáforo dessa proporção.
+export async function listarProfessores() {
+  const professores = await prisma.professor.findMany({
+    orderBy: { nome: 'asc' },
+    select: {
+      id: true,
+      nome: true,
+      email: true,
+      materias: true,
+      turmas: {
+        where: { excluidoEm: null },
+        select: {
+          nome: true,
+          datasAula: { where: { semAula: false }, select: { data: true } },
+          registrosAula: { select: { data: true } },
+        },
+      },
+    },
+  })
+
+  return professores.map((p) => {
+    let esperadas = 0
+    let feitas = 0
+    for (const t of p.turmas) {
+      esperadas += t.datasAula.length
+      const datasComRegistro = new Set(t.registrosAula.map((r) => paraDataISO(r.data)))
+      feitas += t.datasAula.filter((d) => datasComRegistro.has(paraDataISO(d.data))).length
+    }
+    return {
+      id: p.id,
+      nome: p.nome,
+      email: p.email,
+      materias: p.materias,
+      turmasNomes: p.turmas.map((t) => t.nome),
+      registrosFeitos: feitas,
+      registrosEsperados: esperadas,
+      situacaoRegistro: situacaoRegistro(feitas, esperadas),
+    }
+  })
+}
+
+// Detalhe pedagógico de um professor — turmas, disciplinas e os 3 tipos de
+// registro (aulas/frequência/avaliações), cada um com sua proporção feita
+// vs esperada, mais pendências concretas e o histórico de
+// observações/solicitações já trocadas com ele.
 export async function detalharProfessor(professorId: string) {
   const professor = await prisma.professor.findUnique({
     where: { id: professorId },
-    select: { id: true, nome: true, email: true, materias: true, criadoEm: true },
+    select: {
+      id: true,
+      nome: true,
+      email: true,
+      materias: true,
+      criadoEm: true,
+      turmas: {
+        where: { excluidoEm: null },
+        select: {
+          id: true,
+          nome: true,
+          datasAula: {
+            where: { semAula: false },
+            select: { id: true, data: true, frequencias: { select: { presente: true } } },
+          },
+          registrosAula: { select: { data: true } },
+          avaliacoes: { select: { id: true, notas: { select: { valor: true } } } },
+        },
+      },
+    },
   })
   if (!professor) throw AppError.naoEncontrado('Professor')
 
-  const [turmasComMetricas, planos, alunosComDificuldade, observacoes] = await Promise.all([
-    adminService.obterTurmasComMetricas(),
+  let aulasEsperadas = 0
+  let aulasFeitas = 0
+  let frequenciaEsperada = 0
+  let frequenciaFeita = 0
+  let avaliacoesTotal = 0
+  let avaliacoesComNota = 0
+  const pendencias: string[] = []
+
+  for (const t of professor.turmas) {
+    aulasEsperadas += t.datasAula.length
+    const datasComRegistro = new Set(t.registrosAula.map((r) => paraDataISO(r.data)))
+    const aulasFeitasNaTurma = t.datasAula.filter((d) => datasComRegistro.has(paraDataISO(d.data))).length
+    aulasFeitas += aulasFeitasNaTurma
+    const semRegistro = t.datasAula.length - aulasFeitasNaTurma
+    if (semRegistro > 0) pendencias.push(`${semRegistro} aula(s) sem registro em ${t.nome}`)
+
+    frequenciaEsperada += t.datasAula.length
+    const comFrequencia = t.datasAula.filter((d) =>
+      d.frequencias.some((f) => f.presente !== null),
+    ).length
+    frequenciaFeita += comFrequencia
+    const semFrequencia = t.datasAula.length - comFrequencia
+    if (semFrequencia > 0) pendencias.push(`${semFrequencia} chamada(s) sem frequência lançada em ${t.nome}`)
+
+    avaliacoesTotal += t.avaliacoes.length
+    const avaliacoesComNotaNaTurma = t.avaliacoes.filter((a) => a.notas.some((n) => n.valor != null)).length
+    avaliacoesComNota += avaliacoesComNotaNaTurma
+    const semNota = t.avaliacoes.length - avaliacoesComNotaNaTurma
+    if (semNota > 0) pendencias.push(`${semNota} avaliação(ões) sem nenhuma nota lançada em ${t.nome}`)
+  }
+
+  const [planos, alunosComDificuldade, observacoes] = await Promise.all([
     prisma.planoDeAula.findMany({
       where: { turma: { professorId, excluidoEm: null } },
       select: {
@@ -54,7 +157,13 @@ export async function detalharProfessor(professorId: string) {
     email: professor.email,
     materias: professor.materias,
     criadoEm: professor.criadoEm.toISOString(),
-    turmas: turmasComMetricas.filter((t) => t.professorId === professorId),
+    turmas: professor.turmas.map((t) => ({ id: t.id, nome: t.nome })),
+    registros: {
+      aulas: { feitas: aulasFeitas, esperadas: aulasEsperadas },
+      frequencia: { feitas: frequenciaFeita, esperadas: frequenciaEsperada },
+      avaliacoes: { feitas: avaliacoesComNota, esperadas: avaliacoesTotal },
+    },
+    pendencias,
     planosDeAula: planos.map((p) => ({
       id: p.id,
       titulo: p.titulo,
@@ -185,15 +294,21 @@ export async function criarReuniao(coordenadorId: string, dados: CriarReuniaoDto
 function serializarObservacao(o: {
   id: string
   texto: string
+  tipo: 'comentario' | 'solicitacaoCorrecao'
+  resolvida: boolean
   criadoEm: Date
   autor: { nome: string }
+  professorAlvo?: { nome: string }
   turma: { nome: string } | null
 }) {
   return {
     id: o.id,
     texto: o.texto,
+    tipo: o.tipo,
+    resolvida: o.resolvida,
     criadoEm: o.criadoEm.toISOString(),
     autorNome: o.autor.nome,
+    professorAlvoNome: o.professorAlvo?.nome ?? null,
     turmaNome: o.turma?.nome ?? null,
   }
 }
@@ -206,7 +321,11 @@ export async function listarObservacoes(professorAlvoId?: string) {
   const observacoes = await prisma.observacaoPedagogica.findMany({
     where: professorAlvoId ? { professorAlvoId } : undefined,
     orderBy: { criadoEm: 'desc' },
-    include: { autor: { select: { nome: true } }, turma: { select: { nome: true } } },
+    include: {
+      autor: { select: { nome: true } },
+      professorAlvo: { select: { nome: true } },
+      turma: { select: { nome: true } },
+    },
   })
   return observacoes.map(serializarObservacao)
 }
@@ -222,6 +341,7 @@ export async function criarObservacao(autorId: string, dados: CriarObservacaoDto
   const observacao = await prisma.observacaoPedagogica.create({
     data: {
       texto: dados.texto,
+      tipo: dados.tipo,
       autorId,
       professorAlvoId: dados.professorAlvoId,
       turmaId: dados.turmaId,
@@ -235,4 +355,19 @@ export async function removerObservacao(id: string, autorId: string) {
   const observacao = await prisma.observacaoPedagogica.findUnique({ where: { id } })
   if (!observacao || observacao.autorId !== autorId) throw AppError.naoEncontrado('Observação')
   await prisma.observacaoPedagogica.delete({ where: { id } })
+}
+
+// O professor-alvo marca como resolvida uma solicitação de correção — só
+// ele mesmo (não a coordenação, que "solicita" mas não "resolve" por ele).
+export async function resolverObservacao(id: string, professorId: string) {
+  const observacao = await prisma.observacaoPedagogica.findUnique({ where: { id } })
+  if (!observacao || observacao.professorAlvoId !== professorId) {
+    throw AppError.naoEncontrado('Observação')
+  }
+  const atualizada = await prisma.observacaoPedagogica.update({
+    where: { id },
+    data: { resolvida: true },
+    include: { autor: { select: { nome: true } }, turma: { select: { nome: true } } },
+  })
+  return serializarObservacao(atualizada)
 }

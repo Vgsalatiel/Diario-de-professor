@@ -60,12 +60,25 @@ model Professor {
   @@map("professores")
 }
 
-// Nota da coordenação pedagógica sobre o trabalho de um professor —
-// opcionalmente amarrada a uma turma específica. Só a coordenação escreve;
-// o professor-alvo só lê (nada de "responder" por ora).
+// A coordenação acompanha o trabalho do professor, mas isso não significa
+// que ela pode alterar o que ele fez — o modelo aqui é "visualizar →
+// comentar → solicitar correção", nunca editar direto. "comentario" é só
+// uma nota; "solicitacaoCorrecao" é um pedido concreto de ajuste (ex.:
+// "registre a aula que falta") que o professor pode marcar como resolvido.
+enum TipoObservacao {
+  comentario
+  solicitacaoCorrecao
+}
+
+// Nota (ou pedido de correção) da coordenação pedagógica sobre o trabalho
+// de um professor — opcionalmente amarrada a uma turma específica. Só a
+// coordenação escreve; o professor-alvo lê e, se for solicitação, marca
+// como resolvida quando atender.
 model ObservacaoPedagogica {
-  id     String @id @default(cuid())
-  texto  String
+  id       String          @id @default(cuid())
+  texto    String
+  tipo     TipoObservacao  @default(comentario)
+  resolvida Boolean        @default(false)
   criadoEm DateTime @default(now())
 
   autorId String

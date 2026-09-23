@@ -19,3 +19,4 @@ coordenacaoRouter.delete('/observacoes/:id', coordenacaoController.removerObserv
 // professor lê as observações endereçadas a ele mesmo.
 export const minhasObservacoesRouter = Router()
 minhasObservacoesRouter.get('/', coordenacaoController.minhasObservacoes)
+minhasObservacoesRouter.patch('/:id/resolver', coordenacaoController.resolverObservacao)

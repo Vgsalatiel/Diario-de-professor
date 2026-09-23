@@ -44,12 +44,40 @@ export interface AlunoDificuldadeCoordenacao {
   turmaNome?: string
 }
 
+// "comentario" é só uma nota; "solicitacaoCorrecao" é um pedido concreto
+// de ajuste que o professor marca como resolvido quando atender — a
+// coordenação acompanha e comenta, não edita o trabalho do professor.
+export type TipoObservacao = 'comentario' | 'solicitacaoCorrecao'
+
 export interface ObservacaoPedagogica {
   id: string
   texto: string
+  tipo: TipoObservacao
+  resolvida: boolean
   criadoEm: string
   autorNome: string
+  professorAlvoNome?: string | null
   turmaNome: string | null
+}
+
+// Um professor na tabela "Professores" da coordenação — turmas, quantas
+// aulas já dadas tiveram o resumo registrado (X/Y) e o semáforo disso.
+export interface ProfessorResumoCoordenacao {
+  id: string
+  nome: string
+  email: string
+  materias: string[]
+  turmasNomes: string[]
+  registrosFeitos: number
+  registrosEsperados: number
+  situacaoRegistro: 'boa' | 'atencao' | 'critica' | 'semDados'
+}
+
+// Proporção "feito/esperado" de um tipo de registro (aulas, frequência ou
+// avaliações) de um professor — usada no detalhe pedagógico dele.
+export interface ProporcaoRegistro {
+  feitas: number
+  esperadas: number
 }
 
 // Detalhe pedagógico de um professor, visto pela coordenação.
@@ -59,7 +87,13 @@ export interface ProfessorDetalheCoordenacao {
   email: string
   materias: string[]
   criadoEm: string
-  turmas: TurmaResumoCoordenacao[]
+  turmas: { id: string; nome: string }[]
+  registros: {
+    aulas: ProporcaoRegistro
+    frequencia: ProporcaoRegistro
+    avaliacoes: ProporcaoRegistro
+  }
+  pendencias: string[]
   planosDeAula: PlanoResumoCoordenacao[]
   alunosComDificuldade: AlunoDificuldadeCoordenacao[]
   observacoes: ObservacaoPedagogica[]

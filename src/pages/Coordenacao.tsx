@@ -10,7 +10,8 @@ import type {
   EventoEscola,
   ObservacaoPedagogica,
   ProfessorDetalheCoordenacao,
-  ProfessorResumo,
+  ProfessorResumoCoordenacao,
+  TipoObservacao,
   TurmaDetalheCoordenacao,
   TurmaResumoAdmin,
 } from '../types'
@@ -18,14 +19,39 @@ import type {
 type Aba = 'professores' | 'turmas' | 'alunos' | 'reunioes' | 'observacoes'
 
 const REUNIAO_VAZIA = { titulo: '', data: '', hora: '', turmaId: '', conteudo: '' }
-const OBSERVACAO_VAZIA = { professorAlvoId: '', turmaId: '', texto: '' }
+const OBSERVACAO_VAZIA: { professorAlvoId: string; turmaId: string; texto: string; tipo: TipoObservacao } = {
+  professorAlvoId: '',
+  turmaId: '',
+  texto: '',
+  tipo: 'comentario',
+}
+
+const ROTULO_SITUACAO_REGISTRO: Record<string, string> = {
+  boa: '🟢',
+  atencao: '🟡',
+  critica: '🔴',
+  semDados: '—',
+}
+
+function ratioTexto(feitas: number, esperadas: number): string {
+  return `${feitas}/${esperadas}`
+}
+
+function badgeObservacao(o: ObservacaoPedagogica) {
+  if (o.tipo !== 'solicitacaoCorrecao') return null
+  return (
+    <span className={`pill ${o.resolvida ? 'pill-aprovado' : 'pill-recuperacao'}`}>
+      {o.resolvida ? 'Correção resolvida' : 'Pede correção'}
+    </span>
+  )
+}
 
 export function Coordenacao() {
   const { notificar } = useToast()
   const [params, setParams] = useSearchParams()
   const aba = (params.get('aba') as Aba) || 'professores'
 
-  const [professores, setProfessores] = useState<ProfessorResumo[]>([])
+  const [professores, setProfessores] = useState<ProfessorResumoCoordenacao[]>([])
   const [turmas, setTurmas] = useState<TurmaResumoAdmin[]>([])
   const [alunos, setAlunos] = useState<AlunoResumoAdmin[]>([])
   const [eventos, setEventos] = useState<EventoEscola[]>([])
@@ -52,7 +78,7 @@ export function Coordenacao() {
     setCarregando(true)
     setErro('')
     Promise.all([
-      api.get<ProfessorResumo[]>('/coordenacao/professores'),
+      api.get<ProfessorResumoCoordenacao[]>('/coordenacao/professores'),
       api.get<TurmaResumoAdmin[]>('/coordenacao/turmas'),
       api.get<AlunoResumoAdmin[]>('/coordenacao/alunos'),
       api.get<EventoEscola[]>('/coordenacao/eventos'),
@@ -115,8 +141,8 @@ export function Coordenacao() {
     }
   }
 
-  function abrirNovaObservacao(professorAlvoId?: string) {
-    setFormObservacao({ ...OBSERVACAO_VAZIA, professorAlvoId: professorAlvoId ?? '' })
+  function abrirNovaObservacao(professorAlvoId?: string, tipo: TipoObservacao = 'comentario', texto = '') {
+    setFormObservacao({ ...OBSERVACAO_VAZIA, professorAlvoId: professorAlvoId ?? '', tipo, texto })
     setModalObservacao(true)
   }
 
@@ -128,8 +154,11 @@ export function Coordenacao() {
         professorAlvoId: formObservacao.professorAlvoId,
         turmaId: formObservacao.turmaId || undefined,
         texto: formObservacao.texto.trim(),
+        tipo: formObservacao.tipo,
       })
-      notificar('Observação registrada.')
+      notificar(
+        formObservacao.tipo === 'solicitacaoCorrecao' ? 'Solicitação de correção enviada.' : 'Observação registrada.',
+      )
       setModalObservacao(false)
       carregar()
       if (professorAberto?.id === formObservacao.professorAlvoId) abrirProfessor(professorAberto.id)
@@ -202,10 +231,9 @@ export function Coordenacao() {
                   <thead>
                     <tr>
                       <th>Nome</th>
-                      <th>E-mail</th>
-                      <th>Matéria(s)</th>
                       <th>Turmas</th>
-                      <th>Pendências</th>
+                      <th>Registros</th>
+                      <th>Situação</th>
                       <th className="col-acoes">Ações</th>
                     </tr>
                   </thead>
@@ -217,19 +245,12 @@ export function Coordenacao() {
                             {p.nome}
                           </button>
                         </td>
-                        <td data-label="E-mail">{p.email}</td>
-                        <td data-label="Matéria(s)">{p.materias.join(', ') || '—'}</td>
-                        <td data-label="Turmas">{p.totalTurmas}</td>
-                        <td data-label="Pendências">
-                          {p.pendencias > 0 ? (
-                            <span className="pill pill-recuperacao">{p.pendencias}</span>
-                          ) : (
-                            <span className="pill pill-aprovado">0</span>
-                          )}
-                        </td>
+                        <td data-label="Turmas">{p.turmasNomes.join(' / ') || '—'}</td>
+                        <td data-label="Registros">{ratioTexto(p.registrosFeitos, p.registrosEsperados)}</td>
+                        <td data-label="Situação">{ROTULO_SITUACAO_REGISTRO[p.situacaoRegistro]}</td>
                         <td className="col-acoes">
                           <button className="btn btn-fantasma btn-pequeno" onClick={() => abrirNovaObservacao(p.id)}>
-                            + Observação
+                            + Comentário
                           </button>
                         </td>
                       </tr>
@@ -347,9 +368,12 @@ export function Coordenacao() {
 
           {aba === 'observacoes' && (
             <div className="stack-md">
-              <div>
+              <div className="grupo-botoes">
                 <button className="btn btn-primario" onClick={() => abrirNovaObservacao()}>
-                  Nova observação
+                  Novo comentário
+                </button>
+                <button className="btn btn-fantasma" onClick={() => abrirNovaObservacao(undefined, 'solicitacaoCorrecao')}>
+                  Nova solicitação de correção
                 </button>
               </div>
               {observacoes.length === 0 ? (
@@ -361,9 +385,11 @@ export function Coordenacao() {
                   {observacoes.map((o) => (
                     <li key={o.id} className="evento-item">
                       <div className="evento-info">
-                        <strong>{o.autorNome}</strong>
+                        <strong>
+                          {o.professorAlvoNome} {badgeObservacao(o)}
+                        </strong>
                         <span className="evento-turma">
-                          {o.turmaNome ?? 'sem turma específica'} ·{' '}
+                          {o.turmaNome ?? 'sem turma específica'} · por {o.autorNome} ·{' '}
                           {new Date(o.criadoEm).toLocaleDateString('pt-BR')}
                         </span>
                         <span className="texto-suave">{o.texto}</span>
@@ -387,9 +413,7 @@ export function Coordenacao() {
       >
         {professorAberto && (
           <div className="stack-md">
-            <p className="texto-suave">
-              {professorAberto.email} · {professorAberto.materias.join(', ') || 'sem matéria definida'}
-            </p>
+            <p className="texto-suave">{professorAberto.email}</p>
 
             <div>
               <h3 className="titulo-secao">Turmas</h3>
@@ -399,10 +423,79 @@ export function Coordenacao() {
                 <ul className="lista-simples">
                   {professorAberto.turmas.map((t) => (
                     <li key={t.id}>
-                      <span>
-                        {t.nome} — {t.totalAlunos} aluno(s)
-                      </span>
-                      {pillFrequencia(t.frequenciaMedia)}
+                      <span>{t.nome}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div>
+              <h3 className="titulo-secao">Disciplinas</h3>
+              {professorAberto.materias.length === 0 ? (
+                <p className="texto-suave">Nenhuma matéria definida.</p>
+              ) : (
+                <ul className="lista-simples">
+                  {professorAberto.materias.map((m) => (
+                    <li key={m}>
+                      <span>{m}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div>
+              <h3 className="titulo-secao">Registros</h3>
+              <ul className="lista-simples">
+                <li>
+                  <span>Aulas</span>
+                  <span className="texto-suave">
+                    {ratioTexto(professorAberto.registros.aulas.feitas, professorAberto.registros.aulas.esperadas)}
+                  </span>
+                </li>
+                <li>
+                  <span>Frequência</span>
+                  <span className="texto-suave">
+                    {ratioTexto(
+                      professorAberto.registros.frequencia.feitas,
+                      professorAberto.registros.frequencia.esperadas,
+                    )}
+                  </span>
+                </li>
+                <li>
+                  <span>Avaliações</span>
+                  <span className="texto-suave">
+                    {ratioTexto(
+                      professorAberto.registros.avaliacoes.feitas,
+                      professorAberto.registros.avaliacoes.esperadas,
+                    )}
+                  </span>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="titulo-secao">Pendências</h3>
+              {professorAberto.pendencias.length === 0 ? (
+                <p className="texto-suave">Nenhuma pendência. 🎉</p>
+              ) : (
+                <ul className="lista-marcada">
+                  {professorAberto.pendencias.map((texto) => (
+                    <li key={texto}>
+                      <span>{texto}</span>{' '}
+                      <button
+                        className="link-botao"
+                        onClick={() =>
+                          abrirNovaObservacao(
+                            professorAberto.id,
+                            'solicitacaoCorrecao',
+                            `Poderia corrigir: ${texto.charAt(0).toLowerCase()}${texto.slice(1)}?`,
+                          )
+                        }
+                      >
+                        Solicitar correção
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -455,7 +548,9 @@ export function Coordenacao() {
                 <ul className="lista-simples">
                   {professorAberto.observacoes.map((o) => (
                     <li key={o.id}>
-                      <span>{o.texto}</span>
+                      <span>
+                        {badgeObservacao(o)} {o.texto}
+                      </span>
                       <span className="texto-suave">
                         {o.autorNome} · {new Date(o.criadoEm).toLocaleDateString('pt-BR')}
                         {o.turmaNome && ` · ${o.turmaNome}`}
@@ -464,9 +559,17 @@ export function Coordenacao() {
                   ))}
                 </ul>
               )}
-              <button className="btn btn-fantasma" onClick={() => abrirNovaObservacao(professorAberto.id)}>
-                + Nova observação
-              </button>
+              <div className="grupo-botoes">
+                <button className="btn btn-fantasma" onClick={() => abrirNovaObservacao(professorAberto.id)}>
+                  + Comentário
+                </button>
+                <button
+                  className="btn btn-fantasma"
+                  onClick={() => abrirNovaObservacao(professorAberto.id, 'solicitacaoCorrecao')}
+                >
+                  + Solicitar correção
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -615,7 +718,7 @@ export function Coordenacao() {
 
       <Modal
         aberto={modalObservacao}
-        titulo="Nova observação pedagógica"
+        titulo={formObservacao.tipo === 'solicitacaoCorrecao' ? 'Nova solicitação de correção' : 'Novo comentário'}
         onFechar={() => setModalObservacao(false)}
         rodape={
           <>
@@ -629,6 +732,19 @@ export function Coordenacao() {
         }
       >
         <div className="form-grid">
+          <label className="campo campo-largo">
+            <span>Tipo</span>
+            <select
+              className="select"
+              value={formObservacao.tipo}
+              onChange={(e) => setFormObservacao({ ...formObservacao, tipo: e.target.value as TipoObservacao })}
+            >
+              <option value="comentario">Comentário — só um registro, o professor lê</option>
+              <option value="solicitacaoCorrecao">
+                Solicitação de correção — pede um ajuste, o professor marca como resolvido
+              </option>
+            </select>
+          </label>
           <label className="campo campo-largo">
             <span>Professor(a)</span>
             <select

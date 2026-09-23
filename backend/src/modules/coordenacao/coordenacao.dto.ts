@@ -1,9 +1,12 @@
 import { z } from 'zod'
 
+export const tipoObservacaoEnum = z.enum(['comentario', 'solicitacaoCorrecao'])
+
 export const criarObservacaoDto = z.object({
   professorAlvoId: z.string().min(1),
   turmaId: z.string().min(1).optional(),
   texto: z.string().trim().min(1).max(2000),
+  tipo: tipoObservacaoEnum.default('comentario'),
 })
 export type CriarObservacaoDto = z.infer<typeof criarObservacaoDto>
 
