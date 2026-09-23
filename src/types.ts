@@ -11,6 +11,8 @@ export interface Professora {
   isCoordenador: boolean
 }
 
+export type SituacaoRegistro = 'boa' | 'atencao' | 'critica' | 'semDados'
+
 // Um professor visto pela conta de diretor(a) — resumo pra tela de administração.
 export interface ProfessorResumo {
   id: string
@@ -22,6 +24,17 @@ export interface ProfessorResumo {
   totalTurmas: number
   aulasRegistradasHoje: number
   pendencias: number
+  situacaoRegistro: SituacaoRegistro
+}
+
+// Números da escola inteira sobre professores — pro(a) diretor(a)
+// enxergar de cara quantos estão em dia com o registro das aulas.
+export interface ResumoProfessoresEscola {
+  total: number
+  emDia: number
+  pendentes: number
+  comProblemas: number
+  semDados: number
 }
 
 // Turma vista pela coordenação pedagógica — mesmo formato de
@@ -114,7 +127,7 @@ export interface ProfessorResumoCoordenacao {
   turmasNomes: string[]
   registrosFeitos: number
   registrosEsperados: number
-  situacaoRegistro: 'boa' | 'atencao' | 'critica' | 'semDados'
+  situacaoRegistro: SituacaoRegistro
 }
 
 // Proporção "feito/esperado" de um tipo de registro (aulas, frequência ou

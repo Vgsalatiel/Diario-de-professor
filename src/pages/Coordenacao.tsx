@@ -6,6 +6,7 @@ import { Modal } from '../components/Modal'
 import { Drawer } from '../components/Drawer'
 import { CampoTags } from '../components/CampoTags'
 import { AlunoDetalheDrawer } from '../components/AlunoDetalheDrawer'
+import { ProfessorDetalheDrawer } from '../components/ProfessorDetalheDrawer'
 import { resumoTexto } from '../lib/texto'
 import { pillFrequencia } from './Admin'
 import { rotuloTipo, corTipo, formatarData } from '../lib/eventos'
@@ -14,7 +15,6 @@ import type {
   AlunoResumoAdmin,
   EventoEscola,
   ObservacaoPedagogica,
-  ProfessorDetalheCoordenacao,
   ProfessorResumoCoordenacao,
   ReuniaoDetalhe,
   SistemaPeriodo,
@@ -116,8 +116,8 @@ export function Coordenacao() {
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
 
-  const [professorAberto, setProfessorAberto] = useState<ProfessorDetalheCoordenacao | null>(null)
-  const [carregandoProfessor, setCarregandoProfessor] = useState(false)
+  const [professorAbertoId, setProfessorAbertoId] = useState<string | null>(null)
+  const [recargaProfessor, setRecargaProfessor] = useState(0)
   const [turmaAberta, setTurmaAberta] = useState<TurmaDetalheCoordenacao | null>(null)
   const [carregandoTurma, setCarregandoTurma] = useState(false)
   const [turmaDrawerModo, setTurmaDrawerModo] = useState<'completo' | 'frequencia'>('completo')
@@ -220,16 +220,8 @@ export function Coordenacao() {
 
   useEffect(carregar, [])
 
-  async function abrirProfessor(id: string) {
-    setCarregandoProfessor(true)
-    try {
-      const detalhe = await api.get<ProfessorDetalheCoordenacao>(`/coordenacao/professores/${id}`)
-      setProfessorAberto(detalhe)
-    } catch (e) {
-      notificar(e instanceof ApiError ? e.message : 'Não foi possível abrir esse professor.')
-    } finally {
-      setCarregandoProfessor(false)
-    }
+  function abrirProfessor(id: string) {
+    setProfessorAbertoId(id)
   }
 
   async function abrirTurma(id: string, modo: 'completo' | 'frequencia' = 'completo') {
@@ -461,7 +453,7 @@ export function Coordenacao() {
       )
       setModalObservacao(false)
       carregar()
-      if (professorAberto?.id === formObservacao.professorAlvoId) abrirProfessor(professorAberto.id)
+      if (professorAbertoId === formObservacao.professorAlvoId) setRecargaProfessor((n) => n + 1)
       if (turmaAberta?.id === formObservacao.turmaId) abrirTurma(turmaAberta.id, turmaDrawerModo)
     } catch (e) {
       notificar(e instanceof ApiError ? e.message : 'Não foi possível salvar a observação.')
@@ -892,180 +884,12 @@ export function Coordenacao() {
         </>
       )}
 
-      <Drawer
-        aberto={carregandoProfessor || !!professorAberto}
-        titulo={professorAberto?.nome ?? 'Carregando...'}
-        onFechar={() => {
-          setProfessorAberto(null)
-          setCarregandoProfessor(false)
-        }}
-      >
-        {!professorAberto && carregandoProfessor && (
-          <p className="texto-suave">Carregando...</p>
-        )}
-        {professorAberto && (
-          <div className="stack-md">
-            <p className="texto-suave">{professorAberto.email}</p>
-
-            <div>
-              <h3 className="titulo-secao">Turmas</h3>
-              {professorAberto.turmas.length === 0 ? (
-                <p className="texto-suave">Nenhuma turma.</p>
-              ) : (
-                <ul className="lista-simples">
-                  {professorAberto.turmas.map((t) => (
-                    <li key={t.id}>
-                      <span>{t.nome}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div>
-              <h3 className="titulo-secao">Disciplinas</h3>
-              {professorAberto.materias.length === 0 ? (
-                <p className="texto-suave">Nenhuma matéria definida.</p>
-              ) : (
-                <ul className="lista-simples">
-                  {professorAberto.materias.map((m) => (
-                    <li key={m}>
-                      <span>{m}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div>
-              <h3 className="titulo-secao">Registros</h3>
-              <ul className="lista-simples">
-                <li>
-                  <span>Aulas</span>
-                  <span className="texto-suave">
-                    {ratioTexto(professorAberto.registros.aulas.feitas, professorAberto.registros.aulas.esperadas)}
-                  </span>
-                </li>
-                <li>
-                  <span>Frequência</span>
-                  <span className="texto-suave">
-                    {ratioTexto(
-                      professorAberto.registros.frequencia.feitas,
-                      professorAberto.registros.frequencia.esperadas,
-                    )}
-                  </span>
-                </li>
-                <li>
-                  <span>Avaliações</span>
-                  <span className="texto-suave">
-                    {ratioTexto(
-                      professorAberto.registros.avaliacoes.feitas,
-                      professorAberto.registros.avaliacoes.esperadas,
-                    )}
-                  </span>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="titulo-secao">Pendências</h3>
-              {professorAberto.pendencias.length === 0 ? (
-                <p className="texto-suave">Nenhuma pendência. 🎉</p>
-              ) : (
-                <ul className="lista-marcada">
-                  {professorAberto.pendencias.map((texto) => (
-                    <li key={texto}>
-                      <span>{texto}</span>{' '}
-                      <button
-                        className="link-botao"
-                        onClick={() =>
-                          abrirNovaObservacao(
-                            professorAberto.id,
-                            'solicitacaoCorrecao',
-                            `Poderia corrigir: ${texto.charAt(0).toLowerCase()}${texto.slice(1)}?`,
-                          )
-                        }
-                      >
-                        Solicitar correção
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div>
-              <h3 className="titulo-secao">Planejamento recente</h3>
-              {professorAberto.planosDeAula.length === 0 ? (
-                <p className="texto-suave">Nenhum plano de aula cadastrado.</p>
-              ) : (
-                <ul className="lista-simples">
-                  {professorAberto.planosDeAula.map((p) => (
-                    <li key={p.id}>
-                      <span>
-                        {p.titulo} — {p.turmaNome}
-                      </span>
-                      <span className="texto-suave">
-                        {formatarData(p.dataInicio)} a {formatarData(p.dataFim)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div>
-              <h3 className="titulo-secao">Alunos com dificuldade</h3>
-              {professorAberto.alunosComDificuldade.length === 0 ? (
-                <p className="texto-suave">Nenhuma registrada.</p>
-              ) : (
-                <ul className="lista-simples">
-                  {professorAberto.alunosComDificuldade.map((a) => (
-                    <li key={a.id}>
-                      <span>
-                        <strong>{a.nome}</strong> — {a.turmaNome}
-                      </span>
-                      <span className="texto-suave">{a.dificuldades}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div>
-              <h3 className="titulo-secao">Observações</h3>
-              {professorAberto.observacoes.length === 0 ? (
-                <p className="texto-suave">Nenhuma observação ainda.</p>
-              ) : (
-                <ul className="lista-simples">
-                  {professorAberto.observacoes.map((o) => (
-                    <li key={o.id}>
-                      <span>
-                        {badgeObservacao(o)} {o.texto}
-                      </span>
-                      <span className="texto-suave">
-                        {o.autorNome} · {new Date(o.criadoEm).toLocaleDateString('pt-BR')}
-                        {o.turmaNome && ` · ${o.turmaNome}`}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="grupo-botoes">
-                <button className="btn btn-fantasma" onClick={() => abrirNovaObservacao(professorAberto.id)}>
-                  + Comentário
-                </button>
-                <button
-                  className="btn btn-fantasma"
-                  onClick={() => abrirNovaObservacao(professorAberto.id, 'solicitacaoCorrecao')}
-                >
-                  + Solicitar correção
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </Drawer>
+      <ProfessorDetalheDrawer
+        professorId={professorAbertoId}
+        onFechar={() => setProfessorAbertoId(null)}
+        onAbrirObservacao={abrirNovaObservacao}
+        chaveRecarga={recargaProfessor}
+      />
 
       <Drawer
         aberto={carregandoTurma || !!turmaAberta}

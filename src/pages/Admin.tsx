@@ -4,7 +4,8 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { api, ApiError } from '../lib/api'
 import { AlunosEscolaPainel } from '../components/AlunosEscolaPainel'
-import type { ProfessorResumo, TurmaResumoAdmin } from '../types'
+import { ProfessorDetalheDrawer } from '../components/ProfessorDetalheDrawer'
+import type { ProfessorResumo, ResumoProfessoresEscola, SituacaoRegistro, TurmaResumoAdmin } from '../types'
 
 type Aba = 'professores' | 'turmas' | 'alunos'
 
@@ -15,6 +16,13 @@ export function pillFrequencia(percentual: number | null) {
   )
 }
 
+const SELO_SITUACAO_REGISTRO: Record<SituacaoRegistro, string> = {
+  boa: '🟢',
+  atencao: '🟡',
+  critica: '🔴',
+  semDados: '—',
+}
+
 export function Admin() {
   const { professora } = useAuth()
   const { notificar } = useToast()
@@ -22,10 +30,12 @@ export function Admin() {
   const aba = (params.get('aba') as Aba) || 'professores'
 
   const [professores, setProfessores] = useState<ProfessorResumo[]>([])
+  const [resumoProfessores, setResumoProfessores] = useState<ResumoProfessoresEscola | null>(null)
   const [turmas, setTurmas] = useState<TurmaResumoAdmin[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
   const [excluindoId, setExcluindoId] = useState<string | null>(null)
+  const [professorSelecionadoId, setProfessorSelecionadoId] = useState<string | null>(null)
 
   function trocarAba(nova: Aba) {
     setParams(nova === 'professores' ? {} : { aba: nova })
@@ -37,9 +47,11 @@ export function Admin() {
     Promise.all([
       api.get<ProfessorResumo[]>('/admin/professores'),
       api.get<TurmaResumoAdmin[]>('/admin/turmas'),
+      api.get<ResumoProfessoresEscola>('/admin/professores/resumo'),
     ])
-      .then(([p, t]) => {
+      .then(([p, t, resumo]) => {
         setProfessores(p)
+        setResumoProfessores(resumo)
         // Turma com pendência primeiro — é o que quem clicou no link de
         // "Pendências" do início veio procurar.
         setTurmas(
@@ -102,62 +114,88 @@ export function Admin() {
         <p className="texto-suave">Carregando…</p>
       ) : (
         <>
-          {aba === 'professores' &&
-            (professores.length === 0 ? (
-              <div className="vazio painel">
-                <p>Nenhum professor cadastrado ainda.</p>
-              </div>
-            ) : (
-              <div className="painel sem-padding rolagem-x">
-                <table className="tabela">
-                  <thead>
-                    <tr>
-                      <th>Nome</th>
-                      <th>E-mail</th>
-                      <th>Matéria(s)</th>
-                      <th>Turmas</th>
-                      <th>Aulas hoje</th>
-                      <th>Pendências</th>
-                      <th>Cadastrado em</th>
-                      <th className="col-acoes">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {professores.map((p) => (
-                      <tr key={p.id}>
-                        <td className="celula-nome">
-                          {p.nome}
-                          {p.isAdmin && <span className="badge-turma badge-diretor">diretor(a)</span>}
-                        </td>
-                        <td>{p.email}</td>
-                        <td>{p.materias.join(', ')}</td>
-                        <td>{p.totalTurmas}</td>
-                        <td>{p.aulasRegistradasHoje}</td>
-                        <td>
-                          {p.pendencias > 0 ? (
-                            <span className="pill pill-recuperacao">{p.pendencias}</span>
-                          ) : (
-                            <span className="pill pill-aprovado">0</span>
-                          )}
-                        </td>
-                        <td>{new Date(p.criadoEm).toLocaleDateString('pt-BR')}</td>
-                        <td className="col-acoes">
-                          {p.id !== professora.id && (
-                            <button
-                              className="btn btn-perigo-fantasma btn-pequeno"
-                              onClick={() => excluir(p)}
-                              disabled={excluindoId === p.id}
-                            >
-                              {excluindoId === p.id ? 'Excluindo...' : 'Excluir'}
-                            </button>
-                          )}
-                        </td>
+          {aba === 'professores' && (
+            <div className="stack-md">
+              {resumoProfessores && (
+                <div className="cards-numero cards-numero-4">
+                  <div className="card-numero">
+                    <span className="card-numero-valor">{resumoProfessores.total}</span>
+                    <span className="card-numero-rotulo">Professores</span>
+                  </div>
+                  <div className="card-numero">
+                    <span className="card-numero-valor">🟢 {resumoProfessores.emDia}</span>
+                    <span className="card-numero-rotulo">Registros em dia</span>
+                  </div>
+                  <div className={`card-numero ${resumoProfessores.pendentes > 0 ? 'destaque' : ''}`}>
+                    <span className="card-numero-valor">🟡 {resumoProfessores.pendentes}</span>
+                    <span className="card-numero-rotulo">Registros pendentes</span>
+                  </div>
+                  <div className={`card-numero ${resumoProfessores.comProblemas > 0 ? 'destaque' : ''}`}>
+                    <span className="card-numero-valor">🔴 {resumoProfessores.comProblemas}</span>
+                    <span className="card-numero-rotulo">Com problemas</span>
+                  </div>
+                </div>
+              )}
+
+              {professores.length === 0 ? (
+                <div className="vazio painel">
+                  <p>Nenhum professor cadastrado ainda.</p>
+                </div>
+              ) : (
+                <div className="painel sem-padding rolagem-x">
+                  <table className="tabela">
+                    <thead>
+                      <tr>
+                        <th>Nome</th>
+                        <th>E-mail</th>
+                        <th>Matéria(s)</th>
+                        <th>Turmas</th>
+                        <th>Registro</th>
+                        <th>Pendências</th>
+                        <th>Cadastrado em</th>
+                        <th className="col-acoes">Ações</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ))}
+                    </thead>
+                    <tbody>
+                      {professores.map((p) => (
+                        <tr key={p.id}>
+                          <td className="celula-nome">
+                            <button className="link-botao" onClick={() => setProfessorSelecionadoId(p.id)}>
+                              {p.nome}
+                            </button>
+                            {p.isAdmin && <span className="badge-turma badge-diretor">diretor(a)</span>}
+                          </td>
+                          <td>{p.email}</td>
+                          <td>{p.materias.join(', ')}</td>
+                          <td>{p.totalTurmas}</td>
+                          <td>{SELO_SITUACAO_REGISTRO[p.situacaoRegistro]}</td>
+                          <td>
+                            {p.pendencias > 0 ? (
+                              <span className="pill pill-recuperacao">{p.pendencias}</span>
+                            ) : (
+                              <span className="pill pill-aprovado">0</span>
+                            )}
+                          </td>
+                          <td>{new Date(p.criadoEm).toLocaleDateString('pt-BR')}</td>
+                          <td className="col-acoes">
+                            {p.id !== professora.id && (
+                              <button
+                                className="btn btn-perigo-fantasma btn-pequeno"
+                                onClick={() => excluir(p)}
+                                disabled={excluindoId === p.id}
+                              >
+                                {excluindoId === p.id ? 'Excluindo...' : 'Excluir'}
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
 
           {aba === 'turmas' &&
             (turmas.length === 0 ? (
@@ -221,6 +259,11 @@ export function Admin() {
           {aba === 'alunos' && <AlunosEscolaPainel />}
         </>
       )}
+
+      <ProfessorDetalheDrawer
+        professorId={professorSelecionadoId}
+        onFechar={() => setProfessorSelecionadoId(null)}
+      />
     </div>
   )
 }

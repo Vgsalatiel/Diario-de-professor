@@ -25,6 +25,18 @@ function ehFeriadoNacional(dataISO: string): boolean {
 // já vê na própria turma.
 export const LIMIAR_BAIXA_FREQUENCIA = 75
 
+// "Registro em dia" = tem resumo da aula (RegistroAula) pra cada data em
+// que a chamada foi feita (DataAula, ignorando dias marcados "sem aula").
+// Mesma regra usada na tabela "Professores" da coordenação — serve de
+// proxy honesto pra "professor está documentando as aulas que dá".
+function situacaoRegistro(feitas: number, esperadas: number): 'boa' | 'atencao' | 'critica' | 'semDados' {
+  if (esperadas === 0) return 'semDados'
+  const proporcao = feitas / esperadas
+  if (proporcao >= 0.9) return 'boa'
+  if (proporcao >= 0.5) return 'atencao'
+  return 'critica'
+}
+
 // Frequência de cada aluno ativo da escola inteira, ignorando dias
 // marcados como "sem aula" — mesma regra de src/lib/frequencia.ts no
 // frontend, só que agregada pra todas as turmas de uma vez.
@@ -331,9 +343,48 @@ export async function obterDashboard() {
   }
 }
 
+// Proporção de aulas dadas (DataAula, ignorando "sem aula") que já têm o
+// resumo registrado (RegistroAula) — desde sempre, não só hoje/ontem.
+// Base do semáforo 🟢/🟡/🔴 de "situação de registro" por professor.
+async function situacaoRegistroPorProfessor(): Promise<Map<string, 'boa' | 'atencao' | 'critica' | 'semDados'>> {
+  const [datasAula, registrosAula] = await Promise.all([
+    prisma.dataAula.findMany({
+      where: { semAula: false, turma: { excluidoEm: null } },
+      select: { professorId: true, data: true },
+    }),
+    prisma.registroAula.findMany({
+      where: { turma: { excluidoEm: null } },
+      select: { professorId: true, data: true },
+    }),
+  ])
+
+  const datasPorProfessor = new Map<string, string[]>()
+  for (const d of datasAula) {
+    const arr = datasPorProfessor.get(d.professorId) ?? []
+    arr.push(d.data.toISOString().slice(0, 10))
+    datasPorProfessor.set(d.professorId, arr)
+  }
+  const registrosPorProfessor = new Map<string, Set<string>>()
+  for (const r of registrosAula) {
+    const set = registrosPorProfessor.get(r.professorId) ?? new Set()
+    set.add(r.data.toISOString().slice(0, 10))
+    registrosPorProfessor.set(r.professorId, set)
+  }
+
+  const situacoes = new Map<string, 'boa' | 'atencao' | 'critica' | 'semDados'>()
+  const idsProfessores = new Set([...datasPorProfessor.keys(), ...registrosPorProfessor.keys()])
+  for (const professorId of idsProfessores) {
+    const datas = datasPorProfessor.get(professorId) ?? []
+    const registros = registrosPorProfessor.get(professorId) ?? new Set()
+    const feitas = datas.filter((d) => registros.has(d)).length
+    situacoes.set(professorId, situacaoRegistro(feitas, datas.length))
+  }
+  return situacoes
+}
+
 export async function listarProfessores() {
   const anoAtual = hojeNoBrasil().slice(0, 4)
-  const [professores, turmasComMetricas, paresSemRegistro, paresAvaliacaoPendente, paresAulaHoje] =
+  const [professores, turmasComMetricas, paresSemRegistro, paresAvaliacaoPendente, paresAulaHoje, situacoes] =
     await Promise.all([
       prisma.professor.findMany({
         orderBy: { nome: 'asc' },
@@ -351,6 +402,7 @@ export async function listarProfessores() {
       paresSemRegistroOntem(anoAtual),
       paresComAvaliacaoPendente(),
       paresComAulaRegistradaHoje(),
+      situacaoRegistroPorProfessor(),
     ])
 
   return professores.map((p) => {
@@ -374,8 +426,33 @@ export async function listarProfessores() {
       totalTurmas: p._count.turmasAtribuidas,
       aulasRegistradasHoje,
       pendencias,
+      situacaoRegistro: situacoes.get(p.id) ?? 'semDados',
     }
   })
+}
+
+// Números da escola inteira sobre professores — pro(a) diretor(a)
+// enxergar de cara quantos estão em dia com o registro das aulas.
+export async function obterResumoProfessores() {
+  const [total, situacoes] = await Promise.all([
+    prisma.professor.count(),
+    situacaoRegistroPorProfessor(),
+  ])
+
+  let emDia = 0
+  let pendentes = 0
+  let comProblemas = 0
+  let semDados = 0
+  for (const situacao of situacoes.values()) {
+    if (situacao === 'boa') emDia++
+    else if (situacao === 'atencao') pendentes++
+    else if (situacao === 'critica') comProblemas++
+  }
+  // Professor sem nenhuma turma/dado ainda (ex.: diretor(a), coordenação,
+  // ou recém-cadastrado) não entra nos 3 baldes — não tem o que avaliar.
+  semDados = total - (emDia + pendentes + comProblemas)
+
+  return { total, emDia, pendentes, comProblemas, semDados }
 }
 
 // Todas as turmas da escola, com professor responsável, frequência média
