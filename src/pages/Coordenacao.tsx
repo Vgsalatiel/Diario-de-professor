@@ -283,7 +283,20 @@ export function Coordenacao() {
             ) : (
               <div className="stack-md">
                 <div className="barra-filtros">
-                  <div className="abas">
+                  <select
+                    className="select"
+                    aria-label="Série"
+                    value={serieFiltro}
+                    onChange={(e) => setSerieFiltro(e.target.value)}
+                  >
+                    <option value="todas">Todas as séries</option>
+                    {seriesDisponiveis.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="abas abas-pequeno">
                     <button
                       className={`aba ${turnoFiltro === 'todos' ? 'ativa' : ''}`}
                       onClick={() => setTurnoFiltro('todos')}
@@ -309,17 +322,6 @@ export function Coordenacao() {
                       Noite
                     </button>
                   </div>
-                  <label className="campo-inline">
-                    <span>Série</span>
-                    <select className="select" value={serieFiltro} onChange={(e) => setSerieFiltro(e.target.value)}>
-                      <option value="todas">Todas as séries</option>
-                      {seriesDisponiveis.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
                 </div>
 
                 {turmasFiltradas.length === 0 ? (
