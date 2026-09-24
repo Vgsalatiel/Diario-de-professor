@@ -36,8 +36,17 @@ interface DataContextValue {
   eventos: Evento[]
   carregando: boolean
 
-  // Turmas são criadas/editadas pela coordenação (ver Coordenacao.tsx) —
-  // aqui só leitura, a lista já vem escopada às turmas em que dou aula.
+  // Turmas: criar/editar/excluir aqui é só pra turma em que sou o único
+  // professor (professor solo, sem escola por trás) — turma com mais de
+  // um professor por trás é gerenciada pela coordenação (ver
+  // Coordenacao.tsx), que também pode criar turma nova já compartilhada.
+  criarTurma: (dados: Omit<Turma, 'id' | 'professores'>) => void
+  atualizarTurma: (id: string, dados: Partial<Turma>) => void
+  removerTurma: (id: string) => void
+  promoverTurma: (
+    id: string,
+    dados: { anoLetivo: string; nome: string; serie: string },
+  ) => Promise<{ turma: Turma; alunosPromovidos: number }>
 
   // Alunos
   criarAluno: (dados: Omit<Aluno, 'id'>) => void
@@ -350,6 +359,98 @@ export function DataProvider({ children }: { children: ReactNode }) {
       planosDeAula,
       registrosAula,
       carregando,
+
+      criarTurma: (dados) => {
+        api
+          .post<TurmaApi>('/turmas', dados)
+          .then(({ config, ...turma }) => {
+            setTurmasBrutas((ts) => [...ts, turma])
+            setConfigs((cs) => [...cs, config])
+          })
+          .catch((erro) => notificar(mensagemErro(erro)))
+      },
+      atualizarTurma: (id, dados) => {
+        api
+          .patch<TurmaApi>(`/turmas/${id}`, dados)
+          .then(({ config, ...turma }) => {
+            setTurmasBrutas((ts) => ts.map((t) => (t.id === id ? turma : t)))
+            setConfigs((cs) => cs.map((c) => (c.turmaId === id && c.professorId === config.professorId ? config : c)))
+          })
+          .catch((erro) => notificar(mensagemErro(erro)))
+      },
+      removerTurma: (id) => {
+        api
+          .delete(`/turmas/${id}`)
+          .then(() => {
+            setTurmasBrutas((ts) => ts.filter((t) => t.id !== id))
+            const alunosDaTurma = alunos.filter((a) => a.turmaId === id).map((a) => a.id)
+            const avalsDaTurma = avaliacoes.filter((a) => a.turmaId === id).map((a) => a.id)
+            const datasDaTurma = datasAula.filter((d) => d.turmaId === id).map((d) => d.id)
+            setAlunos((as) => as.filter((a) => a.turmaId !== id))
+            setAvaliacoes((avs) => avs.filter((a) => a.turmaId !== id))
+            setDatasAula((ds) => ds.filter((d) => d.turmaId !== id))
+            setConfigs((cs) => cs.filter((c) => c.turmaId !== id))
+            setNotas((ns) => {
+              const copia = { ...ns }
+              for (const k of Object.keys(copia)) {
+                const [aId, avId] = k.split('::')
+                if (alunosDaTurma.includes(aId) || avalsDaTurma.includes(avId)) {
+                  delete copia[k]
+                }
+              }
+              return copia
+            })
+            setConceitos((cs) => {
+              const copia = { ...cs }
+              for (const k of Object.keys(copia)) {
+                const [aId, avId] = k.split('::')
+                if (alunosDaTurma.includes(aId) || avalsDaTurma.includes(avId)) {
+                  delete copia[k]
+                }
+              }
+              return copia
+            })
+            setFrequencia((fs) => {
+              const copia = { ...fs }
+              for (const k of Object.keys(copia)) {
+                const [aId, dId] = k.split('::')
+                if (alunosDaTurma.includes(aId) || datasDaTurma.includes(dId)) {
+                  delete copia[k]
+                }
+              }
+              return copia
+            })
+            setEntregas((es) => {
+              const copia = { ...es }
+              for (const k of Object.keys(copia)) {
+                const [aId] = k.split('::')
+                if (alunosDaTurma.includes(aId)) delete copia[k]
+              }
+              return copia
+            })
+            setEventos((es) =>
+              es.map((e) => (e.turmaId === id ? { ...e, turmaId: undefined } : e)),
+            )
+            setPlanosDeAula((ps) => ps.filter((p) => p.turmaId !== id))
+            setRegistrosAula((rs) => rs.filter((r) => r.turmaId !== id))
+          })
+          .catch((erro) => notificar(mensagemErro(erro)))
+      },
+      promoverTurma: (id, dados) => {
+        return api
+          .post<{ turma: TurmaApi; alunos: AlunoApi[] }>(`/turmas/${id}/promover`, dados)
+          .then(({ turma: turmaApi, alunos: novosAlunos }) => {
+            const { config, ...turma } = turmaApi
+            setTurmasBrutas((ts) => [...ts, turma])
+            setConfigs((cs) => [...cs, config])
+            setAlunos((as) => [...as, ...novosAlunos.map(normalizarAluno)])
+            return { turma, alunosPromovidos: novosAlunos.length }
+          })
+          .catch((erro) => {
+            notificar(mensagemErro(erro))
+            throw erro
+          })
+      },
 
       criarAluno: (dados) => {
         api

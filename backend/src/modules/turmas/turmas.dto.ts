@@ -14,6 +14,11 @@ export const criarTurmaDto = z.object({
   diasAula: z
     .array(z.number().int().min(0).max(6))
     .min(1, 'Marque pelo menos um dia de aula.'),
+  // Usado quando é o próprio professor criando a turma (sem coordenação
+  // por trás) — vira a disciplina dele nessa turma (TurmaProfessor). A
+  // coordenação não manda isso: ela atribui professor+disciplina depois,
+  // por /coordenacao/turmas/:id/professores.
+  disciplina: z.string().trim().nullable().optional(),
   etapaBncc: etapaBnccEnum.nullable().optional(),
   anoSerieBncc: z.number().int().min(1).max(9).nullable().optional(),
   turno: turnoEnum.nullable().optional(),

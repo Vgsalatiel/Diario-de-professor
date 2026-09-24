@@ -746,13 +746,18 @@ export async function criarAcompanhamento(alunoId: string, autorId: string, dado
 
 // Turma é da escola, não de um professor — criar/editar/excluir/promover
 // e atribuir professores é papel da coordenação/diretoria daqui pra frente.
+// "disciplina" no DTO é só pro professor solo criando a própria turma
+// (ver turmas.service.ts) — aqui na coordenação isso nunca chega a virar
+// coluna de Turma (não existe mais), então sempre descartado.
 export function criarTurma(dados: CriarTurmaDto) {
-  return prisma.turma.create({ data: dados, include: { professores: true } })
+  const { disciplina: _disciplina, ...dadosTurma } = dados
+  return prisma.turma.create({ data: dadosTurma, include: { professores: true } })
 }
 
 export async function atualizarTurma(turmaId: string, dados: AtualizarTurmaDto) {
   await turmaExistente(turmaId)
-  return prisma.turma.update({ where: { id: turmaId }, data: dados, include: { professores: true } })
+  const { disciplina: _disciplina, ...dadosTurma } = dados
+  return prisma.turma.update({ where: { id: turmaId }, data: dadosTurma, include: { professores: true } })
 }
 
 export async function removerTurma(turmaId: string) {
