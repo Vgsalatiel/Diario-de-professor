@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, ApiError } from '../lib/api'
 import { useToast } from '../context/ToastContext'
-import { pillFrequencia } from '../pages/Admin'
+import { pillFrequencia } from '../lib/pills'
 import { Drawer } from './Drawer'
 import type { AlunoDetalheCoordenacao } from '../types'
 

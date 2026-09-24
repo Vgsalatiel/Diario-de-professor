@@ -8,7 +8,7 @@ import { CampoTags } from '../components/CampoTags'
 import { AlunoDetalheDrawer } from '../components/AlunoDetalheDrawer'
 import { ProfessorDetalheDrawer } from '../components/ProfessorDetalheDrawer'
 import { resumoTexto } from '../lib/texto'
-import { pillFrequencia } from './Admin'
+import { pillFrequencia } from '../lib/pills'
 import { rotuloTipo, corTipo, formatarData } from '../lib/eventos'
 import { hojeISO } from '../lib/data'
 import type {

@@ -62,11 +62,18 @@ function ListaResumo({ itens, vazio }: { itens: EventoResumo[]; vazio: string })
   )
 }
 
+// Diretor: Alunos e Professores têm tela própria; Turmas mora dentro da
+// Coordenação (que ele já enxerga tudo). Coordenação: cada aba já é uma
+// rota própria dela mesma.
+const LINK_PADRAO: Record<'professores' | 'turmas' | 'alunos', string> = {
+  professores: '/professores',
+  turmas: '/coordenacao/turmas',
+  alunos: '/alunos',
+}
+
 interface DashboardDiretorProps {
   // Reaproveitado pela conta de coordenação pedagógica — mesmos números,
-  // só que apontando pra /coordenacao em vez de /admin. O diretor usa aba
-  // como query (/admin?aba=X); a coordenação, como rota própria
-  // (/coordenacao/X, já que lá cada aba é um item de menu separado).
+  // só que apontando pras rotas próprias dela em vez das do diretor.
   apiPath?: string
   montarLink?: (aba: 'professores' | 'turmas' | 'alunos') => string
   saudacaoRotulo?: string
@@ -74,7 +81,7 @@ interface DashboardDiretorProps {
 
 export function DashboardDiretor({
   apiPath = '/admin/dashboard',
-  montarLink = (aba) => `/admin?aba=${aba}`,
+  montarLink = (aba) => LINK_PADRAO[aba],
   saudacaoRotulo = 'Diretor(a)',
 }: DashboardDiretorProps) {
   const { professora } = useAuth()

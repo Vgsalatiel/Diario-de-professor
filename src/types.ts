@@ -270,11 +270,13 @@ export interface AlunoResumoAdmin {
   id: string
   nome: string
   situacao: SituacaoMatricula
+  telefonePais: string | null
   turmaId: string
   turmaNome: string
   escola: string
   professores: { id: string; nome: string }[]
   professorNome: string
+  mediaGeral: number | null
   frequenciaPercentual: number | null
 }
 

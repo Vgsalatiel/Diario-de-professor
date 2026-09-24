@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../lib/api'
-import { pillFrequencia } from '../pages/Admin'
+import { pillFrequencia } from '../lib/pills'
 import { AlunoDetalheDrawer } from './AlunoDetalheDrawer'
 import type { AlunoResumoAdmin, ResumoAlunosEscola } from '../types'
 
@@ -155,7 +155,9 @@ export function AlunosEscolaPainel() {
                 <th>Turma</th>
                 <th>Escola</th>
                 <th>Professor(a)</th>
+                <th>Pais (telefone)</th>
                 <th>Situação</th>
+                <th>Média</th>
                 <th>Frequência</th>
               </tr>
             </thead>
@@ -170,7 +172,9 @@ export function AlunosEscolaPainel() {
                   <td>{a.turmaNome}</td>
                   <td>{a.escola}</td>
                   <td>{a.professorNome}</td>
+                  <td>{a.telefonePais || '—'}</td>
                   <td>{a.situacao}</td>
+                  <td>{a.mediaGeral == null ? '—' : String(a.mediaGeral).replace('.', ',')}</td>
                   <td>{pillFrequencia(a.frequenciaPercentual)}</td>
                 </tr>
               ))}

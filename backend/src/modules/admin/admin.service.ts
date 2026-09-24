@@ -65,6 +65,31 @@ export async function calcularFrequenciaPorAluno(): Promise<Map<string, number>>
   return percentuais
 }
 
+// Média geral do aluno (todas as disciplinas juntas, só com as notas já
+// lançadas) — pro(a) diretor(a) ver de relance na lista de alunos, sem
+// abrir o detalhe de cada um. Turmas que usam conceito em vez de nota não
+// entram na conta (não tem "valor" numérico pra somar).
+export async function calcularMediaGeralPorAluno(): Promise<Map<string, number>> {
+  const notas = await prisma.nota.findMany({
+    where: { valor: { not: null }, aluno: { excluidoEm: null, turma: { excluidoEm: null } } },
+    select: { alunoId: true, valor: true },
+  })
+
+  const porAluno = new Map<string, { soma: number; total: number }>()
+  for (const n of notas) {
+    const atual = porAluno.get(n.alunoId) ?? { soma: 0, total: 0 }
+    atual.soma += n.valor as number
+    atual.total++
+    porAluno.set(n.alunoId, atual)
+  }
+
+  const medias = new Map<string, number>()
+  for (const [alunoId, { soma, total }] of porAluno) {
+    medias.set(alunoId, Math.round((soma / total) * 10) / 10)
+  }
+  return medias
+}
+
 // Pares "turmaId:professorId" — uma turma agora pode ter vários
 // professores (um por disciplina), então uma pendência é sempre de um
 // professor específico dentro da turma, nunca da turma como um todo.
@@ -465,13 +490,14 @@ export async function listarTurmasDetalhado() {
 // com a menor frequência primeiro, pra quem tem baixa frequência aparecer
 // logo no topo (sem o diretor precisar caçar manualmente).
 export async function listarAlunosDetalhado() {
-  const [alunos, percentuaisPorAluno] = await Promise.all([
+  const [alunos, percentuaisPorAluno, mediasPorAluno] = await Promise.all([
     prisma.aluno.findMany({
       where: { excluidoEm: null, turma: { excluidoEm: null } },
       select: {
         id: true,
         nome: true,
         situacao: true,
+        telefonePais: true,
         turmaId: true,
         turma: {
           select: {
@@ -484,6 +510,7 @@ export async function listarAlunosDetalhado() {
       orderBy: { nome: 'asc' },
     }),
     calcularFrequenciaPorAluno(),
+    calcularMediaGeralPorAluno(),
   ])
 
   return alunos
@@ -491,11 +518,13 @@ export async function listarAlunosDetalhado() {
       id: a.id,
       nome: a.nome,
       situacao: a.situacao,
+      telefonePais: a.telefonePais,
       turmaId: a.turmaId,
       turmaNome: a.turma.nome,
       escola: a.turma.escola,
       professores: a.turma.professores.map((p) => ({ id: p.professorId, nome: p.professor.nome })),
       professorNome: a.turma.professores.map((p) => p.professor.nome).join(', ') || '—',
+      mediaGeral: mediasPorAluno.get(a.id) ?? null,
       frequenciaPercentual: percentuaisPorAluno.get(a.id) ?? null,
     }))
     .sort((a, b) => {

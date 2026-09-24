@@ -26,8 +26,21 @@ const LINKS: LinkNav[] = [
   { to: '/perfil', rotulo: 'Perfil', icone: '◑' },
 ]
 
-const LINK_ADMIN: LinkNav = { to: '/admin', rotulo: 'Administração', icone: '⚙', exato: true }
 const LINK_COORDENACAO: LinkNav = { to: '/coordenacao/professores', rotulo: 'Coordenação', icone: '◈' }
+
+// Diretor(a) não dá aula (turma agora é da escola, atribuída por
+// disciplina) — as telas de professor (Turmas, Notas, Presença, Histórico,
+// Plano de aula, Assistente IA) ficam vazias/sem sentido pra essa conta.
+// O menu fica só com o que faz sentido pra quem administra a escola
+// inteira: visão de Alunos e Professores (escola toda), Agenda própria,
+// Perfil e Coordenação (que ele já enxerga tudo).
+const LINKS_ADMIN: LinkNav[] = [
+  { to: '/', rotulo: 'Início', icone: '◧', exato: true },
+  { to: '/alunos', rotulo: 'Alunos', icone: '☺' },
+  { to: '/agenda', rotulo: 'Agenda', icone: '▣' },
+  { to: '/professores', rotulo: 'Professores', icone: '⚙' },
+  { to: '/perfil', rotulo: 'Perfil', icone: '◑' },
+]
 
 // Conta de coordenação pedagógica pura (sem ser também diretor) não dá
 // aula — as telas de Notas/Presença/Plano de aula etc. não fazem sentido
@@ -77,7 +90,7 @@ export function Layout() {
     .join('')
 
   const links = professora.isAdmin
-    ? [...LINKS, LINK_ADMIN, LINK_COORDENACAO]
+    ? [...LINKS_ADMIN, LINK_COORDENACAO]
     : professora.isCoordenador
       ? LINKS_COORDENACAO
       : LINKS

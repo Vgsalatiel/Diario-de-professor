@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
-import type { Evento, TipoEvento } from '../types'
+import { api, ApiError } from '../lib/api'
+import type { Evento, EventoEscola, TipoEvento } from '../types'
 import { corTipo, formatarData, rotuloTipo } from '../lib/eventos'
 import { hojeISO } from '../lib/data'
 import { Modal } from '../components/Modal'
@@ -21,7 +22,7 @@ const VAZIO = {
 }
 
 type Filtro = 'proximos' | 'todos' | 'concluidos'
-type Secao = 'eventos' | 'feriados'
+type Secao = 'eventos' | 'feriados' | 'escola'
 
 const FERIADO_VAZIO = { data: hojeISO(), titulo: '' }
 
@@ -41,6 +42,31 @@ export function Agenda() {
   const [modalFeriado, setModalFeriado] = useState(false)
   const [formFeriado, setFormFeriado] = useState(FERIADO_VAZIO)
   const [salvandoFeriado, setSalvandoFeriado] = useState(false)
+
+  // Diretor(a) acompanha, mas não edita/lança prova — só provas e
+  // trabalhos entram aqui, sem reuniões e sem outros eventos internos dos
+  // professores. Carrega só quando a aba é aberta pela primeira vez.
+  const [eventosEscola, setEventosEscola] = useState<EventoEscola[] | null>(null)
+  const [carregandoEscola, setCarregandoEscola] = useState(false)
+  const [erroEscola, setErroEscola] = useState('')
+
+  useEffect(() => {
+    if (!professora.isAdmin || secao !== 'escola' || eventosEscola !== null) return
+    setCarregandoEscola(true)
+    api
+      .get<EventoEscola[]>('/coordenacao/eventos')
+      .then((lista) => setEventosEscola(lista.filter((e) => e.tipo === 'prova' || e.tipo === 'trabalho')))
+      .catch((e) => setErroEscola(e instanceof ApiError ? e.message : 'Não foi possível carregar.'))
+      .finally(() => setCarregandoEscola(false))
+  }, [professora.isAdmin, secao, eventosEscola])
+
+  const eventosEscolaOrdenados = useMemo(() => {
+    if (!eventosEscola) return []
+    return [...eventosEscola].sort((a, b) => {
+      const d = a.data.localeCompare(b.data)
+      return d !== 0 ? d : (a.hora ?? '').localeCompare(b.hora ?? '')
+    })
+  }, [eventosEscola])
 
   const feriadosFuturos = useMemo(
     () => [...feriados].filter((f) => f.data >= hojeISO()).sort((a, b) => a.data.localeCompare(b.data)),
@@ -172,11 +198,12 @@ export function Agenda() {
             Provas, trabalhos, reuniões, outros compromissos e feriados/dias sem aula.
           </p>
         </div>
-        {secao === 'eventos' ? (
+        {secao === 'eventos' && (
           <button className="btn btn-primario" onClick={abrirNovo}>
             Novo evento
           </button>
-        ) : (
+        )}
+        {secao === 'feriados' && (
           <button className="btn btn-primario" onClick={abrirNovoFeriado}>
             Novo feriado/dia sem aula
           </button>
@@ -196,6 +223,14 @@ export function Agenda() {
         >
           Feriados e dias sem aula
         </button>
+        {professora.isAdmin && (
+          <button
+            className={`aba ${secao === 'escola' ? 'ativa' : ''}`}
+            onClick={() => setSecao('escola')}
+          >
+            Provas e trabalhos da escola
+          </button>
+        )}
       </div>
 
       {secao === 'eventos' ? (
@@ -341,7 +376,7 @@ export function Agenda() {
         </div>
       )}
         </>
-      ) : (
+      ) : secao === 'feriados' ? (
         <>
           {feriadosFuturos.length === 0 ? (
             <div className="vazio painel">
@@ -372,6 +407,42 @@ export function Agenda() {
                 </li>
               ))}
             </ul>
+          )}
+        </>
+      ) : (
+        <>
+          {carregandoEscola ? (
+            <p className="texto-suave">Carregando…</p>
+          ) : erroEscola ? (
+            <div className="alerta-erro">{erroEscola}</div>
+          ) : eventosEscolaOrdenados.length === 0 ? (
+            <div className="vazio painel">
+              <p>Nenhuma prova ou trabalho marcado por nenhum professor ainda.</p>
+            </div>
+          ) : (
+            <div className="timeline">
+              {eventosEscolaOrdenados.map((e) => (
+                <article key={e.id} className={`evento-cartao ${e.concluido ? 'concluido' : ''}`}>
+                  <div className="evento-cartao-barra" style={{ background: corTipo(e.tipo) }} />
+                  <div className="evento-cartao-data">
+                    <span className="dia">{e.data.split('-')[2]}</span>
+                    <span className="mes">{mesAbrev(e.data)}</span>
+                  </div>
+                  <div className="evento-cartao-corpo">
+                    <div className="evento-cartao-topo">
+                      <span className="evento-tag" style={{ background: corTipo(e.tipo) }}>
+                        {rotuloTipo(e.tipo)}
+                      </span>
+                      {e.hora && <span className="evento-hora">{e.hora}</span>}
+                      {e.turmaNome && <span className="evento-turma">{e.turmaNome}</span>}
+                    </div>
+                    <h3>{e.titulo}</h3>
+                    <span className="evento-data-completa">{formatarData(e.data)}</span>
+                    <span className="texto-suave">Professor(a): {e.professorNome}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
           )}
         </>
       )}
