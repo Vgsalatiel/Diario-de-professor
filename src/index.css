@@ -936,7 +936,16 @@ input:focus, select:focus, textarea:focus {
 .campo-inline > span { font-size: 12.5px; font-weight: 600; color: var(--ink-suave); }
 .campo-inline .select { min-width: 190px; }
 .campo-estreito .input-num { width: 90px; }
-.aviso-tabela { padding: 24px; text-align: center; color: var(--muted); }
+.aviso-tabela {
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.aviso-tabela p { margin: 0; }
 
 .navegador-dia { display: flex; align-items: center; gap: 6px; }
 .navegador-dia input[type="date"] { width: auto; }
@@ -1519,6 +1528,7 @@ input:focus, select:focus, textarea:focus {
   .tabela-alunos .col-matricula::before,
   .tabela-alunos .col-nascimento::before { font-size: 12px; }
   .tabela-alunos .celula-vazia-mobile { display: none; }
+  .tabela-alunos .celula-vazia { grid-column: 1 / -1; }
 }
 
 /* Desktop: o botão de recolher não existe e o grupo de configurações se
@@ -1526,4 +1536,114 @@ input:focus, select:focus, textarea:focus {
 @media (min-width: 761px) {
   .config-calculo-toggle { display: none; }
   .config-calculo { display: contents; }
+}
+
+/* ============================================================
+   Primeiros passos (Início) e avisos de "vazio" com ação
+   ============================================================ */
+.primeiros-passos { border-color: var(--indigo); }
+.primeiros-passos-barra {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+  margin: 4px 0 16px;
+}
+.primeiros-passos-barra span {
+  display: block;
+  height: 100%;
+  background: var(--indigo);
+  transition: width 0.3s ease;
+}
+.primeiros-passos-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.primeiros-passos-lista li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.primeiros-passos-lista li:first-child { border-top: none; }
+.primeiros-passos-marca {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  border: 2px solid var(--line-forte);
+  color: var(--muted);
+}
+.primeiros-passos-texto { flex: 1; min-width: 0; font-weight: 600; }
+.primeiros-passos-lista li.feita .primeiros-passos-marca {
+  background: var(--verde);
+  border-color: var(--verde);
+  color: var(--surface);
+}
+.primeiros-passos-lista li.feita .primeiros-passos-texto { color: var(--muted); font-weight: 500; text-decoration: line-through; }
+.primeiros-passos-lista li.atual .primeiros-passos-marca { border-color: var(--indigo); color: var(--indigo); }
+.primeiros-passos-lista li.futura .primeiros-passos-texto { color: var(--muted); }
+.primeiros-passos-depois { font-size: 12.5px; }
+.primeiros-passos-rodape {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 13.5px;
+}
+.vazio-acoes { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 12px 0; text-align: center; }
+.vazio-acoes p { margin: 0; color: var(--muted); }
+.acoes-linha { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+
+@media (max-width: 760px) {
+  .primeiros-passos-lista li { flex-wrap: wrap; }
+  .primeiros-passos-lista li .btn { margin-left: 38px; }
+  .primeiros-passos-depois { flex-basis: 100%; margin-left: 38px; }
+}
+
+/* ============================================================
+   Tour guiado pelo menu (components/Tour.tsx)
+   ============================================================ */
+.tour-bloqueio { position: fixed; inset: 0; z-index: 200; }
+/* O "buraco" iluminado sobre o item do menu: a sombra enorme escurece o resto. */
+.tour-destaque {
+  position: fixed;
+  z-index: 201;
+  border-radius: var(--raio-sm);
+  box-shadow: 0 0 0 9999px rgba(18, 21, 31, 0.6);
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
+  pointer-events: none;
+  transition: top 0.2s ease, left 0.2s ease, width 0.2s ease, height 0.2s ease;
+}
+.tour-balao {
+  position: fixed;
+  z-index: 202;
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+  padding: 18px;
+  animation: fade 0.15s ease-out;
+}
+.tour-balao:focus { outline: none; }
+.tour-balao-topo { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.tour-balao h2 { font-size: 17px; margin: 0; }
+.tour-balao p { margin: 8px 0 16px; color: var(--ink-suave); line-height: 1.5; }
+.tour-balao-acoes { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tour-balao-navegacao { display: flex; gap: 6px; margin-left: auto; }
+.primeiros-passos-links { display: inline-flex; gap: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-destaque { transition: none; }
 }

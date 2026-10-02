@@ -51,18 +51,23 @@ export function Alunos() {
   const [importar, setImportar] = useState({ escolaId: '', turmaId: '' })
 
   // Veio de "Ver alunos" numa turma específica (tela de Turmas) — já abre
-  // filtrado nela, sem precisar escolher escola/turma de novo.
+  // filtrado nela, sem precisar escolher escola/turma de novo. Com ?novo=1
+  // (Primeiros passos, "Adicionar alunos" de turma vazia) também abre o
+  // formulário de aluno novo, depois que o filtro da turma for aplicado.
+  const [abrirNovoPendente, setAbrirNovoPendente] = useState(false)
   useEffect(() => {
     const turmaParam = searchParams.get('turma')
-    if (!turmaParam) return
-    const turma = turmas.find((t) => t.id === turmaParam)
+    const novo = searchParams.get('novo') === '1'
+    if (!turmaParam && !novo) return
+    const turma = turmaParam ? turmas.find((t) => t.id === turmaParam) : undefined
     if (turma) {
       setEscolaFiltro(turma.escola)
       setTurmaFiltro(turma.id)
       setBusca('')
     }
+    if (novo && !somenteLeitura) setAbrirNovoPendente(true)
     setSearchParams({}, { replace: true })
-  }, [searchParams, turmas, setSearchParams])
+  }, [searchParams, turmas, setSearchParams, somenteLeitura])
 
   const turmasDoAno = useMemo(
     () => turmas.filter((t) => t.anoLetivo === anoAtivo),
@@ -124,6 +129,13 @@ export function Alunos() {
     })
     setModal(true)
   }
+
+  useEffect(() => {
+    if (!abrirNovoPendente || turmasDaEscola.length === 0) return
+    setAbrirNovoPendente(false)
+    abrirNovo()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abrirNovoPendente, turmasDaEscola])
 
   function abrirEdicao(a: Aluno) {
     const turmaAtual = turmas.find((t) => t.id === a.turmaId)
@@ -354,7 +366,28 @@ export function Alunos() {
                 {lista.length === 0 ? (
                   <tr>
                     <td colSpan={somenteLeitura ? 5 : 6} className="celula-vazia">
-                      Nenhum aluno encontrado.
+                      {busca.trim() ? (
+                        'Nenhum aluno encontrado.'
+                      ) : (
+                        // Turma (ou escola) ainda sem ninguém: diz o que fazer.
+                        <div className="vazio-acoes">
+                          <p>
+                            {turmaFiltro === 'todas'
+                              ? 'Você ainda não cadastrou alunos.'
+                              : 'Esta turma ainda não tem alunos.'}
+                          </p>
+                          {!somenteLeitura && (
+                            <div className="acoes-linha">
+                              <button className="btn btn-primario btn-pequeno" onClick={abrirNovo}>
+                                Novo aluno
+                              </button>
+                              <button className="btn btn-fantasma btn-pequeno" onClick={abrirModalImportar}>
+                                Importar Excel
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ) : (

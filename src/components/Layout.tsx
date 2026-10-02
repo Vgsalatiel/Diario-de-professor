@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTema } from '../context/ThemeContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
+import { Tour, TourProvider, chaveTourVisto } from './Tour'
 
 interface LinkNav {
   to: string
@@ -35,6 +36,31 @@ export function Layout() {
   const navigate = useNavigate()
   const [menuAberto, setMenuAberto] = useState(false)
   const [reenviando, setReenviando] = useState(false)
+  const [tourAberto, setTourAberto] = useState(false)
+
+  // Tour do menu: abre sozinho uma vez, no primeiro acesso de quem ainda não
+  // tem turma; depois só pelo link "Fazer o tour" (Primeiros passos).
+  useEffect(() => {
+    if (carregando || erroCarregamento || !professora.id || turmas.length > 0) return
+    let visto: string | null = null
+    try {
+      visto = localStorage.getItem(chaveTourVisto(professora.id))
+    } catch {
+      visto = 'indisponivel' // sem armazenamento, não insiste a cada visita
+    }
+    if (!visto) setTourAberto(true)
+  }, [carregando, erroCarregamento, professora.id, turmas.length])
+
+  const fecharTour = useCallback(() => {
+    setTourAberto(false)
+    try {
+      localStorage.setItem(chaveTourVisto(professora.id), 'visto')
+    } catch {
+      // armazenamento indisponível
+    }
+  }, [professora.id])
+
+  const tour = useMemo(() => ({ iniciarTour: () => setTourAberto(true) }), [])
 
   async function onReenviarVerificacao() {
     setReenviando(true)
@@ -83,6 +109,7 @@ export function Layout() {
               to={l.to}
               end={l.exato}
               className={({ isActive }) => `nav-link ${isActive ? 'ativo' : ''}`}
+              data-tour={l.to}
               onClick={() => setMenuAberto(false)}
             >
               <span className="nav-icone" aria-hidden>
@@ -188,7 +215,9 @@ export function Layout() {
               </button>
             </div>
           ) : (
-            <Outlet />
+            <TourProvider value={tour}>
+              <Outlet />
+            </TourProvider>
           )}
         </main>
       </div>
@@ -196,6 +225,8 @@ export function Layout() {
       {menuAberto && (
         <div className="menu-backdrop" onClick={() => setMenuAberto(false)} />
       )}
+
+      <Tour aberto={tourAberto} onFechar={fecharTour} definirMenuAberto={setMenuAberto} />
     </div>
   )
 }

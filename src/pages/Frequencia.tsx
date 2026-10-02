@@ -308,6 +308,11 @@ export function Frequencia() {
       ) : alunosTurma.length === 0 ? (
         <div className="vazio painel">
           <p>Esta turma ainda não tem alunos.</p>
+          {!somenteLeitura && (
+            <Link to={`/alunos?turma=${turmaId}&novo=1`} className="btn btn-primario">
+              Adicionar alunos
+            </Link>
+          )}
         </div>
       ) : (
         <div className="grid-frequencia">

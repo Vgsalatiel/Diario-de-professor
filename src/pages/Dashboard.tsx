@@ -7,6 +7,7 @@ import { rotuloTipo, corTipo, formatarData } from '../lib/eventos'
 import { calcularFrequencia } from '../lib/frequencia'
 import { arredondar, calcularMedia, chaveNota, formatarNota } from '../lib/media'
 import { hojeISO } from '../lib/data'
+import { PrimeirosPassos } from '../components/PrimeirosPassos'
 
 // Abaixo desse percentual de presença, o aluno entra na contagem de
 // "baixa frequência" — mesmo corte usado na tela de Presença (pill verde
@@ -171,6 +172,8 @@ export function Dashboard() {
         </h1>
       </section>
 
+      <PrimeirosPassos />
+
       <section className="cards-numero cards-numero-5">
         <Link to="/turmas" className="card-numero card-numero-clicavel">
           <span className="card-numero-valor">{turmas.length}</span>
@@ -285,7 +288,11 @@ export function Dashboard() {
             )}
           </div>
         ) : (
-          <p className="texto-suave">Nenhuma pendência no momento. 🎉</p>
+          <p className="texto-suave">
+            {turmas.length === 0
+              ? 'As pendências das suas turmas aparecem aqui depois que você criar a primeira.'
+              : 'Nenhuma pendência no momento. 🎉'}
+          </p>
         )}
       </section>
 

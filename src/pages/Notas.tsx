@@ -418,6 +418,11 @@ export function Notas() {
       ) : alunosTurma.length === 0 ? (
         <div className="vazio painel">
           <p>Esta turma ainda não tem alunos.</p>
+          {!somenteLeitura && (
+            <Link to={`/alunos?turma=${turmaId}&novo=1`} className="btn btn-primario">
+              Adicionar alunos
+            </Link>
+          )}
         </div>
       ) : (
         <div className="painel sem-padding rolagem-x">
@@ -523,8 +528,15 @@ export function Notas() {
 
           {avalsTurma.length === 0 && (
             <div className="aviso-tabela">
-              Nenhuma avaliação neste {rotuloSistema(sistemaAtual).toLowerCase()}. Use
-              “+ Avaliação” para adicionar colunas de nota.
+              <p>
+                Nenhuma avaliação neste {rotuloSistema(sistemaAtual).toLowerCase()}. Cada
+                avaliação (prova, trabalho…) vira uma coluna de nota.
+              </p>
+              {!somenteLeitura && (
+                <button className="btn btn-primario btn-pequeno" onClick={abrirModalAval}>
+                  Criar avaliação
+                </button>
+              )}
             </div>
           )}
         </div>

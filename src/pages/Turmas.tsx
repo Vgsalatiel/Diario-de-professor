@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
@@ -135,6 +135,15 @@ export function Turmas() {
     setForm(VAZIO)
     setModal(true)
   }
+
+  // /turmas?novo=1 (ex.: botão "Criar turma" dos Primeiros passos) já abre
+  // o formulário de turma nova.
+  const [searchParams, setSearchParams] = useSearchParams()
+  useEffect(() => {
+    if (searchParams.get('novo') !== '1') return
+    if (!somenteLeitura) abrirNova()
+    setSearchParams({}, { replace: true })
+  }, [searchParams, setSearchParams, somenteLeitura])
 
   function abrirEdicao(t: Turma) {
     setEditando(t)
