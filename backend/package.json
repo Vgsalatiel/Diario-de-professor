@@ -10,7 +10,9 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "test": "vitest run",
+    "test:integracao": "vitest run --config vitest.integracao.config.mts"
   },
   "keywords": [],
   "author": "",
@@ -23,7 +25,8 @@
     "@types/sanitize-html": "^2.16.2",
     "prisma": "^6.12.0",
     "tsx": "^4.23.13",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
   },
   "dependencies": {
     "@prisma/client": "^6.12.0",

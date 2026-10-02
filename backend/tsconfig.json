@@ -14,5 +14,7 @@
     "declaration": false,
     "sourceMap": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // Testes rodam pelo Vitest; ficam fora do build (dist/).
+  "exclude": ["src/**/*.test.ts", "src/test"]
 }
