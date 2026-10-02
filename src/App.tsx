@@ -21,8 +21,6 @@ import { PlanoDeAulaPage } from './pages/PlanoDeAula'
 import { Agenda } from './pages/Agenda'
 import { Assistente } from './pages/Assistente'
 import { Perfil } from './pages/Perfil'
-import { Professores } from './pages/Professores'
-import { Coordenacao } from './pages/Coordenacao'
 
 export default function App() {
   return (
@@ -55,26 +53,6 @@ export default function App() {
                     <Route path="/agenda" element={<Agenda />} />
                     <Route path="/assistente" element={<Assistente />} />
                     <Route path="/perfil" element={<Perfil />} />
-                    <Route
-                      path="/professores"
-                      element={
-                        <ProtectedRoute somenteAdmin>
-                          <Professores />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/coordenacao"
-                      element={<Navigate to="/coordenacao/professores" replace />}
-                    />
-                    <Route
-                      path="/coordenacao/:aba"
-                      element={
-                        <ProtectedRoute somenteCoordenacao>
-                          <Coordenacao />
-                        </ProtectedRoute>
-                      }
-                    />
                   </Route>
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>

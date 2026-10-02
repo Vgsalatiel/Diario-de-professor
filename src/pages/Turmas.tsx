@@ -63,15 +63,6 @@ function proximoAnoLetivo(ano: string): string {
   return Number.isFinite(n) && ano.trim() !== '' ? String(n + 1) : ano
 }
 
-// Turma com só esse professor atribuído: ele é o dono de fato (caso do
-// professor solo, sem escola por trás) e pode editar/excluir/promover
-// livremente. Turma com mais gente foi atribuída por uma coordenação —
-// aqui vira só leitura ("Ver alunos"), pra não um professor comum mexer
-// em algo que afeta os colegas dele sem a coordenação saber.
-function ehTurmaSolo(t: Turma): boolean {
-  return t.professores.length <= 1
-}
-
 export function Turmas() {
   const { turmas, alunos, removerTurma, criarTurma, atualizarTurma, promoverTurma, listarComponentesBncc } =
     useData()
@@ -333,7 +324,6 @@ export function Turmas() {
         <div className="grid-turmas">
           {turmasFiltradas.map((t) => {
             const total = alunos.filter((a) => a.turmaId === t.id).length
-            const solo = ehTurmaSolo(t)
             return (
               <article key={t.id} className="card-turma">
                 <div className="card-turma-faixa" style={{ background: t.cor }} />
@@ -342,11 +332,6 @@ export function Turmas() {
                   <p className="texto-suave">{t.serie || 'Sem série definida'}</p>
                   {t.escola && <p className="texto-suave">{t.escola}</p>}
                   {t.disciplina && <p className="texto-suave">Sua disciplina: {t.disciplina}</p>}
-                  {!solo && (
-                    <p className="texto-suave">
-                      Turma compartilhada com {t.professores.length - 1} outro(s) professor(es)
-                    </p>
-                  )}
                   <p className="texto-suave">{diasAulaResumo(t.diasAula)}</p>
                   <div className="card-turma-meta">
                     <span>{total} alunos</span>
@@ -367,7 +352,7 @@ export function Turmas() {
                   >
                     Ver alunos
                   </Link>
-                  {!somenteLeitura && solo && (
+                  {!somenteLeitura && (
                     <>
                       <button
                         className="btn btn-fantasma btn-pequeno"

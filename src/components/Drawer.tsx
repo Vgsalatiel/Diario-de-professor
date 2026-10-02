@@ -9,7 +9,7 @@ interface DrawerProps {
 }
 
 // Painel lateral (desliza da direita) — usado pra telas de detalhe/leitura
-// (ex.: coordenação inspecionando um professor ou turma), diferente do
+// (ex.: ver um plano de aula), diferente do
 // Modal centralizado, reservado pra formulários curtos e confirmações.
 export function Drawer({ aberto, titulo, onFechar, children, rodape }: DrawerProps) {
   useEffect(() => {

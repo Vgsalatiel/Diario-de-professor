@@ -21,9 +21,6 @@ import {
   turmaRegistrosAulaRouter,
 } from './modules/registrosAula/registrosAula.routes'
 import { jobsRouter } from './modules/jobs/jobs.routes'
-import { adminRouter } from './modules/admin/admin.routes'
-import { coordenacaoRouter, minhasObservacoesRouter } from './modules/coordenacao/coordenacao.routes'
-import { exigirCoordenacao } from './middleware/exigirCoordenacao'
 import { feriadosRouter } from './modules/feriados/feriados.routes'
 import { bnccRouter } from './modules/bncc/bncc.routes'
 
@@ -77,14 +74,6 @@ app.use('/planos-de-aula', autenticar, planosRouter)
 app.use('/registros-aula', autenticar, registrosAulaRouter)
 app.use('/feriados', autenticar, feriadosRouter)
 app.use('/bncc', autenticar, bnccRouter)
-app.use('/observacoes-recebidas', autenticar, minhasObservacoesRouter)
-
-// Painel de diretor(a) — exigirAdmin confere isAdmin depois de autenticar.
-app.use('/admin', autenticar, adminRouter)
-
-// Painel de coordenação pedagógica — exigirCoordenacao aceita coordenador(a)
-// ou diretor(a), depois de autenticar.
-app.use('/coordenacao', autenticar, exigirCoordenacao, coordenacaoRouter)
 
 app.use(rotaNaoEncontrada)
 app.use(errorHandler)

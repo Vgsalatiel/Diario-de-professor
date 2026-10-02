@@ -1,6 +1,6 @@
 // Toda entidade "de baixo" (aluno, avaliação, evento, data de aula...)
-// pertence a uma turma, e uma turma pode ter vários professores (um por
-// disciplina, via TurmaProfessor). Essas funções garantem que o professor
+// pertence a uma turma, e cada turma é de um único professor (ligado a ela
+// por TurmaProfessor). Essas funções garantem que o professor
 // logado só acessa o que é dele — devolvem a linha encontrada, ou lançam
 // 404 (propositalmente não é 403: não revelamos se o registro existe e é
 // de outro professor).
@@ -44,9 +44,8 @@ export function turmaDoProfessor(professorId: string) {
 
 // Turma ainda ativa e com esse professor atribuído. Usado pelos registros
 // que guardam o próprio professorId (avaliação, data de aula, plano...):
-// ter criado o registro não basta, quem foi removido da turma pela
-// coordenação perde o acesso a ela (os dados ficam e voltam se ele for
-// atribuído de novo).
+// ter criado o registro não basta, quem não está mais ligado à turma
+// perde o acesso a ela (os dados ficam e voltam se ele for ligado de novo).
 function incluirAtribuicao(professorId: string) {
   return { turma: { include: { professores: { where: { professorId } } } } }
 }

@@ -3,10 +3,7 @@ import { paramId } from '../../utils/params'
 import * as turmasService from './turmas.service'
 import { atualizarConfigDto, atualizarTurmaDto, criarTurmaDto, promoverTurmaDto } from './turmas.dto'
 
-// Turmas em que o professor está atribuído — inclui as que ele mesmo criou
-// (professor solo, sem escola por trás) e as que uma coordenação atribuiu
-// pra ele. Criar/editar/excluir aqui só vale pra ele mesmo; turma com mais
-// de um professor por trás vira responsabilidade da coordenação.
+// Turmas do professor logado.
 export async function listar(req: Request, res: Response) {
   const turmas = await turmasService.listar(req.professorId)
   res.json(turmas)

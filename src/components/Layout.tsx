@@ -26,37 +26,6 @@ const LINKS: LinkNav[] = [
   { to: '/perfil', rotulo: 'Perfil', icone: '◑' },
 ]
 
-const LINK_COORDENACAO: LinkNav = { to: '/coordenacao/professores', rotulo: 'Coordenação', icone: '◈' }
-
-// Diretor(a) não dá aula (turma agora é da escola, atribuída por
-// disciplina) — as telas de professor (Turmas, Notas, Presença, Histórico,
-// Plano de aula, Assistente IA) ficam vazias/sem sentido pra essa conta.
-// O menu fica só com o que faz sentido pra quem administra a escola
-// inteira: visão de Alunos e Professores (escola toda), Agenda própria,
-// Perfil e Coordenação (que ele já enxerga tudo).
-const LINKS_ADMIN: LinkNav[] = [
-  { to: '/', rotulo: 'Início', icone: '◧', exato: true },
-  { to: '/alunos', rotulo: 'Alunos', icone: '☺' },
-  { to: '/agenda', rotulo: 'Agenda', icone: '▣' },
-  { to: '/professores', rotulo: 'Professores', icone: '⚙' },
-  { to: '/perfil', rotulo: 'Perfil', icone: '◑' },
-]
-
-// Conta de coordenação pedagógica pura (sem ser também diretor) não dá
-// aula — as telas de Notas/Presença/Plano de aula etc. não fazem sentido
-// pra ela, então o menu fica só com o essencial: cada área da coordenação
-// como item próprio (não abas dentro de uma única tela).
-const LINKS_COORDENACAO: LinkNav[] = [
-  { to: '/', rotulo: 'Início', icone: '◧', exato: true },
-  { to: '/coordenacao/professores', rotulo: 'Professores', icone: '☺' },
-  { to: '/coordenacao/turmas', rotulo: 'Turmas', icone: '▦' },
-  { to: '/coordenacao/frequencia', rotulo: 'Frequência', icone: '☑' },
-  { to: '/coordenacao/alunos', rotulo: 'Alunos', icone: '◑' },
-  { to: '/coordenacao/calendario', rotulo: 'Calendário', icone: '▣' },
-  { to: '/perfil', rotulo: 'Perfil', icone: '◔' },
-  { to: '/coordenacao/observacoes', rotulo: 'Observações', icone: '✎' },
-]
-
 export function Layout() {
   const { professora, sair, reenviarVerificacao } = useAuth()
   const { tema, alternarTema } = useTema()
@@ -89,11 +58,6 @@ export function Layout() {
     .map((p) => p[0]?.toUpperCase())
     .join('')
 
-  const links = professora.isAdmin
-    ? [...LINKS_ADMIN, LINK_COORDENACAO]
-    : professora.isCoordenador
-      ? LINKS_COORDENACAO
-      : LINKS
 
   return (
     <div className="app">
@@ -113,7 +77,7 @@ export function Layout() {
         </div>
 
         <nav className="nav">
-          {links.map((l) => (
+          {LINKS.map((l) => (
             <NavLink
               key={l.to}
               to={l.to}

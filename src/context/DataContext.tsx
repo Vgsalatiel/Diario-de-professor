@@ -36,10 +36,6 @@ interface DataContextValue {
   eventos: Evento[]
   carregando: boolean
 
-  // Turmas: criar/editar/excluir aqui é só pra turma em que sou o único
-  // professor (professor solo, sem escola por trás) — turma com mais de
-  // um professor por trás é gerenciada pela coordenação (ver
-  // Coordenacao.tsx), que também pode criar turma nova já compartilhada.
   criarTurma: (dados: Omit<Turma, 'id' | 'professores'>) => void
   atualizarTurma: (id: string, dados: Partial<Turma>) => void
   removerTurma: (id: string) => void

@@ -1,6 +1,5 @@
 import type { Turma, TurmaProfessor } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
-import { AppError } from '../../utils/AppError'
 import { paraDataISO } from '../../utils/serializers'
 import { turmaAtribuidaAoProfessor } from '../../utils/ownership'
 import type { AtualizarConfigDto, AtualizarTurmaDto, CriarTurmaDto, PromoverTurmaDto } from './turmas.dto'
@@ -66,11 +65,8 @@ export async function atualizarConfig(
   })
 }
 
-// Professor sem escola por trás (dá aula em lugares diferentes, não tem
-// coordenação nenhuma) continua podendo criar a própria turma, como
-// sempre foi — ele nasce como o único professor atribuído a ela, dono de
-// fato. Numa escola de verdade, é a coordenação que assume esse papel via
-// /coordenacao/turmas; as duas formas convivem no mesmo sistema.
+// O Diário é pessoal: cada turma pertence a um único professor, quem a
+// criou — ele nasce como o único registro de TurmaProfessor dela.
 export async function criar(professorId: string, dados: CriarTurmaDto) {
   const { disciplina, ...dadosTurma } = dados
   const turma = await prisma.turma.create({
@@ -108,26 +104,14 @@ export async function atualizar(turmaId: string, professorId: string, dados: Atu
   }
 }
 
-// Só deixa excluir quando o professor é o único atribuído — turma
-// compartilhada com outro professor (atribuída pela coordenação) exige
-// que seja a coordenação a remover, pra não sumir os dados de outro
-// professor sem ele saber.
 export async function remover(turmaId: string, professorId: string) {
   const turma = await turmaAtribuidaAoProfessor(turmaId, professorId)
-  const totalProfessores = await prisma.turmaProfessor.count({ where: { turmaId } })
-  if (totalProfessores > 1) {
-    throw AppError.requisicaoInvalida(
-      'Essa turma tem mais de um professor — peça pra coordenação remover ela.',
-    )
-  }
   await prisma.turma.update({ where: { id: turma.id }, data: { excluidoEm: new Date() } })
 }
 
 // Cria a turma do ano seguinte a partir de uma turma existente, copiando
 // escola/sistema/cor/dias e levando só os alunos ativos — a turma antiga
-// não é alterada, continua intacta como histórico daquele ano. O
-// professor que promove vira o único professor atribuído à turma nova
-// (mesmo que a turma atual tivesse mais gente — cada um promove a sua).
+// não é alterada, continua intacta como histórico daquele ano.
 export async function promover(turmaId: string, professorId: string, dados: PromoverTurmaDto) {
   const turmaAtual = await turmaAtribuidaAoProfessor(turmaId, professorId)
   const atribuicaoAtual = await prisma.turmaProfessor.findUniqueOrThrow({

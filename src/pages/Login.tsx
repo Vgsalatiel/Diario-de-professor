@@ -2,9 +2,6 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
-// Outros perfis de acesso (diretor, pais, alunos) ficam reservados para o
-// futuro — por enquanto só o login de professor está implementado.
-
 export function Login() {
   const { entrar, autenticada } = useAuth()
   const navigate = useNavigate()
