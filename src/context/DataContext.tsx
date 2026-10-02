@@ -35,6 +35,10 @@ interface DataContextValue {
   configs: ConfigCalculo[]
   eventos: Evento[]
   carregando: boolean
+  // Mensagem do erro ao carregar os dados (null quando carregou bem) e
+  // como tentar de novo — o Layout mostra isso em vez de uma conta vazia.
+  erroCarregamento: string | null
+  recarregar: () => void
 
   criarTurma: (dados: Omit<Turma, 'id' | 'professores'>) => Promise<boolean>
   atualizarTurma: (id: string, dados: Partial<Turma>) => Promise<boolean>
@@ -233,6 +237,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [registrosAula, setRegistrosAula] = useState<RegistroAula[]>([])
   const [feriados, setFeriados] = useState<Feriado[]>([])
   const [carregando, setCarregando] = useState(true)
+  const [erroCarregamento, setErroCarregamento] = useState<string | null>(null)
+  // Incrementar dispara de novo o efeito que busca tudo (ver recarregar).
+  const [tentativaCarga, setTentativaCarga] = useState(0)
 
   // Turmas salvas antes do campo "dias de aula" existir não têm esse dado —
   // preenche com segunda a sexta pra não quebrar as telas que dependem dele.
@@ -270,11 +277,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setRegistrosAula([])
       setFeriados([])
       setCarregando(false)
+      setErroCarregamento(null)
       return
     }
 
     let cancelado = false
     setCarregando(true)
+    setErroCarregamento(null)
 
     Promise.all([
       api.get<TurmaApi[]>('/turmas'),
@@ -336,7 +345,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         },
       )
       .catch((erro) => {
-        if (!cancelado) notificar(mensagemErro(erro))
+        if (!cancelado) setErroCarregamento(mensagemErro(erro))
       })
       .finally(() => {
         if (!cancelado) setCarregando(false)
@@ -345,7 +354,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelado = true
     }
-  }, [professora.id, notificar])
+  }, [professora.id, tentativaCarga])
 
   const value = useMemo<DataContextValue>(() => {
     return {
@@ -362,6 +371,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       planosDeAula,
       registrosAula,
       carregando,
+      erroCarregamento,
+      recarregar: () => setTentativaCarga((n) => n + 1),
 
       criarTurma: (dados) => {
         return api
@@ -853,6 +864,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     registrosAula,
     feriados,
     carregando,
+    erroCarregamento,
     notificar,
   ])
 

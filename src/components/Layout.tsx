@@ -29,7 +29,7 @@ const LINKS: LinkNav[] = [
 export function Layout() {
   const { professora, sair, reenviarVerificacao } = useAuth()
   const { tema, alternarTema } = useTema()
-  const { turmas } = useData()
+  const { turmas, carregando, erroCarregamento, recarregar } = useData()
   const { anoAtivo, anoAtual, somenteLeitura, definirAnoAtivo } = useAnoLetivo()
   const { notificar } = useToast()
   const navigate = useNavigate()
@@ -171,7 +171,25 @@ export function Layout() {
           </div>
         )}
         <main className="pagina">
-          <Outlet />
+          {/* Sem isso as telas mostravam "Nenhuma turma cadastrada" enquanto
+              os dados chegavam (ou se a busca falhasse), como se a conta
+              estivesse vazia. */}
+          {carregando ? (
+            <div className="estado-carga" role="status">
+              <span className="spinner" aria-hidden />
+              <p>Carregando seus dados…</p>
+            </div>
+          ) : erroCarregamento ? (
+            <div className="estado-carga" role="alert">
+              <p>Não foi possível carregar seus dados.</p>
+              <p className="texto-suave">{erroCarregamento}</p>
+              <button className="btn btn-primario" onClick={recarregar}>
+                Tentar de novo
+              </button>
+            </div>
+          ) : (
+            <Outlet />
+          )}
         </main>
       </div>
 

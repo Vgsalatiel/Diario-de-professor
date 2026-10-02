@@ -1402,3 +1402,29 @@ input:focus, select:focus, textarea:focus {
 }
 .tela-conexao p { margin: 0; }
 .tela-conexao .btn { margin-top: 8px; }
+
+/* Carregando / erro ao carregar os dados da conta (Layout). */
+.estado-carga {
+  min-height: 50vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  color: var(--ink-suave);
+}
+.estado-carga p { margin: 0; }
+.estado-carga .btn { margin-top: 8px; }
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--line-forte);
+  border-top-color: var(--indigo);
+  border-radius: 50%;
+  animation: girar 0.8s linear infinite;
+}
+@keyframes girar { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
+}

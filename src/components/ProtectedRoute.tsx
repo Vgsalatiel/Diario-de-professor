@@ -6,7 +6,8 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { autenticada, carregando, erroConexao, tentarConectarDeNovo } = useAuth()
   if (carregando) {
     return (
-      <div className="tela-conexao">
+      <div className="tela-conexao" role="status">
+        <span className="spinner" aria-hidden />
         <p>Conectando ao servidor…</p>
         <p className="texto-suave">Se o Diário ficou um tempo sem uso, isso pode levar alguns segundos.</p>
       </div>
@@ -14,7 +15,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   }
   if (erroConexao) {
     return (
-      <div className="tela-conexao">
+      <div className="tela-conexao" role="alert">
         <p>Não foi possível conectar ao servidor.</p>
         <p className="texto-suave">Confira sua internet. Seus dados e seu login continuam salvos.</p>
         <button className="btn btn-primario" onClick={tentarConectarDeNovo}>
