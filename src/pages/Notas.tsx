@@ -122,6 +122,9 @@ export function Notas() {
   const [periodo, setPeriodo] = useState<Periodo>('1')
   const [modalAval, setModalAval] = useState(false)
   const [salvandoAval, setSalvandoAval] = useState(false)
+  // Só no celular: as configurações de cálculo ficam recolhidas pra não
+  // empurrar a lista de alunos pra baixo da tela.
+  const [configAberta, setConfigAberta] = useState(false)
   const [novaAval, setNovaAval] = useState({ nome: '', peso: '1', periodo: '1' as Periodo })
   const [modalExportar, setModalExportar] = useState(false)
   const [exportPeriodo, setExportPeriodo] = useState<'atual' | 'todos'>('atual')
@@ -322,57 +325,73 @@ export function Notas() {
 
         {config && (
           <>
-            <label className="campo-inline">
-              <span>Tipo de avaliação</span>
-              <select
-                className="select"
-                value={config.tipoAvaliacao}
-                disabled={somenteLeitura}
-                onChange={(e) =>
-                  atualizarConfig(turmaId, {
-                    tipoAvaliacao: e.target.value as TipoAvaliacao,
-                  })
-                }
-              >
-                <option value="nota">Nota (0 a 10)</option>
-                <option value="conceito">Conceito</option>
-              </select>
-            </label>
+            <button
+              type="button"
+              className="btn btn-fantasma config-calculo-toggle"
+              aria-expanded={configAberta}
+              onClick={() => setConfigAberta((a) => !a)}
+            >
+              <span>Configurar cálculo</span>
+              <span className="texto-suave">
+                {config.tipoAvaliacao === 'conceito'
+                  ? 'Conceito'
+                  : `Nota · ${config.modelo === 'ponderada' ? 'Ponderada' : 'Simples'} · ${formatarNota(config.mediaAprovacao)}`}{' '}
+                {configAberta ? '▴' : '▾'}
+              </span>
+            </button>
+            <div className={`config-calculo ${configAberta ? 'aberta' : ''}`}>
+              <label className="campo-inline">
+                <span>Tipo de avaliação</span>
+                <select
+                  className="select"
+                  value={config.tipoAvaliacao}
+                  disabled={somenteLeitura}
+                  onChange={(e) =>
+                    atualizarConfig(turmaId, {
+                      tipoAvaliacao: e.target.value as TipoAvaliacao,
+                    })
+                  }
+                >
+                  <option value="nota">Nota (0 a 10)</option>
+                  <option value="conceito">Conceito</option>
+                </select>
+              </label>
 
-            {config.tipoAvaliacao === 'nota' && (
-              <>
-                <label className="campo-inline">
-                  <span>Cálculo da média</span>
-                  <select
-                    className="select"
-                    value={config.modelo}
-                    disabled={somenteLeitura}
-                    onChange={(e) =>
-                      atualizarConfig(turmaId, {
-                        modelo: e.target.value as ModeloCalculo,
-                      })
-                    }
-                  >
-                    <option value="simples">Média simples</option>
-                    <option value="ponderada">Média ponderada (por peso)</option>
-                  </select>
-                </label>
+              {config.tipoAvaliacao === 'nota' && (
+                <>
+                  <label className="campo-inline">
+                    <span>Cálculo da média</span>
+                    <select
+                      className="select"
+                      value={config.modelo}
+                      disabled={somenteLeitura}
+                      onChange={(e) =>
+                        atualizarConfig(turmaId, {
+                          modelo: e.target.value as ModeloCalculo,
+                        })
+                      }
+                    >
+                      <option value="simples">Média simples</option>
+                      <option value="ponderada">Média ponderada (por peso)</option>
+                    </select>
+                  </label>
 
-                <label className="campo-inline campo-estreito">
-                  <span>Média p/ aprovação</span>
-                  <CampoNota
-                    className="input-num"
-                    valor={config.mediaAprovacao}
-                    obrigatorio
-                    placeholder=""
-                    disabled={somenteLeitura}
-                    onSalvar={(valor) => {
-                      if (valor != null) atualizarConfig(turmaId, { mediaAprovacao: valor })
-                    }}
-                  />
-                </label>
-              </>
-            )}
+                  <label className="campo-inline campo-estreito">
+                    <span>Média p/ aprovação</span>
+                    <CampoNota
+                      className="input-num"
+                      valor={config.mediaAprovacao}
+                      obrigatorio
+                      placeholder=""
+                      disabled={somenteLeitura}
+                      onSalvar={(valor) => {
+                        if (valor != null) atualizarConfig(turmaId, { mediaAprovacao: valor })
+                      }}
+                    />
+                  </label>
+                </>
+              )}
+            </div>
 
             {!somenteLeitura && (
               <button className="btn btn-fantasma" onClick={abrirModalAval}>

@@ -339,7 +339,7 @@ export function Alunos() {
           </div>
 
           <div className="painel sem-padding rolagem-x">
-            <table className="tabela tabela-responsiva">
+            <table className="tabela tabela-responsiva tabela-alunos">
               <thead>
                 <tr>
                   <th>Nome completo</th>
@@ -361,10 +361,14 @@ export function Alunos() {
                   lista.map((a) => (
                     <tr key={a.id}>
                       <td className="celula-nome">{a.nome}</td>
-                      <td className="texto-suave" data-label="Matrícula">
+                      {/* No celular, matrícula/nascimento vazios somem (ver .tabela-alunos). */}
+                      <td
+                        className={`texto-suave col-matricula ${a.matricula ? '' : 'celula-vazia-mobile'}`}
+                        data-label="Matrícula"
+                      >
                         {a.matricula || '—'}
                       </td>
-                      <td data-label="Turma">
+                      <td className="col-turma" data-label="Turma">
                         <span
                           className="badge-turma"
                           style={{
@@ -375,10 +379,13 @@ export function Alunos() {
                           {nomeTurma(a.turmaId)}
                         </span>
                       </td>
-                      <td className="texto-suave" data-label="Nascimento">
+                      <td
+                        className={`texto-suave col-nascimento ${a.dataNascimento ? '' : 'celula-vazia-mobile'}`}
+                        data-label="Nascimento"
+                      >
                         {a.dataNascimento ? formatarData(a.dataNascimento) : '—'}
                       </td>
-                      <td data-label="Situação">
+                      <td className="col-situacao" data-label="Situação">
                         <span className={`pill ${situacaoInfo(a.situacao).pill}`}>
                           {situacaoInfo(a.situacao).rotulo}
                         </span>

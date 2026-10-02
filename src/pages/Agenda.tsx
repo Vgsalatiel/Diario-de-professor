@@ -24,6 +24,7 @@ type Filtro = 'proximos' | 'todos' | 'concluidos'
 type Secao = 'eventos' | 'feriados'
 
 const FERIADO_VAZIO = { data: hojeISO(), titulo: '' }
+const anoDeHoje = hojeISO().slice(0, 4)
 
 export function Agenda() {
   const { eventos, turmas, criarEvento, atualizarEvento, removerEvento, feriados, criarFeriado, removerFeriado } =
@@ -301,7 +302,11 @@ export function Agenda() {
                 </div>
                 <h3>{e.titulo}</h3>
                 {e.conteudo && <p className="evento-conteudo">{htmlParaTexto(e.conteudo)}</p>}
-                <span className="evento-data-completa">{formatarData(e.data)}</span>
+                {/* O bloco ao lado já mostra dia e mês; a data completa só
+                    acrescenta algo quando o evento é de outro ano. */}
+                {e.data.slice(0, 4) !== anoDeHoje && (
+                  <span className="evento-data-completa">{formatarData(e.data)}</span>
+                )}
                 {e.prazo && (
                   <span className="evento-data-completa evento-prazo">
                     Entrega até {formatarData(e.prazo)}

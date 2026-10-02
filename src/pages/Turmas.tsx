@@ -345,14 +345,24 @@ export function Turmas() {
                   </div>
                 </div>
                 <div className="card-turma-acoes">
-                  <Link
-                    to={`/alunos?turma=${t.id}`}
-                    className="btn btn-fantasma btn-pequeno"
-                  >
-                    Ver alunos
-                  </Link>
+                  <div className="card-turma-acoes-linha">
+                    <Link
+                      to={`/alunos?turma=${t.id}`}
+                      className="btn btn-fantasma btn-pequeno"
+                    >
+                      Ver alunos
+                    </Link>
+                    {!somenteLeitura && (
+                      <button
+                        className="btn btn-fantasma btn-pequeno"
+                        onClick={() => abrirEdicao(t)}
+                      >
+                        Editar
+                      </button>
+                    )}
+                  </div>
                   {!somenteLeitura && (
-                    <>
+                    <div className="card-turma-acoes-linha">
                       <button
                         className="btn btn-fantasma btn-pequeno"
                         onClick={() => abrirPromocao(t)}
@@ -360,18 +370,12 @@ export function Turmas() {
                         Promover para o próximo ano
                       </button>
                       <button
-                        className="btn btn-fantasma btn-pequeno"
-                        onClick={() => abrirEdicao(t)}
-                      >
-                        Editar
-                      </button>
-                      <button
-                        className="btn btn-perigo-fantasma btn-pequeno"
+                        className="btn btn-perigo-fantasma btn-pequeno card-turma-excluir"
                         onClick={() => excluir(t)}
                       >
                         Excluir
                       </button>
-                    </>
+                    </div>
                   )}
                 </div>
               </article>

@@ -763,11 +763,15 @@ input:focus, select:focus, textarea:focus {
 }
 .card-turma-acoes {
   display: flex;
-  gap: 4px;
+  flex-direction: column;
+  gap: 8px;
   padding: 12px 14px;
   border-top: 1px solid var(--line);
-  flex-wrap: wrap;
 }
+/* Linha 1: o uso do dia a dia (Ver alunos, Editar). Linha 2: ações raras
+   (Promover), com Excluir afastado pra não ser clicado por engano. */
+.card-turma-acoes-linha { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.card-turma-excluir { margin-left: auto; }
 .card-turma-clicavel { cursor: pointer; transition: box-shadow 0.15s ease, transform 0.15s ease; }
 .card-turma-clicavel:hover { box-shadow: var(--sombra); transform: translateY(-2px); }
 .card-turma-clicavel .card-turma-corpo { padding-bottom: 18px; }
@@ -815,7 +819,7 @@ input:focus, select:focus, textarea:focus {
 /* ============================================================
    Tabelas (alunos + notas)
    ============================================================ */
-.barra-filtros { display: flex; gap: 12px; flex-wrap: wrap; }
+.barra-filtros { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
 .barra-filtros .select { width: auto; min-width: 190px; }
 .input-busca { max-width: 320px; }
 .select { width: 100%; }
@@ -1015,6 +1019,9 @@ input:focus, select:focus, textarea:focus {
 .modal-overlay {
   position: fixed;
   inset: 0;
+  /* Fica dentro de .stack-lg, cujo "* + *" daria margin-top de 24px e
+     deixaria a barra do topo descoberta (e clicável) por cima do modal. */
+  margin: 0;
   background: rgba(31, 36, 51, 0.45);
   display: flex;
   align-items: center;
@@ -1059,6 +1066,7 @@ input:focus, select:focus, textarea:focus {
    ============================================================ */
 .drawer-overlay {
   position: fixed;
+  margin: 0; /* ver .modal-overlay */
   top: 0;
   right: 0;
   bottom: 0;
@@ -1427,4 +1435,90 @@ input:focus, select:focus, textarea:focus {
 @keyframes girar { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
   .spinner { animation: none; }
+}
+
+/* ============================================================
+   Responsivo — ajustes de celular nas telas de uso diário
+   ============================================================ */
+@media (max-width: 760px) {
+  /* Cada página já tem o próprio título; no topo só cortava ("Gestão de…"). */
+  .topbar-titulo { display: none; }
+
+  /* Abas numa linha só, rolando de lado, em vez de quebrar em duas. */
+  .abas { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+  .abas::-webkit-scrollbar { display: none; }
+  .aba { white-space: nowrap; flex-shrink: 0; }
+
+  /* Filtros com a largura toda, em vez de cada select de um tamanho. */
+  .barra-config .campo-inline,
+  .barra-filtros > * { width: 100%; }
+  .barra-config .campo-inline .select,
+  .barra-filtros .select { min-width: 0; width: 100%; }
+  .barra-config .campo-estreito { width: auto; }
+  .input-busca { max-width: none; }
+
+  /* Notas: configurações de cálculo recolhidas atrás de um botão. */
+  .config-calculo-toggle {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .config-calculo { display: none; }
+  .config-calculo.aberta { display: flex; flex-direction: column; gap: 14px; width: 100%; }
+
+  /* Notas: aluno compacto — nome em cima, avaliações lado a lado (rótulo
+     sobre o campo), média e situação na mesma grade. */
+  .tabela-notas tr {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+    gap: 8px 10px;
+    padding: 12px 14px;
+  }
+  .tabela-notas td {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 4px;
+    padding: 0;
+    border-bottom: none;
+  }
+  .tabela-notas .celula-nome {
+    grid-column: 1 / -1;
+    background: transparent;
+    padding: 0 0 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .tabela-notas td::before { font-size: 11.5px; }
+  .tabela-notas .col-situacao { grid-column: span 2; }
+  .tabela-notas .input-nota { width: 64px; }
+
+  /* Alunos: uma linha por aluno — nome e situação, turma e ações embaixo;
+     matrícula/nascimento só quando preenchidos. */
+  .tabela-alunos tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 12px;
+    padding: 12px 14px;
+    align-items: center;
+  }
+  .tabela-alunos td { padding: 0; border-bottom: none; justify-content: flex-start; }
+  .tabela-alunos .celula-nome { grid-row: 1; grid-column: 1; padding: 0; border-bottom: none; font-size: 15px; }
+  .tabela-alunos .col-situacao { grid-row: 1; grid-column: 2; justify-content: flex-end; }
+  .tabela-alunos .col-situacao::before,
+  .tabela-alunos .col-turma::before { content: none; }
+  .tabela-alunos .col-turma { grid-row: 2; grid-column: 1; }
+  .tabela-alunos .col-acoes { grid-row: 2; grid-column: 2; padding: 0; }
+  .tabela-alunos .col-matricula,
+  .tabela-alunos .col-nascimento { grid-column: 1 / -1; font-size: 13px; gap: 6px; }
+  .tabela-alunos .col-matricula::before,
+  .tabela-alunos .col-nascimento::before { font-size: 12px; }
+  .tabela-alunos .celula-vazia-mobile { display: none; }
+}
+
+/* Desktop: o botão de recolher não existe e o grupo de configurações se
+   comporta como se não estivesse embrulhado (fica na mesma barra). */
+@media (min-width: 761px) {
+  .config-calculo-toggle { display: none; }
+  .config-calculo { display: contents; }
 }
