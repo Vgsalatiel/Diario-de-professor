@@ -6,6 +6,7 @@ import { AppError } from '../../utils/AppError'
 import * as bncc from '../../lib/bncc'
 import { gerarCronogramaComIA, gerarSugestoesAvaliacoesComIA } from '../../lib/gemini'
 import { calcularDatasDeAula } from '../../lib/diasAula'
+import { escaparHtml } from '../../lib/html'
 import { listarFeriados } from '../feriados/feriados.service'
 import type { AtualizarPlanoDto, CriarPlanoDto, CronogramaItemDto, GerarPlanoIaDto } from './planos.dto'
 
@@ -206,7 +207,7 @@ export async function gerarComIA(turmaId: string, professorId: string, dados: Ge
 
   return {
     titulo: dados.temaGeral,
-    conteudo: `<p>${gerado.visaoGeral}</p>`,
+    conteudo: `<p>${escaparHtml(gerado.visaoGeral)}</p>`,
     cronograma,
     aulasNoPeriodo: todasAsDatas.length,
     aulasGeradas: cronograma.length,

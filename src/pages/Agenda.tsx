@@ -7,6 +7,7 @@ import { api, ApiError } from '../lib/api'
 import type { Evento, EventoEscola, TipoEvento } from '../types'
 import { corTipo, formatarData, rotuloTipo } from '../lib/eventos'
 import { hojeISO } from '../lib/data'
+import { htmlParaTexto } from '../lib/texto'
 import { Modal } from '../components/Modal'
 import { EntregasEvento } from '../components/EntregasEvento'
 
@@ -140,7 +141,7 @@ export function Agenda() {
       data: e.data,
       hora: e.hora ?? '',
       turmaId: e.turmaId ?? '',
-      conteudo: e.conteudo ?? '',
+      conteudo: htmlParaTexto(e.conteudo ?? ''),
     })
     setModal(true)
   }
@@ -156,7 +157,11 @@ export function Agenda() {
       conteudo: form.conteudo.trim() || undefined,
     }
     if (editando) {
-      atualizarEvento(editando.id, dados)
+      // Prova/atividade criada no Plano de Aula guarda HTML formatado; aqui
+      // o campo é texto puro. Se o texto não mudou, não reenvia, pra não
+      // trocar o conteúdo formatado pela versão sem formatação.
+      const conteudoInalterado = form.conteudo.trim() === htmlParaTexto(editando.conteudo ?? '')
+      atualizarEvento(editando.id, conteudoInalterado ? { ...dados, conteudo: undefined } : dados)
       notificar('Evento atualizado.')
     } else {
       criarEvento(dados).catch(() => {
@@ -325,7 +330,7 @@ export function Agenda() {
                   )}
                 </div>
                 <h3>{e.titulo}</h3>
-                {e.conteudo && <p className="evento-conteudo">{e.conteudo}</p>}
+                {e.conteudo && <p className="evento-conteudo">{htmlParaTexto(e.conteudo)}</p>}
                 <span className="evento-data-completa">{formatarData(e.data)}</span>
                 {e.prazo && (
                   <span className="evento-data-completa evento-prazo">

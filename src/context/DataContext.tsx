@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type {
   Aluno,
   Avaliacao,
@@ -70,7 +70,8 @@ interface DataContextValue {
   removerAvaliacao: (id: string) => void
 
   // Notas
-  definirNota: (alunoId: string, avaliacaoId: string, valor: number | null) => void
+  // Resolve true se o servidor confirmou o salvamento.
+  definirNota: (alunoId: string, avaliacaoId: string, valor: number | null) => Promise<boolean>
   definirConceito: (alunoId: string, avaliacaoId: string, conceito: string | null) => void
 
   // Configuração de cálculo
@@ -220,6 +221,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [alunosBrutos, setAlunos] = useState<Aluno[]>([])
   const [avaliacoes, setAvaliacoes] = useState<Avaliacao[]>([])
   const [notas, setNotas] = useState<MapaDeNotas>({})
+  // Quantas vezes cada nota (chaveNota) já foi enviada — ver definirNota.
+  const versaoNota = useRef<Record<string, number>>({})
   const [conceitos, setConceitos] = useState<MapaDeConceitos>({})
   const [configs, setConfigs] = useState<ConfigCalculo[]>([])
   const [eventos, setEventos] = useState<Evento[]>([])
@@ -559,11 +562,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
       definirNota: (alunoId, avaliacaoId, valor) => {
         const chave = chaveNota(alunoId, avaliacaoId)
         const anterior = notas[chave] ?? null
+        const versao = (versaoNota.current[chave] ?? 0) + 1
+        versaoNota.current[chave] = versao
         setNotas((ns) => ({ ...ns, [chave]: valor }))
-        api.put(`/alunos/${alunoId}/notas/${avaliacaoId}`, { valor }).catch((erro) => {
-          setNotas((ns) => ({ ...ns, [chave]: anterior }))
-          notificar(mensagemErro(erro))
-        })
+        return api
+          .put(`/alunos/${alunoId}/notas/${avaliacaoId}`, { valor })
+          .then(() => true)
+          .catch((erro) => {
+            // Só desfaz se nenhuma edição mais nova dessa nota foi enviada
+            // depois; senão a falha antiga apagaria um valor mais recente.
+            if (versaoNota.current[chave] === versao) {
+              setNotas((ns) => ({ ...ns, [chave]: anterior }))
+            }
+            notificar(mensagemErro(erro))
+            return false
+          })
       },
 
       definirConceito: (alunoId, avaliacaoId, conceito) => {

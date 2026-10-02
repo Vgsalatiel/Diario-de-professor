@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { limparHtml } from '../../lib/html'
 
 export const duracaoPlanoEnum = z.enum(['quinzenal', 'semestral', 'personalizado'])
 
@@ -19,7 +20,7 @@ export const criarPlanoDto = z.object({
   duracao: duracaoPlanoEnum,
   dataInicio: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de início inválida.'),
   dataFim: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de término inválida.'),
-  conteudo: z.string().trim().optional(),
+  conteudo: z.string().trim().transform(limparHtml).optional(),
   // Preenchido quando o conteúdo veio do Assistente de planejamento
   // contextual — cada habilidadeCodigo é revalidado no backend antes de
   // salvar (ver planos.service.ts), nunca aceito só porque veio do cliente.

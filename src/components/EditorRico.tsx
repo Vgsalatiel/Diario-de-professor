@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import Quill from 'quill'
 import 'quill/dist/quill.snow.css'
+import { limparHtml } from '../lib/html'
 
 interface EditorRicoProps {
   value: string
@@ -44,7 +45,7 @@ export function EditorRico({ value, onChange, placeholder }: EditorRicoProps) {
       },
     })
     quillRef.current = quill
-    if (value) quill.root.innerHTML = value
+    if (value) quill.root.innerHTML = limparHtml(value)
 
     quill.on('text-change', () => {
       const html = quill.getText().trim() === '' ? '' : quill.root.innerHTML
@@ -59,12 +60,14 @@ export function EditorRico({ value, onChange, placeholder }: EditorRicoProps) {
   }, [])
 
   // Sincroniza quando o valor muda por fora (ex.: trocar de plano
-  // selecionado), sem mexer se a mudança veio do próprio editor.
+  // selecionado), sem mexer se a mudança veio do próprio editor. A
+  // comparação é com o valor cru: o HTML limpo perde os <span> internos
+  // do Quill e nunca bateria, o que resetaria o cursor a cada tecla.
   useEffect(() => {
     const quill = quillRef.current
     if (!quill) return
     if (quill.root.innerHTML === value || (value === '' && quill.getText().trim() === '')) return
-    quill.root.innerHTML = value
+    quill.root.innerHTML = limparHtml(value)
   }, [value])
 
   return <div ref={wrapperRef} className="editor-rico" />

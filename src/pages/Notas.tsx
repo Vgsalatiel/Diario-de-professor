@@ -20,6 +20,64 @@ import { Modal } from '../components/Modal'
 // deixava a coluna gigante. Detecta prova/atividade pelo começo do nome;
 // o que não bate com nenhum dos dois vira "Aval" genérico. O nome
 // completo continua acessível pelo tooltip (title) do cabeçalho.
+const formatarCampoNota = (v: number | null) => (v == null ? '' : String(v).replace('.', ','))
+
+// Campo de nota com o texto digitado guardado localmente: só vira número e
+// vai pro servidor ao sair do campo ou apertar Enter. Controlado direto
+// pelo número, "7," virava "7" na hora e não dava pra digitar 7,5.
+function CampoNota({
+  valor,
+  onSalvar,
+  disabled,
+}: {
+  valor: number | null
+  onSalvar: (valor: number | null) => void
+  disabled: boolean
+}) {
+  const [texto, setTexto] = useState(() => formatarCampoNota(valor))
+  const [focado, setFocado] = useState(false)
+
+  // Acompanha mudanças de fora (troca de turma, rollback de erro) enquanto
+  // o professor não está digitando nesse campo.
+  useEffect(() => {
+    if (!focado) setTexto(formatarCampoNota(valor))
+  }, [valor, focado])
+
+  function confirmar() {
+    setFocado(false)
+    const limpo = texto.trim()
+    let novo: number | null = null
+    if (limpo !== '') {
+      const numero = Number(limpo.replace(',', '.'))
+      if (Number.isNaN(numero)) {
+        setTexto(formatarCampoNota(valor))
+        return
+      }
+      novo = Math.max(0, Math.min(10, numero))
+    }
+    setTexto(formatarCampoNota(novo))
+    if (novo !== valor) onSalvar(novo)
+  }
+
+  return (
+    <input
+      className="input-nota"
+      inputMode="decimal"
+      value={texto}
+      onFocus={() => setFocado(true)}
+      onChange={(e) => {
+        if (/^\d*[.,]?\d*$/.test(e.target.value)) setTexto(e.target.value)
+      }}
+      onBlur={confirmar}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur()
+      }}
+      placeholder="—"
+      disabled={disabled}
+    />
+  )
+}
+
 function rotuloCurtoAvaliacao(nome: string, indice: number): string {
   const numero = indice + 1
   const n = nome.trim().toLowerCase()
@@ -120,19 +178,9 @@ export function Notas() {
     [avaliacoes, turmaId, periodoAtivo],
   )
 
-  function onNota(alunoId: string, avaliacaoId: string, texto: string) {
-    if (texto.trim() === '') {
-      definirNota(alunoId, avaliacaoId, null)
-      return
-    }
-    const valor = Number(texto.replace(',', '.'))
-    if (Number.isNaN(valor)) return
-    const limitado = Math.max(0, Math.min(10, valor))
-    definirNota(alunoId, avaliacaoId, limitado)
-  }
-
-  function onNotaSalva(texto: string) {
-    if (texto.trim() !== '') notificar('Nota salva.')
+  async function salvarNota(alunoId: string, avaliacaoId: string, valor: number | null) {
+    const salvou = await definirNota(alunoId, avaliacaoId, valor)
+    if (salvou && valor != null) notificar('Nota salva.')
   }
 
   function abrirModalAval() {
@@ -410,13 +458,9 @@ export function Notas() {
                       const v = notas[chaveNota(aluno.id, av.id)]
                       return (
                         <td key={av.id} className="col-nota" data-label={rotuloCol}>
-                          <input
-                            className="input-nota"
-                            inputMode="decimal"
-                            value={v == null ? '' : String(v).replace('.', ',')}
-                            onChange={(e) => onNota(aluno.id, av.id, e.target.value)}
-                            onBlur={(e) => onNotaSalva(e.target.value)}
-                            placeholder="—"
+                          <CampoNota
+                            valor={v ?? null}
+                            onSalvar={(valor) => salvarNota(aluno.id, av.id, valor)}
                             disabled={somenteLeitura}
                           />
                         </td>

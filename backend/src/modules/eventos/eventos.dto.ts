@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { limparHtml } from '../../lib/html'
 
 export const tipoEventoEnum = z.enum(['prova', 'trabalho', 'reuniao', 'outro'])
 
@@ -9,7 +10,7 @@ export const criarEventoDto = z.object({
   hora: z.string().trim().optional(),
   turmaId: z.string().trim().optional(),
   planoId: z.string().trim().optional(),
-  conteudo: z.string().trim().optional(),
+  conteudo: z.string().trim().transform(limparHtml).optional(),
   prazo: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'Prazo inválido.').optional(),
 })
 export type CriarEventoDto = z.infer<typeof criarEventoDto>
