@@ -36,8 +36,8 @@ interface DataContextValue {
   eventos: Evento[]
   carregando: boolean
 
-  criarTurma: (dados: Omit<Turma, 'id' | 'professores'>) => void
-  atualizarTurma: (id: string, dados: Partial<Turma>) => void
+  criarTurma: (dados: Omit<Turma, 'id' | 'professores'>) => Promise<boolean>
+  atualizarTurma: (id: string, dados: Partial<Turma>) => Promise<boolean>
   removerTurma: (id: string) => void
   promoverTurma: (
     id: string,
@@ -45,8 +45,8 @@ interface DataContextValue {
   ) => Promise<{ turma: Turma; alunosPromovidos: number }>
 
   // Alunos
-  criarAluno: (dados: Omit<Aluno, 'id'>) => void
-  atualizarAluno: (id: string, dados: Partial<Aluno>) => void
+  criarAluno: (dados: Omit<Aluno, 'id'>) => Promise<boolean>
+  atualizarAluno: (id: string, dados: Partial<Aluno>) => Promise<boolean>
   removerAluno: (id: string) => void
   gerarExerciciosPersonalizados: (
     alunoId: string,
@@ -61,22 +61,21 @@ interface DataContextValue {
   listarExerciciosGerados: (alunoId: string) => Promise<ExercicioGerado[]>
 
   // Avaliações
-  criarAvaliacao: (dados: Omit<Avaliacao, 'id'>) => void
-  atualizarAvaliacao: (id: string, dados: Partial<Avaliacao>) => void
+  criarAvaliacao: (dados: Omit<Avaliacao, 'id'>) => Promise<boolean>
+  atualizarAvaliacao: (id: string, dados: Partial<Avaliacao>) => Promise<boolean>
   removerAvaliacao: (id: string) => void
 
   // Notas
-  // Resolve true se o servidor confirmou o salvamento.
   definirNota: (alunoId: string, avaliacaoId: string, valor: number | null) => Promise<boolean>
   definirConceito: (alunoId: string, avaliacaoId: string, conceito: string | null) => void
 
   // Configuração de cálculo
   configDaTurma: (turmaId: string) => ConfigCalculo
-  atualizarConfig: (turmaId: string, dados: Partial<ConfigCalculo>) => void
+  atualizarConfig: (turmaId: string, dados: Partial<ConfigCalculo>) => Promise<boolean>
 
   // Eventos
   criarEvento: (dados: Omit<Evento, 'id' | 'professorId'>) => Promise<void>
-  atualizarEvento: (id: string, dados: Partial<Evento>) => void
+  atualizarEvento: (id: string, dados: Partial<Evento>) => Promise<boolean>
   removerEvento: (id: string) => void
 
   // Planos de aula
@@ -133,6 +132,9 @@ interface DataContextValue {
   definirEntrega: (alunoId: string, eventoId: string, status: StatusEntrega) => void
 }
 
+// As funções que devolvem Promise<boolean> resolvem true quando o
+// servidor confirmou; no erro já mostram o aviso e resolvem false, pra
+// tela só fechar o modal/avisar sucesso depois da confirmação.
 const DataContext = createContext<DataContextValue | null>(null)
 
 const CONFIG_PADRAO = (turmaId: string, professorId: string): ConfigCalculo => ({
@@ -219,6 +221,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [notas, setNotas] = useState<MapaDeNotas>({})
   // Quantas vezes cada nota (chaveNota) já foi enviada — ver definirNota.
   const versaoNota = useRef<Record<string, number>>({})
+  // Criação de data de aula em andamento, por turma+data — ver garantirDataAula.
+  const criandoDataAula = useRef<Record<string, Promise<DataAula>>>({})
   const [conceitos, setConceitos] = useState<MapaDeConceitos>({})
   const [configs, setConfigs] = useState<ConfigCalculo[]>([])
   const [eventos, setEventos] = useState<Evento[]>([])
@@ -360,22 +364,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
       carregando,
 
       criarTurma: (dados) => {
-        api
+        return api
           .post<TurmaApi>('/turmas', dados)
           .then(({ config, ...turma }) => {
             setTurmasBrutas((ts) => [...ts, turma])
             setConfigs((cs) => [...cs, config])
           })
-          .catch((erro) => notificar(mensagemErro(erro)))
+          .then(() => true)
+          .catch((erro) => {
+            notificar(mensagemErro(erro))
+            return false
+          })
       },
       atualizarTurma: (id, dados) => {
-        api
+        return api
           .patch<TurmaApi>(`/turmas/${id}`, dados)
           .then(({ config, ...turma }) => {
             setTurmasBrutas((ts) => ts.map((t) => (t.id === id ? turma : t)))
             setConfigs((cs) => cs.map((c) => (c.turmaId === id && c.professorId === config.professorId ? config : c)))
           })
-          .catch((erro) => notificar(mensagemErro(erro)))
+          .then(() => true)
+          .catch((erro) => {
+            notificar(mensagemErro(erro))
+            return false
+          })
       },
       removerTurma: (id) => {
         api
@@ -452,18 +464,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
       },
 
       criarAluno: (dados) => {
-        api
+        return api
           .post<AlunoApi>(`/turmas/${dados.turmaId}/alunos`, dados)
           .then((aluno) => setAlunos((as) => [...as, normalizarAluno(aluno)]))
-          .catch((erro) => notificar(mensagemErro(erro)))
+          .then(() => true)
+          .catch((erro) => {
+            notificar(mensagemErro(erro))
+            return false
+          })
       },
       atualizarAluno: (id, dados) => {
-        api
+        return api
           .patch<AlunoApi>(`/alunos/${id}`, dados)
           .then((aluno) =>
             setAlunos((as) => as.map((a) => (a.id === id ? normalizarAluno(aluno) : a))),
           )
-          .catch((erro) => notificar(mensagemErro(erro)))
+          .then(() => true)
+          .catch((erro) => {
+            notificar(mensagemErro(erro))
+            return false
+          })
       },
       gerarExerciciosPersonalizados: (alunoId, dados) => {
         return api
@@ -519,18 +539,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
       },
 
       criarAvaliacao: (dados) => {
-        api
+        return api
           .post<Avaliacao>(`/turmas/${dados.turmaId}/avaliacoes`, dados)
           .then((avaliacao) => setAvaliacoes((avs) => [...avs, avaliacao]))
-          .catch((erro) => notificar(mensagemErro(erro)))
+          .then(() => true)
+          .catch((erro) => {
+            notificar(mensagemErro(erro))
+            return false
+          })
       },
       atualizarAvaliacao: (id, dados) => {
-        api
+        return api
           .patch<Avaliacao>(`/avaliacoes/${id}`, dados)
           .then((avaliacao) =>
             setAvaliacoes((avs) => avs.map((a) => (a.id === id ? avaliacao : a))),
           )
-          .catch((erro) => notificar(mensagemErro(erro)))
+          .then(() => true)
+          .catch((erro) => {
+            notificar(mensagemErro(erro))
+            return false
+          })
       },
       removerAvaliacao: (id) => {
         api
@@ -588,7 +616,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       configDaTurma: (turmaId) =>
         configs.find((c) => c.turmaId === turmaId) ?? CONFIG_PADRAO(turmaId, professora.id),
       atualizarConfig: (turmaId, dados) => {
-        api
+        // Otimista (como as notas): a tela já mostra o valor novo e volta
+        // ao anterior se o servidor recusar.
+        const anterior = configs.find((c) => c.turmaId === turmaId)
+        if (anterior) {
+          setConfigs((cs) => cs.map((c) => (c.turmaId === turmaId ? { ...c, ...dados } : c)))
+        }
+        return api
           .patch<ConfigCalculo>(`/turmas/${turmaId}/config`, dados)
           .then((config) => {
             setConfigs((cs) => {
@@ -598,7 +632,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 : [...cs, config]
             })
           })
-          .catch((erro) => notificar(mensagemErro(erro)))
+          .then(() => true)
+          .catch((erro) => {
+            if (anterior) setConfigs((cs) => cs.map((c) => (c.turmaId === turmaId ? anterior : c)))
+            notificar(mensagemErro(erro))
+            return false
+          })
       },
 
       criarEvento: async (dados) => {
@@ -611,12 +650,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
       },
       atualizarEvento: (id, dados) => {
-        api
+        return api
           .patch<EventoApi>(`/eventos/${id}`, dados)
           .then((evento) =>
             setEventos((es) => es.map((e) => (e.id === id ? normalizarEvento(evento) : e))),
           )
-          .catch((erro) => notificar(mensagemErro(erro)))
+          .then(() => true)
+          .catch((erro) => {
+            notificar(mensagemErro(erro))
+            return false
+          })
       },
       removerEvento: (id) => {
         api
@@ -711,13 +754,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
       garantirDataAula: async (turmaId, data, periodo) => {
         const existente = datasAula.find((d) => d.turmaId === turmaId && d.data === data)
         if (existente) return existente.id
+        // Cliques rápidos em alunos diferentes num dia ainda sem aula criada
+        // reaproveitam a mesma requisição em vez de disparar uma por clique.
+        const chave = `${turmaId}::${data}`
+        let pendente = criandoDataAula.current[chave]
+        if (!pendente) {
+          pendente = api
+            .post<DataAula>(`/turmas/${turmaId}/datas-aula`, { data, periodo })
+            .then((criado) => {
+              setDatasAula((ds) => (ds.some((d) => d.id === criado.id) ? ds : [...ds, criado]))
+              return criado
+            })
+            .finally(() => {
+              delete criandoDataAula.current[chave]
+            })
+          criandoDataAula.current[chave] = pendente
+        }
         try {
-          const criado = await api.post<DataAula>(`/turmas/${turmaId}/datas-aula`, {
-            data,
-            periodo,
-          })
-          setDatasAula((ds) => [...ds, criado])
-          return criado.id
+          return (await pendente).id
         } catch (erro) {
           notificar(mensagemErro(erro))
           throw erro

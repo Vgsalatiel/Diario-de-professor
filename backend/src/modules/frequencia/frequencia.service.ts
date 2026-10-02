@@ -32,15 +32,14 @@ export async function garantirDataAula(
   await turmaAtribuidaAoProfessor(turmaId, professorId)
   const data = new Date(dados.data)
 
-  const existente = await prisma.dataAula.findUnique({
+  // upsert em vez de buscar-e-criar: dois cliques seguidos num dia novo
+  // chegam quase juntos e o segundo batia no @@unique.
+  const dataAula = await prisma.dataAula.upsert({
     where: { turmaId_professorId_data: { turmaId, professorId, data } },
+    update: {},
+    create: { turmaId, professorId, data, periodo: dados.periodo },
   })
-  if (existente) return serializarDataAula(existente)
-
-  const criado = await prisma.dataAula.create({
-    data: { turmaId, professorId, data, periodo: dados.periodo },
-  })
-  return serializarDataAula(criado)
+  return serializarDataAula(dataAula)
 }
 
 // find-or-create-e-alterna — equivalente ao alternarSemAula() do frontend.

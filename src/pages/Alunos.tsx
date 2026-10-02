@@ -28,6 +28,7 @@ export function Alunos() {
   const [turmaFiltro, setTurmaFiltro] = useState<string>('todas')
   const [busca, setBusca] = useState('')
   const [modal, setModal] = useState(false)
+  const [salvando, setSalvando] = useState(false)
   const [editando, setEditando] = useState<Aluno | null>(null)
   const [erroForm, setErroForm] = useState('')
   const [form, setForm] = useState({
@@ -44,6 +45,7 @@ export function Alunos() {
 
   const [modalImportar, setModalImportar] = useState(false)
   const [importando, setImportando] = useState(false)
+  const [importandoLote, setImportandoLote] = useState(false)
   const [erroImportar, setErroImportar] = useState('')
   const [alunosImportados, setAlunosImportados] = useState<AlunoImportado[]>([])
   const [importar, setImportar] = useState({ escolaId: '', turmaId: '' })
@@ -199,20 +201,25 @@ export function Alunos() {
     }
   }
 
-  function confirmarImportacao() {
+  // Um por vez, pra contar quantos o servidor aceitou de fato.
+  async function confirmarImportacao() {
     if (alunosImportados.length === 0 || !importar.turmaId) return
+    setImportandoLote(true)
+    let importados = 0
     for (const aluno of alunosImportados) {
-      criarAluno({ turmaId: importar.turmaId, situacao: 'ativo', ...aluno })
+      if (await criarAluno({ turmaId: importar.turmaId, situacao: 'ativo', ...aluno })) importados++
     }
-    notificar(
-      alunosImportados.length === 1
-        ? '1 aluno importado.'
-        : `${alunosImportados.length} alunos importados.`,
-    )
-    setModalImportar(false)
+    setImportandoLote(false)
+    const total = alunosImportados.length
+    if (importados === total) {
+      notificar(total === 1 ? '1 aluno importado.' : `${total} alunos importados.`)
+      setModalImportar(false)
+    } else {
+      notificar(`${importados} de ${total} alunos importados — ${total - importados} falharam.`)
+    }
   }
 
-  function salvar() {
+  async function salvar() {
     if (!form.turmaId) return
     const erro = validarNome(form.nome)
     if (erro) {
@@ -230,13 +237,11 @@ export function Alunos() {
       dificuldades: form.dificuldades.trim() || undefined,
       turmaId: form.turmaId,
     }
-    if (editando) {
-      atualizarAluno(editando.id, dados)
-      notificar('Aluno atualizado.')
-    } else {
-      criarAluno(dados)
-      notificar('Aluno adicionado.')
-    }
+    setSalvando(true)
+    const salvou = editando ? await atualizarAluno(editando.id, dados) : await criarAluno(dados)
+    setSalvando(false)
+    if (!salvou) return
+    notificar(editando ? 'Aluno atualizado.' : 'Aluno adicionado.')
     setModal(false)
   }
 
@@ -412,8 +417,8 @@ export function Alunos() {
             <button className="btn btn-fantasma" onClick={() => setModal(false)}>
               Cancelar
             </button>
-            <button className="btn btn-primario" onClick={salvar}>
-              {editando ? 'Salvar' : 'Adicionar'}
+            <button className="btn btn-primario" onClick={salvar} disabled={salvando}>
+              {salvando ? 'Salvando…' : editando ? 'Salvar' : 'Adicionar'}
             </button>
           </>
         }
@@ -534,9 +539,11 @@ export function Alunos() {
             <button
               className="btn btn-primario"
               onClick={confirmarImportacao}
-              disabled={alunosImportados.length === 0 || !importar.turmaId}
+              disabled={alunosImportados.length === 0 || !importar.turmaId || importandoLote}
             >
-              Importar {alunosImportados.length > 0 ? `(${alunosImportados.length})` : ''}
+              {importandoLote
+                ? 'Importando…'
+                : `Importar ${alunosImportados.length > 0 ? `(${alunosImportados.length})` : ''}`}
             </button>
           </>
         }

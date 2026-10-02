@@ -69,6 +69,7 @@ export function Turmas() {
   const { notificar } = useToast()
   const { anoAtivo, somenteLeitura } = useAnoLetivo()
   const [modal, setModal] = useState(false)
+  const [salvando, setSalvando] = useState(false)
   const [editando, setEditando] = useState<Turma | null>(null)
   const [erroForm, setErroForm] = useState('')
   const [form, setForm] = useState(VAZIO)
@@ -180,7 +181,7 @@ export function Turmas() {
     }))
   }
 
-  function salvar() {
+  async function salvar() {
     if (!form.nome.trim()) {
       setErroForm('Informe o nome da turma.')
       return
@@ -205,13 +206,11 @@ export function Turmas() {
       anoSerieBncc: form.anoSerieBncc === '' ? null : form.anoSerieBncc,
       turno: form.turno || null,
     }
-    if (editando) {
-      atualizarTurma(editando.id, dados)
-      notificar('Turma atualizada.')
-    } else {
-      criarTurma(dados)
-      notificar('Turma criada.')
-    }
+    setSalvando(true)
+    const salvou = editando ? await atualizarTurma(editando.id, dados) : await criarTurma(dados)
+    setSalvando(false)
+    if (!salvou) return
+    notificar(editando ? 'Turma atualizada.' : 'Turma criada.')
     setModal(false)
   }
 
@@ -390,8 +389,8 @@ export function Turmas() {
             <button className="btn btn-fantasma" onClick={() => setModal(false)}>
               Cancelar
             </button>
-            <button className="btn btn-primario" onClick={salvar}>
-              {editando ? 'Salvar' : 'Criar turma'}
+            <button className="btn btn-primario" onClick={salvar} disabled={salvando}>
+              {salvando ? 'Salvando…' : editando ? 'Salvar' : 'Criar turma'}
             </button>
           </>
         }

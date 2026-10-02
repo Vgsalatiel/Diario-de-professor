@@ -32,6 +32,7 @@ export function Agenda() {
   const { anoAtivo } = useAnoLetivo()
   const [secao, setSecao] = useState<Secao>('eventos')
   const [modal, setModal] = useState(false)
+  const [salvando, setSalvando] = useState(false)
   const [editando, setEditando] = useState<Evento | null>(null)
   const [form, setForm] = useState(VAZIO)
   const [filtro, setFiltro] = useState<Filtro>('proximos')
@@ -119,7 +120,7 @@ export function Agenda() {
     setModal(true)
   }
 
-  function salvar() {
+  async function salvar() {
     if (!form.titulo.trim() || !form.data) return
     const dados = {
       titulo: form.titulo.trim(),
@@ -129,19 +130,23 @@ export function Agenda() {
       turmaId: form.turmaId || undefined,
       conteudo: form.conteudo.trim() || undefined,
     }
+    setSalvando(true)
+    let salvou: boolean
     if (editando) {
       // Prova/atividade criada no Plano de Aula guarda HTML formatado; aqui
       // o campo é texto puro. Se o texto não mudou, não reenvia, pra não
       // trocar o conteúdo formatado pela versão sem formatação.
       const conteudoInalterado = form.conteudo.trim() === htmlParaTexto(editando.conteudo ?? '')
-      atualizarEvento(editando.id, conteudoInalterado ? { ...dados, conteudo: undefined } : dados)
-      notificar('Evento atualizado.')
+      salvou = await atualizarEvento(editando.id, conteudoInalterado ? { ...dados, conteudo: undefined } : dados)
     } else {
-      criarEvento(dados).catch(() => {
-        // erro já notificado pelo DataContext
-      })
-      notificar('Evento adicionado.')
+      salvou = await criarEvento(dados).then(
+        () => true,
+        () => false, // erro já notificado pelo DataContext
+      )
     }
+    setSalvando(false)
+    if (!salvou) return
+    notificar(editando ? 'Evento atualizado.' : 'Evento adicionado.')
     setModal(false)
   }
 
@@ -149,14 +154,12 @@ export function Agenda() {
     if (confirm(`Excluir "${e.titulo}"?`)) removerEvento(e.id)
   }
 
-  function concluir(e: Evento) {
-    atualizarEvento(e.id, { concluido: true })
-    notificar('Evento marcado como concluído.')
+  async function concluir(e: Evento) {
+    if (await atualizarEvento(e.id, { concluido: true })) notificar('Evento marcado como concluído.')
   }
 
-  function reabrir(e: Evento) {
-    atualizarEvento(e.id, { concluido: false })
-    notificar('Evento reaberto.')
+  async function reabrir(e: Evento) {
+    if (await atualizarEvento(e.id, { concluido: false })) notificar('Evento reaberto.')
   }
 
   const nomeTurma = (id?: string) =>
@@ -384,8 +387,8 @@ export function Agenda() {
             <button className="btn btn-fantasma" onClick={() => setModal(false)}>
               Cancelar
             </button>
-            <button className="btn btn-primario" onClick={salvar}>
-              {editando ? 'Salvar' : 'Agendar'}
+            <button className="btn btn-primario" onClick={salvar} disabled={salvando}>
+              {salvando ? 'Salvando…' : editando ? 'Salvar' : 'Agendar'}
             </button>
           </>
         }

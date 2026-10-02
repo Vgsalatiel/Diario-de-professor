@@ -25,14 +25,22 @@ const formatarCampoNota = (v: number | null) => (v == null ? '' : String(v).repl
 // Campo de nota com o texto digitado guardado localmente: só vira número e
 // vai pro servidor ao sair do campo ou apertar Enter. Controlado direto
 // pelo número, "7," virava "7" na hora e não dava pra digitar 7,5.
+// Também usado na "Média p/ aprovação" (obrigatorio: vazio volta ao valor
+// salvo em vez de apagar).
 function CampoNota({
   valor,
   onSalvar,
   disabled,
+  obrigatorio = false,
+  className = 'input-nota',
+  placeholder = '—',
 }: {
   valor: number | null
   onSalvar: (valor: number | null) => void
   disabled: boolean
+  obrigatorio?: boolean
+  className?: string
+  placeholder?: string
 }) {
   const [texto, setTexto] = useState(() => formatarCampoNota(valor))
   const [focado, setFocado] = useState(false)
@@ -46,6 +54,10 @@ function CampoNota({
   function confirmar() {
     setFocado(false)
     const limpo = texto.trim()
+    if (limpo === '' && obrigatorio) {
+      setTexto(formatarCampoNota(valor))
+      return
+    }
     let novo: number | null = null
     if (limpo !== '') {
       const numero = Number(limpo.replace(',', '.'))
@@ -61,7 +73,7 @@ function CampoNota({
 
   return (
     <input
-      className="input-nota"
+      className={className}
       inputMode="decimal"
       value={texto}
       onFocus={() => setFocado(true)}
@@ -72,7 +84,7 @@ function CampoNota({
       onKeyDown={(e) => {
         if (e.key === 'Enter') e.currentTarget.blur()
       }}
-      placeholder="—"
+      placeholder={placeholder}
       disabled={disabled}
     />
   )
@@ -109,6 +121,7 @@ export function Notas() {
   )
   const [periodo, setPeriodo] = useState<Periodo>('1')
   const [modalAval, setModalAval] = useState(false)
+  const [salvandoAval, setSalvandoAval] = useState(false)
   const [novaAval, setNovaAval] = useState({ nome: '', peso: '1', periodo: '1' as Periodo })
   const [modalExportar, setModalExportar] = useState(false)
   const [exportPeriodo, setExportPeriodo] = useState<'atual' | 'todos'>('atual')
@@ -116,8 +129,10 @@ export function Notas() {
 
   // As turmas chegam da API de forma assíncrona — se a página monta antes
   // da primeira turma carregar, escolhe a turma inicial assim que chegar.
+  // Também troca de turma quando o ano letivo muda: a selecionada deixa de
+  // ser do ano ativo e a tela ficaria mostrando (e editando) a do ano anterior.
   useEffect(() => {
-    if (!turmaId && turmas.length > 0) {
+    if (turmas.length > 0 && !turmas.some((t) => t.id === turmaId && t.anoLetivo === anoAtivo)) {
       setTurmaId(turmaInicial(turmas.filter((t) => t.anoLetivo === anoAtivo)))
     }
   }, [turmas, turmaId, anoAtivo])
@@ -188,14 +203,17 @@ export function Notas() {
     setModalAval(true)
   }
 
-  function addAvaliacao() {
+  async function addAvaliacao() {
     if (!novaAval.nome.trim() || !turmaId) return
-    criarAvaliacao({
+    setSalvandoAval(true)
+    const salvou = await criarAvaliacao({
       turmaId,
       nome: novaAval.nome.trim(),
       peso: Number(novaAval.peso) || 1,
       periodo: novaAval.periodo,
     })
+    setSalvandoAval(false)
+    if (!salvou) return
     notificar('Avaliação adicionada.')
     setModalAval(false)
   }
@@ -342,19 +360,15 @@ export function Notas() {
 
                 <label className="campo-inline campo-estreito">
                   <span>Média p/ aprovação</span>
-                  <input
+                  <CampoNota
                     className="input-num"
-                    type="number"
-                    min={0}
-                    max={10}
-                    step={0.5}
-                    value={config.mediaAprovacao}
+                    valor={config.mediaAprovacao}
+                    obrigatorio
+                    placeholder=""
                     disabled={somenteLeitura}
-                    onChange={(e) =>
-                      atualizarConfig(turmaId, {
-                        mediaAprovacao: Number(e.target.value) || 0,
-                      })
-                    }
+                    onSalvar={(valor) => {
+                      if (valor != null) atualizarConfig(turmaId, { mediaAprovacao: valor })
+                    }}
                   />
                 </label>
               </>
@@ -506,8 +520,8 @@ export function Notas() {
             <button className="btn btn-fantasma" onClick={() => setModalAval(false)}>
               Cancelar
             </button>
-            <button className="btn btn-primario" onClick={addAvaliacao}>
-              Adicionar
+            <button className="btn btn-primario" onClick={addAvaliacao} disabled={salvandoAval}>
+              {salvandoAval ? 'Salvando…' : 'Adicionar'}
             </button>
           </>
         }

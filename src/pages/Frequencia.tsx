@@ -52,8 +52,10 @@ export function Frequencia() {
   // As turmas chegam da API de forma assíncrona — se a página monta antes
   // da primeira turma carregar, escolhe a turma (e um dia válido) assim
   // que a lista chegar.
+  // Também troca de turma quando o ano letivo muda: a selecionada deixa de
+  // ser do ano ativo e a tela ficaria mostrando (e editando) a do ano anterior.
   useEffect(() => {
-    if (!turmaId && turmas.length > 0) {
+    if (turmas.length > 0 && !turmas.some((t) => t.id === turmaId && t.anoLetivo === anoAtivo)) {
       const id = turmaInicial(turmas.filter((t) => t.anoLetivo === anoAtivo))
       const turma = turmas.find((t) => t.id === id)
       setTurmaId(id)

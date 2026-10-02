@@ -1386,3 +1386,19 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--line-forte);
 }
 :root[data-theme='dark'] .ql-snow .ql-picker.ql-expanded .ql-picker-label { border-color: var(--line-forte); }
+
+/* Tela de "conectando"/"sem conexão" ao abrir o app (ProtectedRoute). */
+.tela-conexao {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  text-align: center;
+  background: var(--paper);
+  color: var(--ink);
+}
+.tela-conexao p { margin: 0; }
+.tela-conexao .btn { margin-top: 8px; }

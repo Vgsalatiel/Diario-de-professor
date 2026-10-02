@@ -204,8 +204,10 @@ export function PlanoDeAulaPage() {
   // Sempre dentre as turmas do ano letivo ativo — turmaInicial(turmas) sem
   // filtrar deixava a pré-seleção (e o "Novo plano") mirando uma turma de
   // outro ano, que nem aparece nas opções visíveis.
+  // Também troca de turma quando o ano letivo muda: a selecionada deixa de
+  // ser do ano ativo e a tela ficaria mostrando (e editando) a do ano anterior.
   useEffect(() => {
-    if (!turmaFiltro && turmas.length > 0) {
+    if (turmas.length > 0 && !turmas.some((t) => t.id === turmaFiltro && t.anoLetivo === anoAtivo)) {
       setTurmaFiltro(turmaInicial(turmas.filter((t) => t.anoLetivo === anoAtivo)))
     }
   }, [turmas, turmaFiltro, anoAtivo])
@@ -603,9 +605,13 @@ export function PlanoDeAulaPage() {
     }
   }
 
-  function salvarConteudo() {
+  async function salvarConteudo() {
     if (!selecionado) return
-    atualizarPlanoDeAula(selecionado.id, { conteudo: conteudoAtual.trim() || undefined })
+    try {
+      await atualizarPlanoDeAula(selecionado.id, { conteudo: conteudoAtual.trim() || undefined })
+    } catch {
+      return // erro já notificado pelo DataContext; mantém o texto editado
+    }
     setConteudoEditado(null)
     notificar('Conteúdo salvo.')
   }

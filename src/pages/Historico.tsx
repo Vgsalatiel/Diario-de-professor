@@ -27,8 +27,10 @@ export function Historico() {
     turmaInicial(turmas.filter((t) => t.anoLetivo === anoAtivo)),
   )
 
+  // Também troca de turma quando o ano letivo muda: a selecionada deixa de
+  // ser do ano ativo e a tela ficaria mostrando (e editando) a do ano anterior.
   useEffect(() => {
-    if (!turmaId && turmas.length > 0) {
+    if (turmas.length > 0 && !turmas.some((t) => t.id === turmaId && t.anoLetivo === anoAtivo)) {
       setTurmaId(turmaInicial(turmas.filter((t) => t.anoLetivo === anoAtivo)))
     }
   }, [turmas, turmaId, anoAtivo])
