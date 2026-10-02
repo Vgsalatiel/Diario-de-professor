@@ -1,6 +1,6 @@
 import type { PlanoDeAula, Turma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
-import { planoDoProfessor, turmaAtribuidaAoProfessor } from '../../utils/ownership'
+import { planoDoProfessor, turmaAtribuidaAoProfessor, turmaDoProfessor } from '../../utils/ownership'
 import { paraDataISO } from '../../utils/serializers'
 import { AppError } from '../../utils/AppError'
 import * as bncc from '../../lib/bncc'
@@ -70,7 +70,7 @@ function validarCronograma(turma: Turma, disciplina: string | undefined, cronogr
 // Todos os planos de aula do professor, em todas as turmas em que dá aula.
 export async function listarTodos(professorId: string) {
   const planos = await prisma.planoDeAula.findMany({
-    where: { professorId, turma: { excluidoEm: null } },
+    where: { professorId, turma: turmaDoProfessor(professorId) },
     orderBy: { dataInicio: 'desc' },
   })
   return planos.map(serializar)

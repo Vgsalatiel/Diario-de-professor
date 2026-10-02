@@ -1,6 +1,6 @@
 import type { RegistroAula } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
-import { planoDoProfessor, turmaAtribuidaAoProfessor } from '../../utils/ownership'
+import { planoDoProfessor, turmaAtribuidaAoProfessor, turmaDoProfessor } from '../../utils/ownership'
 import { paraDataISO } from '../../utils/serializers'
 import { AppError } from '../../utils/AppError'
 import type { CronogramaItemDto } from '../planos/planos.dto'
@@ -15,7 +15,7 @@ function serializar(registro: RegistroAula) {
 // combinação turma + data.
 export async function listarTodos(professorId: string) {
   const registros = await prisma.registroAula.findMany({
-    where: { professorId, turma: { excluidoEm: null } },
+    where: { professorId, turma: turmaDoProfessor(professorId) },
   })
   return registros.map(serializar)
 }

@@ -1,11 +1,11 @@
 import { prisma } from '../../lib/prisma'
-import { alunoDoProfessor, eventoDoProfessor } from '../../utils/ownership'
+import { alunoDoProfessor, eventoDoProfessor, turmaDoProfessor } from '../../utils/ownership'
 
 // Todas as entregas do professor — o frontend cruza com os eventos
 // (prova/trabalho) igual faz hoje com o MapaDeFrequencia.
 export function listarEntregas(professorId: string) {
   return prisma.entrega.findMany({
-    where: { aluno: { excluidoEm: null }, evento: { professorId } },
+    where: { aluno: { excluidoEm: null }, evento: { professorId, turma: turmaDoProfessor(professorId) } },
   })
 }
 

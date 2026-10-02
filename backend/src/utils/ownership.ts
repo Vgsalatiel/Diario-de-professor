@@ -36,15 +36,34 @@ export async function alunoDoProfessor(alunoId: string, professorId: string) {
   return aluno
 }
 
+// Filtro de listagem equivalente: turma não excluída em que o professor
+// continua atribuído.
+export function turmaDoProfessor(professorId: string) {
+  return { excluidoEm: null, professores: { some: { professorId } } }
+}
+
+// Turma ainda ativa e com esse professor atribuído. Usado pelos registros
+// que guardam o próprio professorId (avaliação, data de aula, plano...):
+// ter criado o registro não basta, quem foi removido da turma pela
+// coordenação perde o acesso a ela (os dados ficam e voltam se ele for
+// atribuído de novo).
+function incluirAtribuicao(professorId: string) {
+  return { turma: { include: { professores: { where: { professorId } } } } }
+}
+
+function turmaAtiva(turma: { excluidoEm: Date | null; professores: unknown[] }) {
+  return !turma.excluidoEm && turma.professores.length > 0
+}
+
 export async function avaliacaoDoProfessor(avaliacaoId: string, professorId: string) {
   const avaliacao = await prisma.avaliacao.findUnique({
     where: { id: avaliacaoId },
-    include: { turma: true },
+    include: incluirAtribuicao(professorId),
   })
   if (
     !avaliacao ||
     avaliacao.professorId !== professorId ||
-    avaliacao.turma.excluidoEm
+    !turmaAtiva(avaliacao.turma)
   ) {
     throw AppError.naoEncontrado('Avaliação')
   }
@@ -54,12 +73,12 @@ export async function avaliacaoDoProfessor(avaliacaoId: string, professorId: str
 export async function dataAulaDoProfessor(dataAulaId: string, professorId: string) {
   const dataAula = await prisma.dataAula.findUnique({
     where: { id: dataAulaId },
-    include: { turma: true },
+    include: incluirAtribuicao(professorId),
   })
   if (
     !dataAula ||
     dataAula.professorId !== professorId ||
-    dataAula.turma.excluidoEm
+    !turmaAtiva(dataAula.turma)
   ) {
     throw AppError.naoEncontrado('Data de aula')
   }
@@ -69,30 +88,37 @@ export async function dataAulaDoProfessor(dataAulaId: string, professorId: strin
 export async function registroAulaDoProfessor(registroId: string, professorId: string) {
   const registro = await prisma.registroAula.findUnique({
     where: { id: registroId },
-    include: { turma: true },
+    include: incluirAtribuicao(professorId),
   })
   if (
     !registro ||
     registro.professorId !== professorId ||
-    registro.turma.excluidoEm
+    !turmaAtiva(registro.turma)
   ) {
     throw AppError.naoEncontrado('Registro de aula')
   }
   return registro
 }
 
+// Evento pessoal (sem turma) só exige ser do professor; evento de turma
+// exige também que ele continue atribuído a ela.
 export async function eventoDoProfessor(eventoId: string, professorId: string) {
-  const evento = await prisma.evento.findUnique({ where: { id: eventoId } })
-  if (!evento || evento.professorId !== professorId) throw AppError.naoEncontrado('Evento')
+  const evento = await prisma.evento.findUnique({
+    where: { id: eventoId },
+    include: incluirAtribuicao(professorId),
+  })
+  if (!evento || evento.professorId !== professorId || (evento.turma && !turmaAtiva(evento.turma))) {
+    throw AppError.naoEncontrado('Evento')
+  }
   return evento
 }
 
 export async function planoDoProfessor(planoId: string, professorId: string) {
   const plano = await prisma.planoDeAula.findUnique({
     where: { id: planoId },
-    include: { turma: { include: { professores: { where: { professorId } } } } },
+    include: incluirAtribuicao(professorId),
   })
-  if (!plano || plano.professorId !== professorId || plano.turma.excluidoEm) {
+  if (!plano || plano.professorId !== professorId || !turmaAtiva(plano.turma)) {
     throw AppError.naoEncontrado('Plano de aula')
   }
   return plano
@@ -101,9 +127,9 @@ export async function planoDoProfessor(planoId: string, professorId: string) {
 export async function configDoProfessor(configId: string, professorId: string) {
   const config = await prisma.configCalculo.findUnique({
     where: { id: configId },
-    include: { turma: true },
+    include: incluirAtribuicao(professorId),
   })
-  if (!config || config.professorId !== professorId || config.turma.excluidoEm) {
+  if (!config || config.professorId !== professorId || !turmaAtiva(config.turma)) {
     throw AppError.naoEncontrado('Configuração de cálculo')
   }
   return config

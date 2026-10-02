@@ -1,12 +1,12 @@
 import { prisma } from '../../lib/prisma'
-import { alunoDoProfessor, avaliacaoDoProfessor } from '../../utils/ownership'
+import { alunoDoProfessor, avaliacaoDoProfessor, turmaDoProfessor } from '../../utils/ownership'
 import type { DefinirNotaDto } from './notas.dto'
 
 // Todas as notas de todos os alunos do professor — o frontend monta o
 // "mapa" (aluno::avaliação -> valor/conceito) a partir dessa lista.
 export function listarTodas(professorId: string) {
   return prisma.nota.findMany({
-    where: { aluno: { excluidoEm: null }, avaliacao: { professorId } },
+    where: { aluno: { excluidoEm: null }, avaliacao: { professorId, turma: turmaDoProfessor(professorId) } },
   })
 }
 

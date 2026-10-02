@@ -51,6 +51,8 @@ export function feriadosNacionais(ano: number): FeriadoCalculado[] {
     { data: `${ano}-10-12`, titulo: 'Nossa Senhora Aparecida' },
     { data: `${ano}-11-02`, titulo: 'Finados' },
     { data: `${ano}-11-15`, titulo: 'Proclamação da República' },
+    // Feriado nacional desde 2024 (Lei 14.759/2023).
+    ...(ano >= 2024 ? [{ data: `${ano}-11-20`, titulo: 'Dia Nacional de Zumbi e da Consciência Negra' }] : []),
     { data: `${ano}-12-25`, titulo: 'Natal' },
   ]
 }

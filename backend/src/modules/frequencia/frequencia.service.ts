@@ -1,6 +1,6 @@
 import type { DataAula } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
-import { alunoDoProfessor, dataAulaDoProfessor, turmaAtribuidaAoProfessor } from '../../utils/ownership'
+import { alunoDoProfessor, dataAulaDoProfessor, turmaAtribuidaAoProfessor, turmaDoProfessor } from '../../utils/ownership'
 import { paraDataISO } from '../../utils/serializers'
 import type { GarantirDataAulaDto } from './frequencia.dto'
 
@@ -12,14 +12,14 @@ function serializarDataAula(dataAula: DataAula) {
 // presença e falta em cima dessas listas planas.
 export async function listarDatasAula(professorId: string) {
   const datas = await prisma.dataAula.findMany({
-    where: { professorId, turma: { excluidoEm: null } },
+    where: { professorId, turma: turmaDoProfessor(professorId) },
   })
   return datas.map(serializarDataAula)
 }
 
 export function listarFrequencia(professorId: string) {
   return prisma.frequencia.findMany({
-    where: { aluno: { excluidoEm: null }, dataAula: { professorId } },
+    where: { aluno: { excluidoEm: null }, dataAula: { professorId, turma: turmaDoProfessor(professorId) } },
   })
 }
 

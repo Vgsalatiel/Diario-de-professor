@@ -101,7 +101,9 @@ function idsDosPares(pares: Set<string>): Set<string> {
 
 // Pares sem registro da aula de ontem: a turma tinha aula prevista ontem
 // (pelo dia da semana) e esse professor especificamente não registrou o
-// resumo (RegistroAula já é por turma+professor+data).
+// resumo (RegistroAula já é por turma+professor+data). Não conta como
+// pendência se ontem era feriado cadastrado por esse professor ou se ele
+// marcou o dia como "sem aula" nessa turma.
 async function paresSemRegistroOntem(anoAtual: string): Promise<Set<string>> {
   const hoje = hojeNoBrasil()
   const ontem = diaAnterior(hoje)
@@ -115,30 +117,53 @@ async function paresSemRegistroOntem(anoAtual: string): Promise<Set<string>> {
   if (turmasComAulaOntem.length === 0) return new Set()
 
   const idsComAulaOntem = turmasComAulaOntem.map((t) => t.id)
-  const registrosOntem = await prisma.registroAula.findMany({
-    where: { turmaId: { in: idsComAulaOntem }, data: new Date(`${ontem}T00:00:00.000Z`) },
-    select: { turmaId: true, professorId: true },
-  })
+  const dataOntem = new Date(`${ontem}T00:00:00.000Z`)
+  const [registrosOntem, diasSemAula, feriadosManuais] = await Promise.all([
+    prisma.registroAula.findMany({
+      where: { turmaId: { in: idsComAulaOntem }, data: dataOntem },
+      select: { turmaId: true, professorId: true },
+    }),
+    prisma.dataAula.findMany({
+      where: { turmaId: { in: idsComAulaOntem }, data: dataOntem, semAula: true },
+      select: { turmaId: true, professorId: true },
+    }),
+    prisma.feriado.findMany({ where: { data: dataOntem }, select: { professorId: true } }),
+  ])
   const comRegistro = new Set(registrosOntem.map((r) => `${r.turmaId}:${r.professorId}`))
+  const semAula = new Set(diasSemAula.map((d) => `${d.turmaId}:${d.professorId}`))
+  const professoresDeFolga = new Set(feriadosManuais.map((f) => f.professorId))
 
   const semRegistro = new Set<string>()
   for (const t of turmasComAulaOntem) {
     for (const p of t.professores) {
       const chave = `${t.id}:${p.professorId}`
-      if (!comRegistro.has(chave)) semRegistro.add(chave)
+      if (comRegistro.has(chave) || semAula.has(chave) || professoresDeFolga.has(p.professorId)) continue
+      semRegistro.add(chave)
     }
   }
   return semRegistro
 }
 
-// Pares com alguma avaliação sem nenhuma nota lançada — Avaliacao já
-// carrega professorId direto, então nem precisa passar por TurmaProfessor.
+// Pares com alguma avaliação sem nenhuma nota lançada (nem número nem
+// conceito). Só conta quem ainda está atribuído à turma: avaliação deixada
+// por um professor que saiu não deixa a turma pendente pra sempre.
 async function paresComAvaliacaoPendente(): Promise<Set<string>> {
   const avaliacoes = await prisma.avaliacao.findMany({
-    where: { turma: { excluidoEm: null }, notas: { none: { valor: { not: null } } } },
-    select: { turmaId: true, professorId: true },
+    where: {
+      turma: { excluidoEm: null },
+      notas: { none: { OR: [{ valor: { not: null } }, { conceito: { not: null } }] } },
+    },
+    select: {
+      turmaId: true,
+      professorId: true,
+      turma: { select: { professores: { select: { professorId: true } } } },
+    },
   })
-  return new Set(avaliacoes.map((a) => `${a.turmaId}:${a.professorId}`))
+  return new Set(
+    avaliacoes
+      .filter((a) => a.turma.professores.some((p) => p.professorId === a.professorId))
+      .map((a) => `${a.turmaId}:${a.professorId}`),
+  )
 }
 
 // Pares com o resumo da aula de hoje já registrado.

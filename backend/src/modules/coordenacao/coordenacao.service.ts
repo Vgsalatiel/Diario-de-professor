@@ -187,7 +187,7 @@ export async function detalharProfessor(professorId: string) {
               registrosAula: { where: { professorId }, select: { data: true } },
               avaliacoes: {
                 where: { professorId },
-                select: { id: true, notas: { select: { valor: true } } },
+                select: { id: true, notas: { select: { valor: true, conceito: true } } },
               },
             },
           },
@@ -224,7 +224,9 @@ export async function detalharProfessor(professorId: string) {
     if (semFrequencia > 0) pendencias.push(`${semFrequencia} chamada(s) sem frequência lançada em ${t.nome}`)
 
     avaliacoesTotal += t.avaliacoes.length
-    const avaliacoesComNotaNaTurma = t.avaliacoes.filter((a) => a.notas.some((n) => n.valor != null)).length
+    const avaliacoesComNotaNaTurma = t.avaliacoes.filter((a) =>
+      a.notas.some((n) => n.valor != null || n.conceito != null),
+    ).length
     avaliacoesComNota += avaliacoesComNotaNaTurma
     const semNota = t.avaliacoes.length - avaliacoesComNotaNaTurma
     if (semNota > 0) pendencias.push(`${semNota} avaliação(ões) sem nenhuma nota lançada em ${t.nome}`)
