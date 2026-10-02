@@ -2,6 +2,8 @@ import type { Turma, TurmaProfessor } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { paraDataISO } from '../../utils/serializers'
 import { turmaAtribuidaAoProfessor } from '../../utils/ownership'
+import { AppError } from '../../utils/AppError'
+import { proximaEtapaBncc } from '../../lib/progressaoBncc'
 import type { AtualizarConfigDto, AtualizarTurmaDto, CriarTurmaDto, PromoverTurmaDto } from './turmas.dto'
 
 const CONFIG_PADRAO = { modelo: 'simples' as const, mediaAprovacao: 6, tipoAvaliacao: 'nota' as const }
@@ -110,7 +112,7 @@ export async function remover(turmaId: string, professorId: string) {
 }
 
 // Cria a turma do ano seguinte a partir de uma turma existente, copiando
-// escola/sistema/cor/dias e levando só os alunos ativos — a turma antiga
+// escola/sistema/cor/dias/turno, avançando o ano BNCC e levando só os alunos ativos — a turma antiga
 // não é alterada, continua intacta como histórico daquele ano.
 export async function promover(turmaId: string, professorId: string, dados: PromoverTurmaDto) {
   const turmaAtual = await turmaAtribuidaAoProfessor(turmaId, professorId)
@@ -118,11 +120,25 @@ export async function promover(turmaId: string, professorId: string, dados: Prom
     where: { turmaId_professorId: { turmaId, professorId } },
   })
 
-  const alunosAtivos = await prisma.aluno.findMany({
-    where: { turmaId, excluidoEm: null, situacao: 'ativo' },
-  })
-
   return prisma.$transaction(async (tx) => {
+    // Clique duplo (ou repetir a promoção) criava uma segunda turma igual.
+    const jaExiste = await tx.turma.findFirst({
+      where: {
+        nome: dados.nome,
+        anoLetivo: dados.anoLetivo,
+        excluidoEm: null,
+        professores: { some: { professorId } },
+      },
+      select: { id: true },
+    })
+    if (jaExiste) {
+      throw AppError.conflito(`Já existe a turma "${dados.nome}" em ${dados.anoLetivo}.`)
+    }
+
+    const alunosAtivos = await tx.aluno.findMany({
+      where: { turmaId, excluidoEm: null, situacao: 'ativo' },
+    })
+
     const novaTurma = await tx.turma.create({
       data: {
         nome: dados.nome,
@@ -132,6 +148,8 @@ export async function promover(turmaId: string, professorId: string, dados: Prom
         sistemaPeriodo: turmaAtual.sistemaPeriodo,
         cor: turmaAtual.cor,
         diasAula: turmaAtual.diasAula,
+        turno: turmaAtual.turno,
+        ...proximaEtapaBncc(turmaAtual.etapaBncc, turmaAtual.anoSerieBncc),
         professores: { create: { professorId, disciplina: atribuicaoAtual.disciplina } },
         configs: { create: { professorId, ...CONFIG_PADRAO } },
       },
