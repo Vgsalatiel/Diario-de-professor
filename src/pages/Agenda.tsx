@@ -126,9 +126,11 @@ export function Agenda() {
       titulo: form.titulo.trim(),
       tipo: form.tipo,
       data: form.data,
-      hora: form.hora || undefined,
-      turmaId: form.turmaId || undefined,
-      conteudo: form.conteudo.trim() || undefined,
+      // Vazio vai como "" (o backend entende como "apagar"), pra dar pra
+      // tirar o horário, a turma ou o conteúdo de um evento já salvo.
+      hora: form.hora,
+      turmaId: form.turmaId,
+      conteudo: form.conteudo.trim(),
     }
     setSalvando(true)
     let salvou: boolean

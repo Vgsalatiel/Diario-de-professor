@@ -2,6 +2,7 @@ import type { Evento } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { eventoDoProfessor, planoDoProfessor, turmaAtribuidaAoProfessor, turmaDoProfessor } from '../../utils/ownership'
 import { paraDataISO } from '../../utils/serializers'
+import { AppError } from '../../utils/AppError'
 import type { AtualizarEventoDto, CriarEventoDto } from './eventos.dto'
 
 function serializar(evento: Evento) {
@@ -17,15 +18,26 @@ export async function listarTodos(professorId: string) {
   return eventos.map(serializar)
 }
 
+// Prova/atividade ligada a um plano de aula tem que ser da mesma turma
+// do plano — senão apareceria nas Notas/Agenda de uma turma e no plano
+// de outra.
+async function conferirPlano(planoId: string | null | undefined, turmaId: string | null | undefined, professorId: string) {
+  if (!planoId) return
+  const plano = await planoDoProfessor(planoId, professorId)
+  if (plano.turmaId !== turmaId) {
+    throw AppError.requisicaoInvalida('Esse evento está ligado a um plano de aula de outra turma.')
+  }
+}
+
 export async function criar(professorId: string, dados: CriarEventoDto) {
   if (dados.turmaId) await turmaAtribuidaAoProfessor(dados.turmaId, professorId)
-  if (dados.planoId) await planoDoProfessor(dados.planoId, professorId)
+  await conferirPlano(dados.planoId, dados.turmaId, professorId)
 
   const evento = await prisma.evento.create({
     data: {
       ...dados,
       data: new Date(dados.data),
-      prazo: dados.prazo ? new Date(dados.prazo) : undefined,
+      prazo: dados.prazo ? new Date(dados.prazo) : null,
       professorId,
     },
   })
@@ -33,17 +45,30 @@ export async function criar(professorId: string, dados: CriarEventoDto) {
 }
 
 export async function atualizar(eventoId: string, professorId: string, dados: AtualizarEventoDto) {
-  await eventoDoProfessor(eventoId, professorId)
+  const atual = await eventoDoProfessor(eventoId, professorId)
+  const turmaFinal = dados.turmaId !== undefined ? dados.turmaId : atual.turmaId
+  const planoFinal = dados.planoId !== undefined ? dados.planoId : atual.planoId
   if (dados.turmaId) await turmaAtribuidaAoProfessor(dados.turmaId, professorId)
-  if (dados.planoId) await planoDoProfessor(dados.planoId, professorId)
+  if (dados.turmaId !== undefined || dados.planoId !== undefined) {
+    await conferirPlano(planoFinal, turmaFinal, professorId)
+  }
 
-  const evento = await prisma.evento.update({
-    where: { id: eventoId },
-    data: {
-      ...dados,
-      data: dados.data ? new Date(dados.data) : undefined,
-      prazo: dados.prazo ? new Date(dados.prazo) : undefined,
-    },
+  const evento = await prisma.$transaction(async (tx) => {
+    // Trocou (ou tirou) a turma: as entregas dos alunos da turma antiga
+    // não fazem mais sentido nesse evento.
+    if (turmaFinal !== atual.turmaId) {
+      await tx.entrega.deleteMany({
+        where: { eventoId, ...(turmaFinal ? { aluno: { turmaId: { not: turmaFinal } } } : {}) },
+      })
+    }
+    return tx.evento.update({
+      where: { id: eventoId },
+      data: {
+        ...dados,
+        data: dados.data ? new Date(dados.data) : undefined,
+        prazo: dados.prazo === undefined ? undefined : dados.prazo ? new Date(dados.prazo) : null,
+      },
+    })
   })
   return serializar(evento)
 }

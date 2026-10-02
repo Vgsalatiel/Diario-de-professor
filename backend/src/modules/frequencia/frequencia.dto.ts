@@ -1,9 +1,10 @@
 import { z } from 'zod'
+import { dataISO } from '../../utils/validators'
 
 export const periodoEnum = z.enum(['1', '2', '3', '4'])
 
 export const garantirDataAulaDto = z.object({
-  data: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida.'),
+  data: dataISO('Data inválida.'),
   periodo: periodoEnum,
 })
 export type GarantirDataAulaDto = z.infer<typeof garantirDataAulaDto>

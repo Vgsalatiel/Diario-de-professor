@@ -2,7 +2,7 @@ import { randomBytes, createHash } from 'node:crypto'
 import type { Professor } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { hashSenha, compararSenha } from '../../lib/hash'
-import { gerarToken } from '../../lib/jwt'
+import { gerarTokenDoProfessor } from '../../lib/jwt'
 import { enviarEmailRedefinicaoSenha, enviarEmailVerificacao } from '../../lib/email'
 import { AppError } from '../../utils/AppError'
 import type {
@@ -62,7 +62,7 @@ export async function cadastrar(dados: CadastroDto) {
   // Não trava o cadastro se o envio falhar — o professor pode pedir reenvio depois.
   await dispararVerificacao(professor.id, professor.email).catch(() => {})
 
-  return { token: gerarToken({ professorId: professor.id }), professor: semSenha(professor) }
+  return { token: gerarTokenDoProfessor(professor), professor: semSenha(professor) }
 }
 
 export async function login(dados: LoginDto) {
@@ -73,7 +73,7 @@ export async function login(dados: LoginDto) {
     throw AppError.naoAutorizado('E-mail ou senha incorretos.')
   }
 
-  return { token: gerarToken({ professorId: professor.id }), professor: semSenha(professor) }
+  return { token: gerarTokenDoProfessor(professor), professor: semSenha(professor) }
 }
 
 export async function esqueciSenha(dados: EsqueciSenhaDto) {
@@ -143,6 +143,19 @@ export async function atualizarPerfil(professorId: string, dados: AtualizarPerfi
   const atual = await prisma.professor.findUnique({ where: { id: professorId } })
   if (!atual) throw AppError.naoEncontrado('Professor')
 
+  // Trocar e-mail ou senha exige a senha atual: com o app aberto num
+  // aparelho de outra pessoa, dava pra tomar a conta de vez (o "esqueci
+  // a senha" passaria a ir pro e-mail novo).
+  const trocandoEmail = dados.email != null && dados.email !== atual.email
+  if (trocandoEmail || dados.senha) {
+    const senhaOk = dados.senhaAtual ? await compararSenha(dados.senhaAtual, atual.senha) : false
+    if (!senhaOk) {
+      throw AppError.requisicaoInvalida(
+        dados.senhaAtual ? 'Senha atual incorreta.' : 'Informe sua senha atual para trocar o e-mail ou a senha.',
+      )
+    }
+  }
+
   if (dados.email) {
     const emEmUso = await prisma.professor.findUnique({ where: { email: dados.email } })
     if (emEmUso && emEmUso.id !== professorId) {
@@ -154,13 +167,16 @@ export async function atualizarPerfil(professorId: string, dados: AtualizarPerfi
   // fica marcado como "verificado" sem nunca ter provado que é dele.
   const trocouEmail = dados.email != null && dados.email !== atual.email
 
+  const { senhaAtual: _senhaAtual, ...campos } = dados
   const senha = dados.senha ? await hashSenha(dados.senha) : undefined
   const professor = await prisma.professor.update({
     where: { id: professorId },
-    data: { ...dados, senha, emailVerificado: trocouEmail ? false : undefined },
+    data: { ...campos, senha, emailVerificado: trocouEmail ? false : undefined },
   })
 
   if (trocouEmail) await dispararVerificacao(professor.id, professor.email).catch(() => {})
 
-  return semSenha(professor)
+  // Senha nova derruba os tokens antigos (ver autenticar) — quem trocou
+  // recebe um novo pra continuar logado neste aparelho.
+  return { ...semSenha(professor), ...(senha ? { token: gerarTokenDoProfessor(professor) } : {}) }
 }

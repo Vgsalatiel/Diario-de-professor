@@ -33,6 +33,9 @@ export async function definir(
 
   if (dados.planoId) {
     const plano = await planoDoProfessor(dados.planoId, professorId)
+    if (plano.turmaId !== turmaId) {
+      throw AppError.requisicaoInvalida('Esse plano de aula é de outra turma.')
+    }
 
     // O professor confirma manualmente qual aula do cronograma foi essa
     // (a tela já sugere pela data, mas nunca salva sozinho) — o número

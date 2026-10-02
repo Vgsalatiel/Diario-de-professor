@@ -76,7 +76,18 @@ export async function listarTodos(professorId: string) {
   return planos.map(serializar)
 }
 
+function conferirPeriodo(dataInicio: string, dataFim: string) {
+  if (dataFim < dataInicio) {
+    throw AppError.requisicaoInvalida('A data de término não pode ser antes da data de início.')
+  }
+}
+
+// Limite do assistente de IA: o cálculo de dias de aula anda dia a dia e
+// cada geração vai pro Gemini — um ano letivo cobre qualquer uso real.
+const MAX_DIAS_PLANO_IA = 366
+
 export async function criar(turmaId: string, professorId: string, dados: CriarPlanoDto) {
+  conferirPeriodo(dados.dataInicio, dados.dataFim)
   const turma = await turmaAtribuidaAoProfessor(turmaId, professorId)
   const disciplina = turma.professores[0]?.disciplina
   if (dados.cronograma) validarCronograma(turma, disciplina, dados.cronograma)
@@ -96,6 +107,7 @@ export async function criar(turmaId: string, professorId: string, dados: CriarPl
 
 export async function atualizar(planoId: string, professorId: string, dados: AtualizarPlanoDto) {
   const plano0 = await planoDoProfessor(planoId, professorId)
+  conferirPeriodo(dados.dataInicio ?? paraDataISO(plano0.dataInicio)!, dados.dataFim ?? paraDataISO(plano0.dataFim)!)
   if (dados.cronograma) {
     validarCronograma(plano0.turma, plano0.turma.professores[0]?.disciplina, dados.cronograma)
   }
@@ -134,8 +146,10 @@ export async function gerarComIA(turmaId: string, professorId: string, dados: Ge
       'Defina a disciplina, a etapa e o ano (BNCC) desta turma antes de usar o assistente de IA.',
     )
   }
-  if (dados.dataFim < dados.dataInicio) {
-    throw AppError.requisicaoInvalida('A data de término não pode ser antes da data de início.')
+  conferirPeriodo(dados.dataInicio, dados.dataFim)
+  const dias = (Date.parse(dados.dataFim) - Date.parse(dados.dataInicio)) / 86_400_000
+  if (dias > MAX_DIAS_PLANO_IA) {
+    throw AppError.requisicaoInvalida('O período do plano gerado por IA pode ter no máximo 1 ano.')
   }
 
   const habilidadesCandidatas = bncc.listarHabilidades({

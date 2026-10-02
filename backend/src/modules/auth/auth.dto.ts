@@ -42,5 +42,7 @@ export const atualizarPerfilDto = z.object({
   materias: materiasSchema.optional(),
   fotoUrl: z.string().optional(),
   senha: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres.').optional(),
+  // Obrigatória só quando troca o e-mail ou a senha.
+  senhaAtual: z.string().optional(),
 })
 export type AtualizarPerfilDto = z.infer<typeof atualizarPerfilDto>

@@ -34,6 +34,21 @@ export function errorHandler(
       res.status(404).json({ erro: 'Registro não encontrado.' })
       return
     }
+    if (err.code === 'P2003') {
+      res.status(400).json({ erro: 'Referência inválida: o registro ligado a esse dado não existe.' })
+      return
+    }
+  }
+
+  // Erros do express.json(): corpo que não é JSON válido ou grande demais.
+  const tipo = (err as { type?: string } | null)?.type
+  if (tipo === 'entity.parse.failed') {
+    res.status(400).json({ erro: 'Dados enviados em formato inválido.' })
+    return
+  }
+  if (tipo === 'entity.too.large') {
+    res.status(413).json({ erro: 'Os dados enviados são grandes demais.' })
+    return
   }
 
   console.error(err)

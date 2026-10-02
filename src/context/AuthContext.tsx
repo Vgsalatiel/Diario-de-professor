@@ -22,6 +22,7 @@ interface DadosAtualizacao {
   materias?: string[]
   fotoUrl?: string
   senha?: string
+  senhaAtual?: string
 }
 
 interface Resultado {
@@ -144,7 +145,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       atualizarPerfil: async (dados) => {
         try {
-          const atualizada = await api.patch<Professora>('/auth/perfil', dados)
+          // Com senha nova, o backend devolve também um token novo (os
+          // antigos deixam de valer).
+          const { token, ...atualizada } = await api.patch<Professora & { token?: string }>(
+            '/auth/perfil',
+            dados,
+          )
+          if (token) definirToken(token)
           setProfessora(atualizada)
           return { ok: true }
         } catch (erro) {

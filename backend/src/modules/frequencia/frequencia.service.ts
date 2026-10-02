@@ -1,5 +1,6 @@
 import type { DataAula } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
+import { AppError } from '../../utils/AppError'
 import { alunoDoProfessor, dataAulaDoProfessor, turmaAtribuidaAoProfessor, turmaDoProfessor } from '../../utils/ownership'
 import { paraDataISO } from '../../utils/serializers'
 import type { GarantirDataAulaDto } from './frequencia.dto'
@@ -75,8 +76,11 @@ export async function definirPresenca(
   professorId: string,
   presente: boolean | null,
 ) {
-  await alunoDoProfessor(alunoId, professorId)
-  await dataAulaDoProfessor(dataAulaId, professorId)
+  const aluno = await alunoDoProfessor(alunoId, professorId)
+  const dataAula = await dataAulaDoProfessor(dataAulaId, professorId)
+  if (aluno.turmaId !== dataAula.turmaId) {
+    throw AppError.requisicaoInvalida('Esse aluno não é da turma dessa aula.')
+  }
 
   return prisma.frequencia.upsert({
     where: { alunoId_dataAulaId: { alunoId, dataAulaId } },

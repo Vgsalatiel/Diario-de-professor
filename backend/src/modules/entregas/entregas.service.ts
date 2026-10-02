@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma'
+import { AppError } from '../../utils/AppError'
 import { alunoDoProfessor, eventoDoProfessor, turmaDoProfessor } from '../../utils/ownership'
 
 // Todas as entregas do professor — o frontend cruza com os eventos
@@ -15,8 +16,11 @@ export async function definirEntrega(
   professorId: string,
   status: 'pendente' | 'feito' | 'naoEntregou',
 ) {
-  await alunoDoProfessor(alunoId, professorId)
-  await eventoDoProfessor(eventoId, professorId)
+  const aluno = await alunoDoProfessor(alunoId, professorId)
+  const evento = await eventoDoProfessor(eventoId, professorId)
+  if (aluno.turmaId !== evento.turmaId) {
+    throw AppError.requisicaoInvalida('Esse aluno não é da turma desse evento.')
+  }
 
   return prisma.entrega.upsert({
     where: { alunoId_eventoId: { alunoId, eventoId } },

@@ -38,15 +38,30 @@ export const limitadorRegistro = rateLimit({
   message: { erro: 'Muitos cadastros em pouco tempo. Aguarde um pouco e tente de novo.' },
 })
 
-// Geração de exercícios por IA: cada chamada custa dinheiro de verdade no
-// provedor (Gemini) — limite por IP evita uma conta gerando centenas em loop.
-export const limitadorIA = rateLimit({
+// Rotas de IA ficam depois de autenticar: conta por professor, não por IP
+// — professores na mesma rede (Wi-Fi da escola) não dividem a cota.
+function chaveDoProfessor(req: Request): string {
+  return req.professorId ? `professor:${req.professorId}` : chaveDoCliente(req)
+}
+
+// Cada chamada ao Gemini custa cota/dinheiro de verdade — o limite evita
+// uma conta gerando centenas em loop.
+export const limitadorExerciciosIA = rateLimit({
   windowMs: 60 * 60 * 1000,
   limit: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: chaveDoCliente,
+  keyGenerator: chaveDoProfessor,
   message: { erro: 'Muitas gerações de exercícios em pouco tempo. Aguarde um pouco.' },
+})
+
+export const limitadorPlanoIA = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: chaveDoProfessor,
+  message: { erro: 'Muitos planos gerados por IA em pouco tempo. Aguarde um pouco.' },
 })
 
 // Esqueci senha: limite mais apertado — cada tentativa dispara um e-mail

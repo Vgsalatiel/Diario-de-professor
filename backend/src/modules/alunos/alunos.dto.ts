@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { nomeSchema } from '../../utils/validators'
+import { nomeSchema, dataISO } from '../../utils/validators'
 
 export const situacaoMatriculaEnum = z.enum(['ativo', 'inativo', 'transferido'])
 
@@ -8,11 +8,7 @@ export const criarAlunoDto = z.object({
   email: z.string().trim().email('E-mail inválido.').optional(),
   telefonePais: z.string().trim().optional(),
   matricula: z.string().trim().optional(),
-  dataNascimento: z
-    .string()
-    .trim()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data de nascimento inválida.')
-    .optional(),
+  dataNascimento: dataISO('Data de nascimento inválida.').optional(),
   situacao: situacaoMatriculaEnum.optional().default('ativo'),
   dificuldades: z.string().trim().max(2000, 'Máximo de 2000 caracteres.').optional(),
 })
@@ -32,10 +28,6 @@ export const gerarExerciciosDto = z.object({
   dificuldade: z.string().trim().max(2000).optional(),
   quantidade: z.number().int().min(1).max(10).default(5),
   nomeProva: z.string().trim().max(200, 'Máximo de 200 caracteres.').optional(),
-  dataProva: z
-    .string()
-    .trim()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data da prova inválida.')
-    .optional(),
+  dataProva: dataISO('Data da prova inválida.').optional(),
 })
 export type GerarExerciciosDto = z.infer<typeof gerarExerciciosDto>

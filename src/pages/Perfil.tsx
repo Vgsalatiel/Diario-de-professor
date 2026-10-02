@@ -17,6 +17,9 @@ export function Perfil() {
   const [salvo, setSalvo] = useState(false)
   const [erro, setErro] = useState('')
   const [salvando, setSalvando] = useState(false)
+  const [senhaAtual, setSenhaAtual] = useState('')
+  // Trocar o e-mail exige a senha atual (o backend confere).
+  const trocandoEmail = form.email.trim().toLowerCase() !== professora.email.toLowerCase()
   const fileRef = useRef<HTMLInputElement>(null)
 
   function set<K extends keyof typeof form>(campo: K, valor: string) {
@@ -42,12 +45,23 @@ export function Perfil() {
       setSalvo(false)
       return
     }
+    if (trocandoEmail && !senhaAtual) {
+      setErro('Informe sua senha atual para trocar o e-mail.')
+      setSalvo(false)
+      return
+    }
     setErro('')
     setSalvando(true)
-    const r = await atualizarPerfil({ ...form, nome: normalizarNome(form.nome), materias })
+    const r = await atualizarPerfil({
+      ...form,
+      nome: normalizarNome(form.nome),
+      materias,
+      ...(trocandoEmail ? { senhaAtual } : {}),
+    })
     setSalvando(false)
     if (r.ok) {
       setSalvo(true)
+      setSenhaAtual('')
     } else {
       setErro(r.erro ?? 'Não foi possível salvar as alterações.')
     }
@@ -127,6 +141,20 @@ export function Perfil() {
                 onChange={(e) => set('email', e.target.value)}
               />
             </label>
+            {trocandoEmail && (
+              <label className="campo campo-largo">
+                <span>Senha atual (para confirmar a troca de e-mail)</span>
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  value={senhaAtual}
+                  onChange={(e) => {
+                    setSenhaAtual(e.target.value)
+                    setSalvo(false)
+                  }}
+                />
+              </label>
+            )}
           </div>
 
           {erro && <div className="alerta-erro">{erro}</div>}

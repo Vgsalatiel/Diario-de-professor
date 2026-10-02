@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma'
+import { AppError } from '../../utils/AppError'
 import { alunoDoProfessor, avaliacaoDoProfessor, turmaDoProfessor } from '../../utils/ownership'
 import type { DefinirNotaDto } from './notas.dto'
 
@@ -16,11 +17,27 @@ export async function definir(
   professorId: string,
   dados: DefinirNotaDto,
 ) {
-  await alunoDoProfessor(alunoId, professorId)
-  await avaliacaoDoProfessor(avaliacaoId, professorId)
+  const aluno = await alunoDoProfessor(alunoId, professorId)
+  const avaliacao = await avaliacaoDoProfessor(avaliacaoId, professorId)
+  if (aluno.turmaId !== avaliacao.turmaId) {
+    throw AppError.requisicaoInvalida('Esse aluno não é da turma dessa avaliação.')
+  }
 
-  // Só grava o campo que veio na requisição — o frontend manda "valor" ou
-  // "conceito", nunca os dois, conforme o tipo de avaliação da turma.
+  // Turma por conceito só aceita conceito, e por nota só aceita número —
+  // senão as duas coisas se misturam na mesma avaliação.
+  const config = await prisma.configCalculo.findUnique({
+    where: { turmaId_professorId: { turmaId: avaliacao.turmaId, professorId } },
+    select: { tipoAvaliacao: true },
+  })
+  const tipo = config?.tipoAvaliacao ?? 'nota'
+  if (tipo === 'nota' && dados.conceito !== undefined) {
+    throw AppError.requisicaoInvalida('Essa turma usa nota numérica, não conceito.')
+  }
+  if (tipo === 'conceito' && dados.valor !== undefined) {
+    throw AppError.requisicaoInvalida('Essa turma usa conceito, não nota numérica.')
+  }
+
+  // Só grava o campo que veio na requisição.
   const data: { valor?: number | null; conceito?: string | null } = {}
   if (dados.valor !== undefined) data.valor = dados.valor
   if (dados.conceito !== undefined) data.conceito = dados.conceito
