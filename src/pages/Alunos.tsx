@@ -371,10 +371,9 @@ export function Alunos() {
                       <td className="col-turma" data-label="Turma">
                         <span
                           className="badge-turma"
-                          style={{
-                            color: corTurma(a.turmaId),
-                            borderColor: corTurma(a.turmaId),
-                          }}
+                          // A cor da turma fica só na borda: como cor de texto,
+                          // várias cores do seletor somem no fundo.
+                          style={{ borderColor: corTurma(a.turmaId) }}
                         >
                           {nomeTurma(a.turmaId)}
                         </span>

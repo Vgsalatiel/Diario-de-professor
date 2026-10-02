@@ -34,6 +34,8 @@
   --linha-hover: #fbfcfe;
   --verde-texto: #1f7a52;
   --vermelho-texto: #a23a3a;
+  /* Âmbar como cor de texto: o --amber puro some no fundo branco. */
+  --amber-texto: #a8690f;
 }
 
 /* ============================================================
@@ -65,6 +67,7 @@
   --linha-hover: #1f2333;
   --verde-texto: #7ee0b4;
   --vermelho-texto: #f0a3a3;
+  --amber-texto: var(--amber);
 }
 
 * { box-sizing: border-box; }
@@ -118,6 +121,8 @@ button { font-family: inherit; }
 
 .btn-primario { background: var(--indigo); color: #fff; }
 .btn-primario:hover:not(:disabled) { background: var(--indigo-escuro); }
+/* No escuro o índigo é claro: texto branco ficava com contraste 3:1. */
+:root[data-theme='dark'] .btn-primario { color: var(--paper); }
 
 .btn-fantasma {
   background: var(--surface);
@@ -132,7 +137,7 @@ button { font-family: inherit; }
 .btn-perigo-fantasma {
   background: transparent;
   border-color: transparent;
-  color: var(--vermelho);
+  color: var(--vermelho-texto);
 }
 .btn-perigo-fantasma:hover:not(:disabled) { background: var(--vermelho-claro); }
 
@@ -614,7 +619,7 @@ input:focus, select:focus, textarea:focus {
 }
 .card-numero-clicavel:hover::after { opacity: 1; transform: translateX(0); }
 .card-numero.destaque { border-color: var(--amber); }
-.card-numero.destaque .card-numero-valor { color: var(--amber); }
+.card-numero.destaque .card-numero-valor { color: var(--amber-texto); }
 .cards-numero-4 { grid-template-columns: repeat(4, 1fr); }
 .cards-numero-5 { grid-template-columns: repeat(5, 1fr); }
 .cards-numero-6 { grid-template-columns: repeat(6, 1fr); }
@@ -874,11 +879,11 @@ input:focus, select:focus, textarea:focus {
   transform: translateY(-50%);
   border: none;
   background: transparent;
-  color: var(--line-forte);
+  color: var(--muted);
   cursor: pointer;
   font-size: 11px;
 }
-.remover-col:hover { color: var(--vermelho); }
+.remover-col:hover { color: var(--vermelho-texto); }
 
 .input-nota {
   width: 58px;
