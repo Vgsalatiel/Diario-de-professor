@@ -1,0 +1,66 @@
+name: Testes
+
+# Roda os testes a cada push e pull request na main. Avisa (✓/✗ no commit),
+# mas não bloqueia o deploy — Netlify e Render publicam a main por conta própria.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Testes de unidade
+        run: npm test
+      - name: Typecheck e build
+        run: npm run build
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    # Banco só do CI, criado e jogado fora a cada execução — os testes de
+    # integração nunca encostam no Supabase (a trava em src/test/bancoTeste.ts
+    # só aceita banco local com "teste" no nome).
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: diario_teste
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL_TESTE: postgresql://postgres:postgres@localhost:5432/diario_teste
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Testes de unidade
+        run: npm test
+      - name: Testes de integração
+        run: npm run test:integracao
+      - name: Build
+        run: npm run build
