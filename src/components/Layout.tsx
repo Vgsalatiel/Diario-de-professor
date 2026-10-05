@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTema } from '../context/ThemeContext'
@@ -216,7 +216,17 @@ export function Layout() {
             </div>
           ) : (
             <TourProvider value={tour}>
-              <Outlet />
+              {/* As telas são baixadas sob demanda (ver App.tsx). */}
+              <Suspense
+                fallback={
+                  <div className="estado-carga" role="status">
+                    <span className="spinner" aria-hidden />
+                    <p>Carregando…</p>
+                  </div>
+                }
+              >
+                <Outlet />
+              </Suspense>
             </TourProvider>
           )}
         </main>

@@ -12,15 +12,20 @@ import { RedefinirSenha } from './pages/RedefinirSenha'
 import { VerificarEmail } from './pages/VerificarEmail'
 import { CadastroProfessor } from './pages/CadastroProfessor'
 import { Dashboard } from './pages/Dashboard'
-import { Turmas } from './pages/Turmas'
-import { Alunos } from './pages/Alunos'
-import { Notas } from './pages/Notas'
-import { Frequencia } from './pages/Frequencia'
-import { Historico } from './pages/Historico'
-import { PlanoDeAulaPage } from './pages/PlanoDeAula'
-import { Agenda } from './pages/Agenda'
-import { Assistente } from './pages/Assistente'
-import { Perfil } from './pages/Perfil'
+import { lazyNomeado } from './lib/lazy'
+
+// Login, cadastro, menu e Início vêm junto com o app; as demais telas são
+// baixadas na primeira vez que o professor abre cada uma (o Layout mostra
+// "Carregando…" nesse instante).
+const Turmas = lazyNomeado(() => import('./pages/Turmas'), 'Turmas')
+const Alunos = lazyNomeado(() => import('./pages/Alunos'), 'Alunos')
+const Notas = lazyNomeado(() => import('./pages/Notas'), 'Notas')
+const Frequencia = lazyNomeado(() => import('./pages/Frequencia'), 'Frequencia')
+const Historico = lazyNomeado(() => import('./pages/Historico'), 'Historico')
+const PlanoDeAulaPage = lazyNomeado(() => import('./pages/PlanoDeAula'), 'PlanoDeAulaPage')
+const Agenda = lazyNomeado(() => import('./pages/Agenda'), 'Agenda')
+const Assistente = lazyNomeado(() => import('./pages/Assistente'), 'Assistente')
+const Perfil = lazyNomeado(() => import('./pages/Perfil'), 'Perfil')
 
 export default function App() {
   return (

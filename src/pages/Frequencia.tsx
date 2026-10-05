@@ -14,7 +14,7 @@ import {
   passoDiaValido,
 } from '../lib/diasUteis'
 import { Modal } from '../components/Modal'
-import { EditorRico } from '../components/EditorRico'
+import { EditorRico } from '../components/EditorRicoLazy'
 import { resumoTexto } from '../lib/texto'
 
 const DIAS_UTEIS_PADRAO = [1, 2, 3, 4, 5]

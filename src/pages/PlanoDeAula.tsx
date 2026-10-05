@@ -14,7 +14,7 @@ import type {
 import { opcoesPeriodo, turmaInicial } from '../lib/periodos'
 import { formatarData } from '../lib/eventos'
 import { Drawer } from '../components/Drawer'
-import { EditorRico } from '../components/EditorRico'
+import { EditorRico } from '../components/EditorRicoLazy'
 import { resumoTexto } from '../lib/texto'
 import { hojeISO } from '../lib/data'
 

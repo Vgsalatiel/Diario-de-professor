@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx'
+import { importarComRecarga } from './lazy'
 import type { SituacaoMatricula } from '../types'
 
 export interface AlunoImportado {
@@ -111,6 +111,8 @@ function paraSituacao(linha: unknown[] | undefined, indice: number | undefined):
 // Data de nascimento, Situação, E-mail, Telefone), usa as colunas certas;
 // caso contrário, assume que a única coluna preenchida é o nome.
 export async function lerAlunosDaPlanilha(file: File): Promise<AlunoImportado[]> {
+  // Baixado só na hora de importar (ver carregarXLSX em export.ts).
+  const XLSX = await importarComRecarga(() => import('xlsx'))
   const buffer = await file.arrayBuffer()
   const workbook = XLSX.read(buffer, { type: 'array', cellDates: true })
   const primeiraAba = workbook.SheetNames[0]

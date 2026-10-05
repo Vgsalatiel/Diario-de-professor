@@ -1647,3 +1647,15 @@ input:focus, select:focus, textarea:focus {
 @media (prefers-reduced-motion: reduce) {
   .tour-destaque { transition: none; }
 }
+
+/* Lugar do editor enquanto o Quill é baixado (EditorRicoLazy). */
+.editor-carregando {
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line-forte);
+  border-radius: var(--raio-sm);
+  color: var(--muted);
+  font-size: 14px;
+}

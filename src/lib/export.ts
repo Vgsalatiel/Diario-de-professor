@@ -1,4 +1,7 @@
-import * as XLSX from 'xlsx'
+import { importarComRecarga } from './lazy'
+
+// O xlsx é a maior dependência do app — só é baixado quando alguém exporta.
+const carregarXLSX = () => importarComRecarga(() => import('xlsx'))
 import type {
   Aluno,
   Avaliacao,
@@ -62,7 +65,8 @@ function montarMatrizSecao(
 }
 
 // Excel: cada período vira uma aba própria dentro do mesmo arquivo.
-export function exportarExcel(dados: DadosBoletim): void {
+export async function exportarExcel(dados: DadosBoletim): Promise<void> {
+  const XLSX = await carregarXLSX()
   const wb = XLSX.utils.book_new()
   for (const secao of dados.secoes) {
     const { cabecalho, linhas } = montarMatrizSecao(
@@ -204,7 +208,8 @@ function montarMatrizFrequencia({ turma, alunos, datasAula, frequencia }: DadosF
   return { cabecalho, linhas, titulo: turma.nome }
 }
 
-export function exportarFrequenciaExcel(dados: DadosFrequencia): void {
+export async function exportarFrequenciaExcel(dados: DadosFrequencia): Promise<void> {
+  const XLSX = await carregarXLSX()
   const { cabecalho, linhas } = montarMatrizFrequencia(dados)
   const aoa = [cabecalho, ...linhas]
   const ws = XLSX.utils.aoa_to_sheet(aoa)
