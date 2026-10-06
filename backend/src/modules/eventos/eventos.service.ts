@@ -4,6 +4,7 @@ import { eventoDoProfessor, planoDoProfessor, turmaAtribuidaAoProfessor, turmaDo
 import { paraDataISO } from '../../utils/serializers'
 import { AppError } from '../../utils/AppError'
 import type { AtualizarEventoDto, CriarEventoDto } from './eventos.dto'
+import { avisarMudancaEvento } from './eventos.avisos'
 
 function serializar(evento: Evento) {
   return { ...evento, data: paraDataISO(evento.data), prazo: paraDataISO(evento.prazo) }
@@ -41,6 +42,7 @@ export async function criar(professorId: string, dados: CriarEventoDto) {
       professorId,
     },
   })
+  avisarMudancaEvento(null, evento)
   return serializar(evento)
 }
 
@@ -70,6 +72,7 @@ export async function atualizar(eventoId: string, professorId: string, dados: At
       },
     })
   })
+  avisarMudancaEvento(atual, evento)
   return serializar(evento)
 }
 

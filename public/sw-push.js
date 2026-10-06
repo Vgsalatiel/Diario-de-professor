@@ -1,5 +1,5 @@
 // Carregado dentro do service worker gerado pelo vite-plugin-pwa — roda em
-// segundo plano, mesmo com o app fechado. O backend manda { titulo, corpo, url }.
+// segundo plano, mesmo com o app fechado. O backend manda { titulo, corpo, url, tag? }.
 
 self.addEventListener('push', (event) => {
   let dados = {}
@@ -15,8 +15,9 @@ self.addEventListener('push', (event) => {
       icon: '/pwa-192x192.png',
       badge: '/pwa-192x192.png',
       lang: 'pt-BR',
-      // Um aviso novo do mesmo tipo substitui o anterior em vez de empilhar
-      tag: 'aviso-diario',
+      // Aviso novo com a mesma tag (resumo do dia, mesmo evento remarcado)
+      // substitui o anterior em vez de empilhar
+      tag: dados.tag || 'aviso-diario',
       data: { url: dados.url || '/' },
     }),
   )

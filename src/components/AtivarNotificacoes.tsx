@@ -10,8 +10,10 @@ import {
 
 const EXPLICACAO: Record<EstadoNotificacoes, string> = {
   carregando: '',
-  ativo: 'Ativado neste aparelho. Todo dia às 7h você recebe o resumo das provas, trabalhos e reuniões do dia.',
-  inativo: 'Receba às 7h um resumo das provas, trabalhos e reuniões do dia, mesmo com o app fechado.',
+  ativo:
+    'Ativado neste aparelho. Todo dia às 7h chega o resumo do dia (provas, trabalhos, reuniões e prazos de entrega), e um aviso na hora quando um compromisso de hoje ou amanhã é marcado ou remarcado.',
+  inativo:
+    'Receba às 7h o resumo do dia (provas, trabalhos, reuniões e prazos de entrega) e um aviso na hora quando um compromisso de hoje ou amanhã é marcado ou remarcado, mesmo com o app fechado.',
   'precisa-instalar':
     'No iPhone/iPad, as notificações só funcionam com o app instalado: no Safari, toque em Compartilhar → "Adicionar à Tela de Início" e abra o Diário pelo ícone.',
   bloqueado:

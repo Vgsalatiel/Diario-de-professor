@@ -1,7 +1,8 @@
 import { prisma } from '../../lib/prisma'
 import { enviarAvisoDiario, type ItemAvisoDiario } from '../../lib/email'
-import { enviarPush, type MensagemPush } from '../../lib/push'
-import { hojeNoBrasil } from '../../utils/serializers'
+import type { MensagemPush } from '../../lib/push'
+import { hojeNoBrasil, paraDataISO } from '../../utils/serializers'
+import { enviarParaInscricoes } from '../notificacoes/notificacoes.service'
 
 const ROTULO_TIPO: Record<string, string> = {
   prova: 'Prova',
@@ -23,24 +24,47 @@ export function montarMensagemAviso(itens: ItemAvisoDiario[]): MensagemPush {
       titulo: `Hoje: ${item.tipoRotulo} — ${item.titulo}`,
       corpo: detalhes || 'Confira na sua agenda.',
       url: '/agenda',
+      tag: 'aviso-diario',
     }
   }
   return {
     titulo: `Hoje você tem ${itens.length} compromissos`,
     corpo: itens.map(linha).join('\n'),
     url: '/agenda',
+    tag: 'aviso-diario',
+  }
+}
+
+// Evento que entra no aviso por causa do prazo de entrega (trabalho
+// passado num dia, entregue em outro) aparece como "Prazo de entrega", sem
+// hora — a hora salva é a do dia em que a atividade foi passada.
+export function itemDoAviso(
+  evento: { titulo: string; tipo: string; data: Date; hora: string | null },
+  turmaNome: string | null,
+  hoje: string,
+): ItemAvisoDiario {
+  const ehDoDia = paraDataISO(evento.data) === hoje
+  return {
+    titulo: evento.titulo,
+    tipoRotulo: ehDoDia ? (ROTULO_TIPO[evento.tipo] ?? evento.tipo) : 'Prazo de entrega',
+    hora: ehDoDia ? evento.hora : null,
+    turmaNome,
   }
 }
 
 // Roda uma vez por dia (chamado pelo cron do GitHub Actions) — avisa cada
-// professor dos compromissos de hoje (prova, trabalho, reunião, outro) por
-// e-mail e por notificação nos aparelhos onde ele ativou, pulando os já
-// marcados como concluídos e quem não tem nada marcado pra hoje.
+// professor dos compromissos de hoje (prova, trabalho, reunião, outro) e
+// das entregas que vencem hoje, por e-mail e por notificação nos aparelhos
+// onde ele ativou, pulando os já marcados como concluídos e quem não tem
+// nada pra hoje.
 export async function enviarAvisosDoDia() {
   const hoje = hojeNoBrasil()
 
   const eventos = await prisma.evento.findMany({
-    where: { data: new Date(`${hoje}T00:00:00.000Z`), concluido: false },
+    where: {
+      concluido: false,
+      OR: [{ data: new Date(`${hoje}T00:00:00.000Z`) }, { prazo: new Date(`${hoje}T00:00:00.000Z`) }],
+    },
     include: { professor: { include: { inscricoesPush: true } }, turma: true },
     orderBy: [{ hora: 'asc' }],
   })
@@ -57,30 +81,18 @@ export async function enviarAvisosDoDia() {
       inscricoes: evento.professor.inscricoesPush,
       itens: [],
     }
-    grupo.itens.push({
-      titulo: evento.titulo,
-      tipoRotulo: ROTULO_TIPO[evento.tipo] ?? evento.tipo,
-      hora: evento.hora,
-      turmaNome: evento.turma?.nome ?? null,
-    })
+    grupo.itens.push(itemDoAviso(evento, evento.turma?.nome ?? null, hoje))
     porProfessor.set(evento.professorId, grupo)
   }
 
   let notificacoesEnviadas = 0
-  const expiradas: string[] = []
+  let expiradas = 0
   for (const { email, inscricoes, itens } of porProfessor.values()) {
     await enviarAvisoDiario(email, itens)
 
-    const mensagem = montarMensagemAviso(itens)
-    for (const inscricao of inscricoes) {
-      const resultado = await enviarPush(inscricao, mensagem)
-      if (resultado === 'ok') notificacoesEnviadas++
-      if (resultado === 'expirada') expiradas.push(inscricao.id)
-    }
-  }
-
-  if (expiradas.length > 0) {
-    await prisma.inscricaoPush.deleteMany({ where: { id: { in: expiradas } } })
+    const envio = await enviarParaInscricoes(inscricoes, montarMensagemAviso(itens))
+    notificacoesEnviadas += envio.enviadas
+    expiradas += envio.expiradas
   }
 
   return {
@@ -88,6 +100,6 @@ export async function enviarAvisosDoDia() {
     professoresAvisados: porProfessor.size,
     totalEventos: eventos.length,
     notificacoesEnviadas,
-    inscricoesExpiradasRemovidas: expiradas.length,
+    inscricoesExpiradasRemovidas: expiradas,
   }
 }

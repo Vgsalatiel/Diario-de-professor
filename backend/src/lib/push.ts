@@ -4,16 +4,30 @@ import webpush from 'web-push'
 // fluxo — o push só fica desligado e o aviso diário segue só por e-mail.
 const chavePublica = process.env.VAPID_PUBLIC_KEY
 const chavePrivada = process.env.VAPID_PRIVATE_KEY
-const contato = process.env.VAPID_SUBJECT ?? 'mailto:contato@example.com'
 
-export const pushConfigurado = Boolean(chavePublica && chavePrivada)
-
-if (pushConfigurado) {
-  webpush.setVapidDetails(contato, chavePublica!, chavePrivada!)
+// O web-push exige "mailto:..." ou uma URL — um e-mail puro (fácil de
+// esquecer o prefixo no painel do Render) ganha o "mailto:" aqui.
+export function normalizarContatoVapid(valor: string | undefined): string {
+  const contato = valor?.trim() || 'mailto:contato@example.com'
+  return /^[^\s@:]+@[^\s@]+$/.test(contato) ? `mailto:${contato}` : contato
 }
 
+function configurarVapid(): boolean {
+  if (!chavePublica || !chavePrivada) return false
+  // Configuração inválida desliga só o push — nunca derruba a API inteira.
+  try {
+    webpush.setVapidDetails(normalizarContatoVapid(process.env.VAPID_SUBJECT), chavePublica, chavePrivada)
+    return true
+  } catch (erro) {
+    console.error('[push] Configuração VAPID inválida — notificações desligadas:', erro)
+    return false
+  }
+}
+
+export const pushConfigurado = configurarVapid()
+
 export function chavePublicaPush(): string | null {
-  return chavePublica ?? null
+  return pushConfigurado ? chavePublica! : null
 }
 
 export type InscricaoDestino = { endpoint: string; p256dh: string; auth: string }
@@ -23,6 +37,9 @@ export type MensagemPush = {
   corpo: string
   // Caminho do app aberto ao tocar na notificação (ex.: "/agenda")
   url: string
+  // Notificação nova com a mesma tag substitui a anterior no aparelho em
+  // vez de empilhar (ex.: a mesma reunião remarcada duas vezes)
+  tag?: string
 }
 
 // Devolve "expirada" quando o serviço de push diz que esse aparelho não

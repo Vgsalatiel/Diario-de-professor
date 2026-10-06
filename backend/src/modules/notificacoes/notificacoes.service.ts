@@ -1,5 +1,5 @@
 import { prisma } from '../../lib/prisma'
-import { chavePublicaPush } from '../../lib/push'
+import { chavePublicaPush, enviarPush, pushConfigurado, type InscricaoDestino, type MensagemPush } from '../../lib/push'
 import { AppError } from '../../utils/AppError'
 import type { InscreverDto } from './notificacoes.dto'
 
@@ -26,4 +26,29 @@ export async function inscrever(professorId: string, dados: InscreverDto) {
 
 export async function removerInscricao(professorId: string, endpoint: string) {
   await prisma.inscricaoPush.deleteMany({ where: { endpoint, professorId } })
+}
+
+// Manda a mesma mensagem pra todos os aparelhos e apaga as inscrições que
+// o serviço de push deu como expiradas (app desinstalado, permissão revogada).
+export async function enviarParaInscricoes(
+  inscricoes: (InscricaoDestino & { id: string })[],
+  mensagem: MensagemPush,
+) {
+  let enviadas = 0
+  const expiradas: string[] = []
+  for (const inscricao of inscricoes) {
+    const resultado = await enviarPush(inscricao, mensagem)
+    if (resultado === 'ok') enviadas++
+    if (resultado === 'expirada') expiradas.push(inscricao.id)
+  }
+  if (expiradas.length > 0) {
+    await prisma.inscricaoPush.deleteMany({ where: { id: { in: expiradas } } })
+  }
+  return { enviadas, expiradas: expiradas.length }
+}
+
+export async function avisarProfessor(professorId: string, mensagem: MensagemPush) {
+  if (!pushConfigurado) return
+  const inscricoes = await prisma.inscricaoPush.findMany({ where: { professorId } })
+  await enviarParaInscricoes(inscricoes, mensagem)
 }

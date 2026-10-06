@@ -10,3 +10,9 @@ export function paraDataISO(data: Date | null | undefined): string | null {
 export function hojeNoBrasil(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())
 }
+
+export function amanhaNoBrasil(): string {
+  const amanha = new Date(`${hojeNoBrasil()}T12:00:00.000Z`)
+  amanha.setUTCDate(amanha.getUTCDate() + 1)
+  return paraDataISO(amanha)!
+}
