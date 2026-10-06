@@ -64,6 +64,7 @@ model Professor {
   observacoesRecebidas ObservacaoPedagogica[] @relation("ObservacoesRecebidas")
   encaminhamentos      Encaminhamento[]
   acompanhamentosEscritos AcompanhamentoAluno[]
+  inscricoesPush          InscricaoPush[]
 
   @@map("professores")
 }
@@ -538,4 +539,22 @@ model RegistroAula {
   @@index([professorId])
   @@index([planoId])
   @@map("registros_aula")
+}
+
+// Aparelho (celular/PC) onde o professor ativou as notificações do app
+// instalado (PWA). Cada navegador gera um endpoint único no serviço de push
+// dele (Google, Apple, Mozilla); p256dh/auth são as chaves pra cifrar a
+// mensagem. Quando o serviço responde que a inscrição expirou, ela é apagada.
+model InscricaoPush {
+  id       String   @id @default(cuid())
+  endpoint String   @unique
+  p256dh   String
+  auth     String
+  criadoEm DateTime @default(now())
+
+  professorId String
+  professor   Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+
+  @@index([professorId])
+  @@map("inscricoes_push")
 }

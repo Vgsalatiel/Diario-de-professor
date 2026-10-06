@@ -23,6 +23,7 @@ import {
 import { jobsRouter } from './modules/jobs/jobs.routes'
 import { feriadosRouter } from './modules/feriados/feriados.routes'
 import { bnccRouter } from './modules/bncc/bncc.routes'
+import { notificacoesRouter } from './modules/notificacoes/notificacoes.routes'
 
 export const app = express()
 
@@ -74,6 +75,7 @@ app.use('/planos-de-aula', autenticar, planosRouter)
 app.use('/registros-aula', autenticar, registrosAulaRouter)
 app.use('/feriados', autenticar, feriadosRouter)
 app.use('/bncc', autenticar, bnccRouter)
+app.use('/notificacoes', autenticar, notificacoesRouter)
 
 app.use(rotaNaoEncontrada)
 app.use(errorHandler)

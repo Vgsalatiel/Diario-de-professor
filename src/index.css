@@ -552,6 +552,16 @@ input:focus, select:focus, textarea:focus {
   padding: 10px 12px;
   font-size: 13.5px;
 }
+.notificacoes-linha {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.notificacoes-linha p { flex: 1; }
+.notificacoes-linha .btn { flex-shrink: 0; }
+@media (max-width: 640px) {
+  .notificacoes-linha { flex-direction: column; align-items: stretch; }
+}
 
 /* ============================================================
    Dashboard

@@ -7,6 +7,7 @@ import {
   definirToken,
   obterToken,
 } from '../lib/api'
+import { cancelarNotificacoesNesteAparelho } from '../lib/notificacoes'
 
 interface DadosCadastro {
   nome: string
@@ -140,6 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       },
       sair: () => {
+        void cancelarNotificacoesNesteAparelho()
         definirToken(null)
         setProfessora(null)
       },

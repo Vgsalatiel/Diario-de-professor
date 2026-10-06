@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
+import { AtivarNotificacoes } from '../components/AtivarNotificacoes'
 import { CampoTags } from '../components/CampoTags'
 import { lerImagemComprimida } from '../lib/imagem'
 import { normalizarNome, validarNome } from '../lib/validarNome'
@@ -184,6 +185,10 @@ export function Perfil() {
               ))}
             </ul>
           )}
+
+          <hr className="divisor" />
+
+          <AtivarNotificacoes />
         </section>
       </div>
     </div>
