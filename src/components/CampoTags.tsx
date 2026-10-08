@@ -4,12 +4,14 @@ interface CampoTagsProps {
   valores: string[]
   onChange: (valores: string[]) => void
   placeholder?: string
+  // Lido pelo leitor de tela no campo de digitar.
+  rotulo?: string
 }
 
 // Campo de "tags": digita um valor, aperta Enter/vírgula (ou sai do campo)
 // pra transformar em etiqueta — usado pra matéria(s) do professor, já que
 // tem professor que dá aula de mais de uma.
-export function CampoTags({ valores, onChange, placeholder }: CampoTagsProps) {
+export function CampoTags({ valores, onChange, placeholder, rotulo }: CampoTagsProps) {
   const [rascunho, setRascunho] = useState('')
 
   function adicionar() {
@@ -50,6 +52,7 @@ export function CampoTags({ valores, onChange, placeholder }: CampoTagsProps) {
         onKeyDown={onKeyDown}
         onBlur={adicionar}
         placeholder={valores.length === 0 ? placeholder : ''}
+        aria-label={rotulo}
       />
     </div>
   )

@@ -299,6 +299,7 @@ export function Alunos() {
             <button
               key={e}
               className={`aba ${escolaAtiva === e ? 'ativa' : ''}`}
+              aria-pressed={escolaAtiva === e}
               onClick={() => trocarEscola(e)}
             >
               {e}
@@ -345,6 +346,7 @@ export function Alunos() {
             <input
               className="input-busca"
               placeholder="Buscar por nome…"
+              aria-label="Buscar aluno por nome"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
             />
@@ -427,12 +429,14 @@ export function Alunos() {
                           <button
                             className="btn btn-fantasma btn-pequeno"
                             onClick={() => abrirEdicao(a)}
+                            aria-label={`Editar aluno ${a.nome}`}
                           >
                             Editar
                           </button>
                           <button
                             className="btn btn-perigo-fantasma btn-pequeno"
                             onClick={() => excluir(a)}
+                            aria-label={`Excluir aluno ${a.nome}`}
                           >
                             Excluir
                           </button>

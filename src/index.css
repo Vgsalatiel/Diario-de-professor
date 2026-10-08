@@ -1669,3 +1669,11 @@ input:focus, select:focus, textarea:focus {
   color: var(--muted);
   font-size: 14px;
 }
+
+/* Foco colocado por código (título da tela ao navegar, janela ao abrir) —
+   serve pro leitor de tela; não precisa de contorno visível. */
+h1[tabindex='-1']:focus,
+.modal:focus,
+.drawer:focus {
+  outline: none;
+}

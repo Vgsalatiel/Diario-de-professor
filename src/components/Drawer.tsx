@@ -1,4 +1,5 @@
-import { useEffect, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
+import { useDialogo } from '../lib/useDialogo'
 
 interface DrawerProps {
   aberto: boolean
@@ -12,24 +13,19 @@ interface DrawerProps {
 // (ex.: ver um plano de aula), diferente do
 // Modal centralizado, reservado pra formulários curtos e confirmações.
 export function Drawer({ aberto, titulo, onFechar, children, rodape }: DrawerProps) {
-  useEffect(() => {
-    if (!aberto) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onFechar()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [aberto, onFechar])
+  const ref = useDialogo<HTMLDivElement>(aberto, onFechar)
 
   if (!aberto) return null
 
   return (
     <div className="drawer-overlay" onMouseDown={onFechar}>
       <div
+        ref={ref}
         className="drawer"
         role="dialog"
         aria-modal="true"
         aria-label={titulo}
+        tabIndex={-1}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <header className="drawer-head">

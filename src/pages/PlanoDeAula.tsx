@@ -934,24 +934,28 @@ export function PlanoDeAulaPage() {
             <div className="abas">
               <button
                 className={`aba ${abaVer === 'conteudo' ? 'ativa' : ''}`}
+                aria-pressed={abaVer === 'conteudo'}
                 onClick={() => setAbaVer('conteudo')}
               >
                 Conteúdo
               </button>
               <button
                 className={`aba ${abaVer === 'provas' ? 'ativa' : ''}`}
+                aria-pressed={abaVer === 'provas'}
                 onClick={() => setAbaVer('provas')}
               >
                 Provas {provasDoPlano.length > 0 && `(${provasDoPlano.length})`}
               </button>
               <button
                 className={`aba ${abaVer === 'atividades' ? 'ativa' : ''}`}
+                aria-pressed={abaVer === 'atividades'}
                 onClick={() => setAbaVer('atividades')}
               >
                 Atividades {atividadesDoPlano.length > 0 && `(${atividadesDoPlano.length})`}
               </button>
               <button
                 className={`aba ${abaVer === 'registro' ? 'ativa' : ''}`}
+                aria-pressed={abaVer === 'registro'}
                 onClick={() => setAbaVer('registro')}
               >
                 Aulas{temCronograma && ` (${selecionado.cronograma!.length})`}

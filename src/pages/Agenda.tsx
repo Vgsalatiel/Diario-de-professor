@@ -197,12 +197,14 @@ export function Agenda() {
       <div className="abas">
         <button
           className={`aba ${secao === 'eventos' ? 'ativa' : ''}`}
+          aria-pressed={secao === 'eventos'}
           onClick={() => setSecao('eventos')}
         >
           Eventos
         </button>
         <button
           className={`aba ${secao === 'feriados' ? 'ativa' : ''}`}
+          aria-pressed={secao === 'feriados'}
           onClick={() => setSecao('feriados')}
         >
           Feriados e dias sem aula
@@ -215,18 +217,21 @@ export function Agenda() {
         <div className="abas">
           <button
             className={`aba ${filtro === 'proximos' ? 'ativa' : ''}`}
+            aria-pressed={filtro === 'proximos'}
             onClick={() => trocarFiltro('proximos')}
           >
             Próximos
           </button>
           <button
             className={`aba ${filtro === 'todos' ? 'ativa' : ''}`}
+            aria-pressed={filtro === 'todos'}
             onClick={() => trocarFiltro('todos')}
           >
             Todos
           </button>
           <button
             className={`aba ${filtro === 'concluidos' ? 'ativa' : ''}`}
+            aria-pressed={filtro === 'concluidos'}
             onClick={() => trocarFiltro('concluidos')}
           >
             Concluídos
@@ -321,6 +326,7 @@ export function Agenda() {
                   <button
                     className="btn btn-fantasma btn-pequeno"
                     onClick={() => reabrir(e)}
+                    aria-label={`Reabrir ${e.titulo}`}
                   >
                     ↺ Reabrir
                   </button>
@@ -328,6 +334,7 @@ export function Agenda() {
                   <button
                     className="btn btn-fantasma btn-pequeno"
                     onClick={() => concluir(e)}
+                    aria-label={`Concluir ${e.titulo}`}
                   >
                     ✓ Concluir
                   </button>
@@ -335,12 +342,14 @@ export function Agenda() {
                 <button
                   className="btn btn-fantasma btn-pequeno"
                   onClick={() => abrirEdicao(e)}
+                  aria-label={`Editar ${e.titulo}`}
                 >
                   Editar
                 </button>
                 <button
                   className="btn btn-perigo-fantasma btn-pequeno"
                   onClick={() => excluir(e)}
+                  aria-label={`Excluir ${e.titulo}`}
                 >
                   Excluir
                 </button>
@@ -372,7 +381,7 @@ export function Agenda() {
                   {!f.origemAutomatica && f.id && (
                     <button
                       className="icon-btn"
-                      aria-label="Remover"
+                      aria-label={`Remover feriado ${f.titulo}`}
                       onClick={() => excluirFeriado(f.id!, f.titulo)}
                     >
                       ✕

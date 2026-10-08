@@ -1,4 +1,5 @@
-import { useEffect, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
+import { useDialogo } from '../lib/useDialogo'
 
 interface ModalProps {
   aberto: boolean
@@ -9,24 +10,19 @@ interface ModalProps {
 }
 
 export function Modal({ aberto, titulo, onFechar, children, rodape }: ModalProps) {
-  useEffect(() => {
-    if (!aberto) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onFechar()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [aberto, onFechar])
+  const ref = useDialogo<HTMLDivElement>(aberto, onFechar)
 
   if (!aberto) return null
 
   return (
     <div className="modal-overlay" onMouseDown={onFechar}>
       <div
+        ref={ref}
         className="modal"
         role="dialog"
         aria-modal="true"
         aria-label={titulo}
+        tabIndex={-1}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <header className="modal-head">

@@ -166,18 +166,21 @@ export function Assistente() {
       <div className="abas">
         <button
           className={`aba ${aba === 'corrigir' ? 'ativa' : ''}`}
+          aria-pressed={aba === 'corrigir'}
           onClick={() => setAba('corrigir')}
         >
           Corrigir exercício
         </button>
         <button
           className={`aba ${aba === 'gerar' ? 'ativa' : ''}`}
+          aria-pressed={aba === 'gerar'}
           onClick={() => setAba('gerar')}
         >
           Criar exercício
         </button>
         <button
           className={`aba ${aba === 'personalizado' ? 'ativa' : ''}`}
+          aria-pressed={aba === 'personalizado'}
           onClick={() => setAba('personalizado')}
         >
           Exercício personalizado

@@ -228,6 +228,7 @@ export function Frequencia() {
             <button
               key={e}
               className={`aba ${escolaAtiva === e ? 'ativa' : ''}`}
+              aria-pressed={escolaAtiva === e}
               onClick={() => trocarEscola(e)}
             >
               {e}
@@ -241,6 +242,7 @@ export function Frequencia() {
           <button
             key={p.valor}
             className={`aba ${periodoAtivo === p.valor ? 'ativa' : ''}`}
+            aria-pressed={periodoAtivo === p.valor}
             onClick={() => setPeriodo(p.valor)}
           >
             {p.rotulo}
@@ -388,6 +390,7 @@ export function Frequencia() {
                           className={`pill pill-btn ${classe}`}
                           onClick={() => onCelula(aluno.id)}
                           disabled={semAulaHoje || somenteLeitura}
+                          aria-label={`${aluno.nome}: ${rotulo === '—' ? 'sem marcação' : rotulo.toLowerCase()}`}
                         >
                           {rotulo}
                         </button>

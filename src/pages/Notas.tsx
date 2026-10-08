@@ -34,6 +34,7 @@ function CampoNota({
   obrigatorio = false,
   className = 'input-nota',
   placeholder = '—',
+  rotulo,
 }: {
   valor: number | null
   onSalvar: (valor: number | null) => void
@@ -41,6 +42,8 @@ function CampoNota({
   obrigatorio?: boolean
   className?: string
   placeholder?: string
+  // Lido pelo leitor de tela quando o campo não está dentro de um <label>.
+  rotulo?: string
 }) {
   const [texto, setTexto] = useState(() => formatarCampoNota(valor))
   const [focado, setFocado] = useState(false)
@@ -86,6 +89,7 @@ function CampoNota({
       }}
       placeholder={placeholder}
       disabled={disabled}
+      aria-label={rotulo}
     />
   )
 }
@@ -287,6 +291,7 @@ export function Notas() {
             <button
               key={e}
               className={`aba ${escolaAtiva === e ? 'ativa' : ''}`}
+              aria-pressed={escolaAtiva === e}
               onClick={() => trocarEscola(e)}
             >
               {e}
@@ -300,6 +305,7 @@ export function Notas() {
           <button
             key={p.valor}
             className={`aba ${periodoAtivo === p.valor ? 'ativa' : ''}`}
+            aria-pressed={periodoAtivo === p.valor}
             onClick={() => setPeriodo(p.valor)}
           >
             {p.rotulo}
@@ -442,6 +448,7 @@ export function Notas() {
                       <button
                         className="remover-col"
                         title="Remover avaliação"
+                        aria-label={`Remover avaliação ${av.nome}`}
                         onClick={() => {
                           if (confirm(`Remover a avaliação "${av.nome}"?`))
                             removerAvaliacao(av.id)
@@ -477,6 +484,7 @@ export function Notas() {
                           <td key={av.id} className="col-nota" data-label={rotuloCol}>
                             <select
                               className="select select-conceito"
+                              aria-label={`Conceito de ${aluno.nome} em ${av.nome}`}
                               value={c ?? ''}
                               onChange={(e) =>
                                 definirConceito(aluno.id, av.id, e.target.value || null)
@@ -497,6 +505,7 @@ export function Notas() {
                       return (
                         <td key={av.id} className="col-nota" data-label={rotuloCol}>
                           <CampoNota
+                            rotulo={`Nota de ${aluno.nome} em ${av.nome}`}
                             valor={v ?? null}
                             onSalvar={(valor) => salvarNota(aluno.id, av.id, valor)}
                             disabled={somenteLeitura}

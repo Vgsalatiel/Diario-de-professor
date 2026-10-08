@@ -295,6 +295,7 @@ export function Turmas() {
         <div className="abas">
           <button
             className={`aba ${escolaFiltro === 'todas' ? 'ativa' : ''}`}
+            aria-pressed={escolaFiltro === 'todas'}
             onClick={() => setEscolaFiltro('todas')}
           >
             Todas as escolas
@@ -303,6 +304,7 @@ export function Turmas() {
             <button
               key={e}
               className={`aba ${escolaFiltro === e ? 'ativa' : ''}`}
+              aria-pressed={escolaFiltro === e}
               onClick={() => setEscolaFiltro(e)}
             >
               {e}
@@ -358,6 +360,7 @@ export function Turmas() {
                     <Link
                       to={`/alunos?turma=${t.id}`}
                       className="btn btn-fantasma btn-pequeno"
+                      aria-label={`Ver alunos da turma ${t.nome}`}
                     >
                       Ver alunos
                     </Link>
@@ -365,6 +368,7 @@ export function Turmas() {
                       <button
                         className="btn btn-fantasma btn-pequeno"
                         onClick={() => abrirEdicao(t)}
+                        aria-label={`Editar turma ${t.nome}`}
                       >
                         Editar
                       </button>
@@ -375,12 +379,14 @@ export function Turmas() {
                       <button
                         className="btn btn-fantasma btn-pequeno"
                         onClick={() => abrirPromocao(t)}
+                        aria-label={`Promover turma ${t.nome} para o próximo ano`}
                       >
                         Promover para o próximo ano
                       </button>
                       <button
                         className="btn btn-perigo-fantasma btn-pequeno card-turma-excluir"
                         onClick={() => excluir(t)}
+                        aria-label={`Excluir turma ${t.nome}`}
                       >
                         Excluir
                       </button>

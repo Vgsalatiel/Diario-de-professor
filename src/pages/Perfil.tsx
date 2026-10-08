@@ -130,10 +130,10 @@ export function Perfil() {
               <span>Nome</span>
               <input value={form.nome} onChange={(e) => set('nome', e.target.value)} />
             </label>
-            <label className="campo">
+            <div className="campo">
               <span>Matéria(s)</span>
-              <CampoTags valores={materias} onChange={setMateriasEMarcarSujo} />
-            </label>
+              <CampoTags rotulo="Matéria(s)" valores={materias} onChange={setMateriasEMarcarSujo} />
+            </div>
             <label className="campo campo-largo">
               <span>E-mail</span>
               <input

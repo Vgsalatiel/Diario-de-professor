@@ -130,6 +130,7 @@ export function Historico() {
         <div className="abas">
           <button
             className={`aba ${escolaFiltro === 'todas' ? 'ativa' : ''}`}
+            aria-pressed={escolaFiltro === 'todas'}
             onClick={() => trocarEscola('todas')}
           >
             Todas as escolas
@@ -138,6 +139,7 @@ export function Historico() {
             <button
               key={e}
               className={`aba ${escolaAtiva === e ? 'ativa' : ''}`}
+              aria-pressed={escolaAtiva === e}
               onClick={() => trocarEscola(e)}
             >
               {e}

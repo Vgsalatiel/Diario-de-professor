@@ -142,14 +142,15 @@ export function CadastroProfessor() {
             />
           </label>
 
-          <label className="campo">
+          <div className="campo">
             <span>Matéria(s)</span>
             <CampoTags
+              rotulo="Matéria(s)"
               valores={materias}
               onChange={setMaterias}
               placeholder="ex.: Matemática — aperte Enter pra adicionar"
             />
-          </label>
+          </div>
 
           <label className="campo">
             <span>Senha</span>

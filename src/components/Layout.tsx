@@ -1,5 +1,5 @@
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTema } from '../context/ThemeContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
@@ -61,6 +61,41 @@ export function Layout() {
   }, [professora.id])
 
   const tour = useMemo(() => ({ iniciarTour: () => setTourAberto(true) }), [])
+
+  // Troca de tela pra quem usa leitor de tela: o título da aba muda e o foco
+  // vai pro título (h1) da tela nova, que o leitor anuncia. Na primeira
+  // abertura do app só muda o título, sem mexer no foco.
+  const { pathname } = useLocation()
+  const mainRef = useRef<HTMLElement>(null)
+  const primeiraTela = useRef(true)
+  useEffect(() => {
+    const link = LINKS.find((l) => (l.exato ? pathname === l.to : pathname.startsWith(l.to)))
+    document.title = link ? `${link.rotulo} — Diário` : 'Diário — Gestão de Notas e Aulas'
+    if (primeiraTela.current) {
+      primeiraTela.current = false
+      return
+    }
+    const main = mainRef.current
+    if (!main) return
+    const focarTitulo = () => {
+      const h1 = main.querySelector<HTMLElement>('h1')
+      if (!h1) return false
+      h1.tabIndex = -1
+      h1.focus()
+      return true
+    }
+    if (focarTitulo()) return
+    // A tela é baixada sob demanda: espera o h1 aparecer (por até 5s).
+    const obs = new MutationObserver(() => {
+      if (focarTitulo()) obs.disconnect()
+    })
+    obs.observe(main, { childList: true, subtree: true })
+    const limite = setTimeout(() => obs.disconnect(), 5000)
+    return () => {
+      obs.disconnect()
+      clearTimeout(limite)
+    }
+  }, [pathname])
 
   async function onReenviarVerificacao() {
     setReenviando(true)
@@ -197,7 +232,7 @@ export function Layout() {
             </button>
           </div>
         )}
-        <main className="pagina">
+        <main className="pagina" ref={mainRef}>
           {/* Sem isso as telas mostravam "Nenhuma turma cadastrada" enquanto
               os dados chegavam (ou se a busca falhasse), como se a conta
               estivesse vazia. */}
