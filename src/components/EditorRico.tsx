@@ -9,6 +9,13 @@ interface EditorRicoProps {
   placeholder?: string
 }
 
+// Põe um HTML no editor sem contar como edição. Escrever direto no
+// innerHTML fazia o Quill reorganizar o conteúdo e avisar "mudou", e o
+// plano aparecia com "Alterações não salvas" sem ninguém ter mexido.
+function carregar(quill: Quill, html: string) {
+  quill.setContents(quill.clipboard.convert({ html: limparHtml(html) }), 'silent')
+}
+
 // Editor de texto rico (tipo Word) — usado no "Conteúdo previsto" do
 // Plano de Aula, pra dar pro professor criar listas, subtítulos e
 // formatação básica em vez de só texto corrido.
@@ -45,9 +52,12 @@ export function EditorRico({ value, onChange, placeholder }: EditorRicoProps) {
       },
     })
     quillRef.current = quill
-    if (value) quill.root.innerHTML = limparHtml(value)
+    if (value) carregar(quill, value)
 
-    quill.on('text-change', () => {
+    // Só o que o professor digita conta como alteração: o conteúdo
+    // carregado entra como 'silent' e não dispara isto.
+    quill.on('text-change', (_delta, _antes, origem) => {
+      if (origem === 'silent') return
       const html = quill.getText().trim() === '' ? '' : quill.root.innerHTML
       onChangeRef.current(html)
     })
@@ -67,7 +77,7 @@ export function EditorRico({ value, onChange, placeholder }: EditorRicoProps) {
     const quill = quillRef.current
     if (!quill) return
     if (quill.root.innerHTML === value || (value === '' && quill.getText().trim() === '')) return
-    quill.root.innerHTML = limparHtml(value)
+    carregar(quill, value)
   }, [value])
 
   return <div ref={wrapperRef} className="editor-rico" />
