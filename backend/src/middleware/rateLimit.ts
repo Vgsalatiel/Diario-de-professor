@@ -16,16 +16,48 @@ function chaveDoCliente(req: Request): string {
   return ipKeyGenerator(cfIp ?? req.ip ?? '0.0.0.0')
 }
 
-// Login: impede força bruta de senha — poucas tentativas por IP a cada
-// 15 minutos, mas generoso o bastante pra não travar um professor que
-// só errou a senha algumas vezes.
-export const limitadorLogin = rateLimit({
+// Login: impede força bruta de senha sem travar a sala dos professores.
+// Numa escola todo mundo sai pelo mesmo IP (Wi-Fi), então:
+// - só tentativas que FALHARAM contam (skipSuccessfulRequests);
+// - o limite apertado é por conta (e-mail): 5 senhas erradas em 15 min;
+// - por IP fica um teto largo, contra quem testa muitas contas da mesma rede.
+function chaveDaConta(req: Request): string {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : ''
+  return email ? `conta:${email}` : chaveDoCliente(req)
+}
+
+const MENSAGEM_LOGIN = { erro: 'Muitas tentativas de login. Aguarde alguns minutos e tente de novo.' }
+
+export const limitadorLoginPorConta = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 5,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: chaveDaConta,
+  message: MENSAGEM_LOGIN,
+})
+
+export const limitadorLoginPorRede = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 50,
+  skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: chaveDoCliente,
-  message: { erro: 'Muitas tentativas de login. Aguarde alguns minutos e tente de novo.' },
+  message: MENSAGEM_LOGIN,
+})
+
+// Links de redefinir senha / confirmar e-mail: freia quem tenta adivinhar
+// o token. Também só conta as tentativas que falharam.
+export const limitadorTokens = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: chaveDoCliente,
+  message: { erro: 'Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente de novo.' },
 })
 
 // Cadastro: evita criar muitas contas em sequência a partir do mesmo IP.
