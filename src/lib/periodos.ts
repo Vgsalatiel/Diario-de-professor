@@ -35,6 +35,26 @@ export function rotuloSistema(sistema: SistemaPeriodo): string {
   return 'Semestre'
 }
 
+// Período em que uma data cai, pelo calendário escolar mais comum
+// (ano letivo de fevereiro a dezembro, recesso em julho). É só o ponto
+// de partida das telas — o professor ainda escolhe outra aba se a escola
+// dele fecha o bimestre em outra semana.
+export function periodoDaData(sistema: SistemaPeriodo, dataISO: string): Periodo {
+  const mes = Number(dataISO.slice(5, 7))
+  if (sistema === 'bimestre') {
+    if (mes <= 4) return '1'
+    if (mes <= 7) return '2'
+    if (mes <= 9) return '3'
+    return '4'
+  }
+  if (sistema === 'trimestre') {
+    if (mes <= 5) return '1'
+    if (mes <= 8) return '2'
+    return '3'
+  }
+  return mes <= 7 ? '1' : '2'
+}
+
 // Turma inicial consistente com a escola que fica ativa por padrão
 // (a primeira em ordem alfabética, quando há mais de uma escola).
 export function turmaInicial(turmas: Turma[]): string {

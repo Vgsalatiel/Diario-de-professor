@@ -5,7 +5,7 @@ import { useToast } from '../context/ToastContext'
 import { useAnoLetivo } from '../context/AnoLetivoContext'
 import type { Periodo, SistemaPeriodo } from '../types'
 import { chavePresenca, proximoEstado } from '../lib/frequencia'
-import { opcoesPeriodo, turmaInicial } from '../lib/periodos'
+import { opcoesPeriodo, periodoDaData, turmaInicial } from '../lib/periodos'
 import { formatarData } from '../lib/eventos'
 import { hojeISO } from '../lib/data'
 import {
@@ -43,7 +43,7 @@ export function Frequencia() {
   const [turmaId, setTurmaId] = useState<string>(() =>
     turmaInicial(turmas.filter((t) => t.anoLetivo === anoAtivo)),
   )
-  const [periodo, setPeriodo] = useState<Periodo>('1')
+  const [periodo, setPeriodo] = useState<Periodo | null>(null)
   const [data, setData] = useState<string>(() => {
     const turma = turmas.find((t) => t.id === turmaId)
     return diaValidoMaisProximo(hojeISO(), turma?.diasAula ?? DIAS_UTEIS_PADRAO, feriadosSet)
@@ -90,13 +90,13 @@ export function Frequencia() {
     const disponiveis = turmasDoAno.filter((t) => t.escola === e)
     const novaTurma = disponiveis[0]
     setTurmaId(novaTurma?.id ?? '')
-    setPeriodo('1')
+    setPeriodo(null)
     setData((d) => diaValidoMaisProximo(d, novaTurma?.diasAula ?? DIAS_UTEIS_PADRAO, feriadosSet))
   }
 
   function trocarTurma(id: string) {
     setTurmaId(id)
-    setPeriodo('1')
+    setPeriodo(null)
     const turma = turmas.find((t) => t.id === id)
     setData((d) => diaValidoMaisProximo(d, turma?.diasAula ?? DIAS_UTEIS_PADRAO, feriadosSet))
   }
@@ -105,9 +105,12 @@ export function Frequencia() {
   const sistemaAtual: SistemaPeriodo = turmaAtual?.sistemaPeriodo ?? 'semestre'
   const diasAulaAtual = turmaAtual?.diasAula ?? DIAS_UTEIS_PADRAO
   const periodosDisponiveis = opcoesPeriodo(sistemaAtual)
-  const periodoAtivo: Periodo = periodosDisponiveis.some((p) => p.valor === periodo)
-    ? periodo
-    : '1'
+  // Sem escolha do professor, abre no período do dia da aula selecionado
+  // (em outubro, o 4º bimestre) em vez de sempre no 1º.
+  const periodoAtivo: Periodo =
+    periodo && periodosDisponiveis.some((p) => p.valor === periodo)
+      ? periodo
+      : periodoDaData(sistemaAtual, data)
 
   const alunosTurma = useMemo(
     () =>

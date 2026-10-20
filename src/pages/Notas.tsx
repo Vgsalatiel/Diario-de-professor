@@ -11,7 +11,8 @@ import {
   formatarNota,
   situacao,
 } from '../lib/media'
-import { opcoesPeriodo, rotuloSistema, turmaInicial } from '../lib/periodos'
+import { opcoesPeriodo, periodoDaData, rotuloSistema, turmaInicial } from '../lib/periodos'
+import { hojeISO } from '../lib/data'
 import { exportarExcel, exportarHTML, exportarPDF } from '../lib/export'
 import { Modal } from '../components/Modal'
 
@@ -94,12 +95,13 @@ function CampoNota({
   )
 }
 
-function rotuloCurtoAvaliacao(nome: string, indice: number): string {
-  const numero = indice + 1
-  const n = nome.trim().toLowerCase()
-  if (n.startsWith('prova')) return `Prova${numero}`
-  if (n.startsWith('ativ')) return `Ativ${numero}`
-  return `Aval${numero}`
+// Cabeçalho da coluna: o nome que o professor deu, encurtado só quando
+// não cabe ("Trabalho em grupo" → "Trabalho em g…"). Antes virava um
+// código ("Aval3") e o nome só aparecia passando o mouse — no celular,
+// nunca.
+function rotuloCurtoAvaliacao(nome: string): string {
+  const n = nome.trim()
+  return n.length > 14 ? `${n.slice(0, 13).trimEnd()}…` : n
 }
 
 export function Notas() {
@@ -123,7 +125,7 @@ export function Notas() {
   const [turmaId, setTurmaId] = useState<string>(() =>
     turmaInicial(turmas.filter((t) => t.anoLetivo === anoAtivo)),
   )
-  const [periodo, setPeriodo] = useState<Periodo>('1')
+  const [periodo, setPeriodo] = useState<Periodo | null>(null)
   const [modalAval, setModalAval] = useState(false)
   const [salvandoAval, setSalvandoAval] = useState(false)
   // Só no celular: as configurações de cálculo ficam recolhidas pra não
@@ -170,20 +172,23 @@ export function Notas() {
     setEscolaFiltro(e)
     const disponiveis = turmasDoAno.filter((t) => t.escola === e)
     setTurmaId(disponiveis[0]?.id ?? '')
-    setPeriodo('1')
+    setPeriodo(null)
   }
 
   function trocarTurma(id: string) {
     setTurmaId(id)
-    setPeriodo('1')
+    setPeriodo(null)
   }
 
   const turmaAtual = turmas.find((t) => t.id === turmaId) ?? null
   const sistemaAtual: SistemaPeriodo = turmaAtual?.sistemaPeriodo ?? 'semestre'
   const periodosDisponiveis = opcoesPeriodo(sistemaAtual)
-  const periodoAtivo: Periodo = periodosDisponiveis.some((p) => p.valor === periodo)
-    ? periodo
-    : '1'
+  // Sem escolha do professor, abre no período de hoje
+  // (em outubro, o 4º bimestre) em vez de sempre no 1º.
+  const periodoAtivo: Periodo =
+    periodo && periodosDisponiveis.some((p) => p.valor === periodo)
+      ? periodo
+      : periodoDaData(sistemaAtual, hojeISO())
 
   const config = turmaId ? configDaTurma(turmaId) : null
   const ehConceito = config?.tipoAvaliacao === 'conceito'
@@ -436,10 +441,10 @@ export function Notas() {
             <thead>
               <tr>
                 <th className="col-aluno">Aluno</th>
-                {avalsTurma.map((av, indice) => (
+                {avalsTurma.map((av) => (
                   <th key={av.id} className="col-nota">
                     <span className="th-aval" title={av.nome}>
-                      {rotuloCurtoAvaliacao(av.nome, indice)}
+                      {rotuloCurtoAvaliacao(av.nome)}
                       {config?.modelo === 'ponderada' && (
                         <em className="peso">peso {av.peso}</em>
                       )}
@@ -476,8 +481,8 @@ export function Notas() {
                 return (
                   <tr key={aluno.id}>
                     <td className="celula-nome col-aluno">{aluno.nome}</td>
-                    {avalsTurma.map((av, indice) => {
-                      const rotuloCol = rotuloCurtoAvaliacao(av.nome, indice)
+                    {avalsTurma.map((av) => {
+                      const rotuloCol = rotuloCurtoAvaliacao(av.nome)
                       if (ehConceito) {
                         const c = conceitos[chaveNota(aluno.id, av.id)]
                         return (
