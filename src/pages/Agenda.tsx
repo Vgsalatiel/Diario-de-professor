@@ -8,6 +8,8 @@ import { hojeISO } from '../lib/data'
 import { htmlParaTexto } from '../lib/texto'
 import { Modal } from '../components/Modal'
 import { EntregasEvento } from '../components/EntregasEvento'
+import { CalendarioAgenda } from '../components/CalendarioAgenda'
+import { diaPorExtenso } from '../lib/calendario'
 
 const TIPOS: TipoEvento[] = ['prova', 'trabalho', 'reuniao', 'outro']
 
@@ -22,6 +24,17 @@ const VAZIO = {
 
 type Filtro = 'proximos' | 'todos' | 'concluidos'
 type Secao = 'eventos' | 'feriados'
+type Visao = 'calendario' | 'lista'
+
+const CHAVE_VISAO = 'diario:agenda-visao'
+
+function lerVisao(): Visao {
+  try {
+    return localStorage.getItem(CHAVE_VISAO) === 'lista' ? 'lista' : 'calendario'
+  } catch {
+    return 'calendario'
+  }
+}
 
 const FERIADO_VAZIO = { data: hojeISO(), titulo: '' }
 const anoDeHoje = hojeISO().slice(0, 4)
@@ -38,6 +51,11 @@ export function Agenda() {
   const [form, setForm] = useState(VAZIO)
   const [filtro, setFiltro] = useState<Filtro>('proximos')
   const [diaFiltro, setDiaFiltro] = useState('')
+  const [visao, setVisao] = useState<Visao>(lerVisao)
+  const [mes, setMes] = useState(() => hojeISO().slice(0, 7))
+  // Evento aberto na janela de detalhes e dia aberto na janela do dia.
+  const [vendoId, setVendoId] = useState<string | null>(null)
+  const [diaAberto, setDiaAberto] = useState<string | null>(null)
 
   const [modalFeriado, setModalFeriado] = useState(false)
   const [formFeriado, setFormFeriado] = useState(FERIADO_VAZIO)
@@ -76,6 +94,25 @@ export function Agenda() {
     }
   }
 
+  function trocarVisao(v: Visao) {
+    setVisao(v)
+    try {
+      localStorage.setItem(CHAVE_VISAO, v)
+    } catch {
+      // armazenamento indisponível: só não lembra a escolha
+    }
+  }
+
+  const feriadoDoDia = useMemo(() => new Map(feriados.map((f) => [f.data, f.titulo])), [feriados])
+  const vendo = vendoId ? (eventos.find((e) => e.id === vendoId) ?? null) : null
+  const eventosDoDiaAberto = useMemo(
+    () =>
+      diaAberto
+        ? eventos.filter((e) => e.data === diaAberto).sort((a, b) => (a.hora ?? '').localeCompare(b.hora ?? ''))
+        : [],
+    [eventos, diaAberto],
+  )
+
   function trocarFiltro(f: Filtro) {
     setFiltro(f)
     setDiaFiltro('')
@@ -102,9 +139,9 @@ export function Agenda() {
       })
   }, [eventos, filtro, diaFiltro])
 
-  function abrirNovo() {
+  function abrirNovo(data?: string) {
     setEditando(null)
-    setForm(VAZIO)
+    setForm({ ...VAZIO, data: data ?? hojeISO() })
     setModal(true)
   }
 
@@ -183,7 +220,7 @@ export function Agenda() {
           </p>
         </div>
         {secao === 'eventos' && (
-          <button className="btn btn-primario" onClick={abrirNovo}>
+          <button className="btn btn-primario" onClick={() => abrirNovo()}>
             Novo evento
           </button>
         )}
@@ -211,7 +248,37 @@ export function Agenda() {
         </button>
       </div>
 
-      {secao === 'eventos' ? (
+      {secao === 'eventos' && (
+        <div className="abas abas-visao" aria-label="Forma de ver a agenda">
+          <button
+            className={`aba ${visao === 'calendario' ? 'ativa' : ''}`}
+            aria-pressed={visao === 'calendario'}
+            onClick={() => trocarVisao('calendario')}
+          >
+            Calendário
+          </button>
+          <button
+            className={`aba ${visao === 'lista' ? 'ativa' : ''}`}
+            aria-pressed={visao === 'lista'}
+            onClick={() => trocarVisao('lista')}
+          >
+            Lista
+          </button>
+        </div>
+      )}
+
+      {secao === 'eventos' && visao === 'calendario' ? (
+        <CalendarioAgenda
+          mes={mes}
+          onMudarMes={setMes}
+          eventos={eventos}
+          feriados={feriados}
+          onAdicionar={(data) => abrirNovo(data)}
+          onAbrirEvento={(e) => setVendoId(e.id)}
+          onAbrirDia={setDiaAberto}
+          somenteLeitura={false}
+        />
+      ) : secao === 'eventos' ? (
         <>
       <div className="barra-config">
         <div className="abas">
@@ -275,7 +342,7 @@ export function Agenda() {
                   : 'Nenhum evento cadastrado ainda.'}
           </p>
           {filtro !== 'concluidos' && (
-            <button className="btn btn-primario" onClick={abrirNovo}>
+            <button className="btn btn-primario" onClick={() => abrirNovo()}>
               Adicionar evento
             </button>
           )}
@@ -457,6 +524,9 @@ export function Agenda() {
               value={form.data}
               onChange={(e) => setForm({ ...form, data: e.target.value })}
             />
+            {feriadoDoDia.has(form.data) && (
+              <span className="aviso-campo">Esse dia é feriado/sem aula: {feriadoDoDia.get(form.data)}</span>
+            )}
           </label>
           <label className="campo">
             <span>Horário (opcional)</span>
@@ -476,6 +546,142 @@ export function Agenda() {
             />
           </label>
         </div>
+      </Modal>
+
+      <Modal
+        aberto={vendo !== null}
+        titulo={vendo?.titulo ?? ''}
+        onFechar={() => setVendoId(null)}
+        rodape={
+          vendo && (
+            <>
+              <button
+                className="btn btn-perigo-fantasma"
+                onClick={() => {
+                  if (confirm(`Excluir "${vendo.titulo}"?`)) {
+                    removerEvento(vendo.id)
+                    setVendoId(null)
+                  }
+                }}
+              >
+                Excluir
+              </button>
+              {vendo.concluido ? (
+                <button className="btn btn-fantasma" onClick={() => reabrir(vendo)}>
+                  ↺ Reabrir
+                </button>
+              ) : (
+                <button className="btn btn-fantasma" onClick={() => concluir(vendo)}>
+                  ✓ Concluir
+                </button>
+              )}
+              <button
+                className="btn btn-primario"
+                onClick={() => {
+                  setVendoId(null)
+                  abrirEdicao(vendo)
+                }}
+              >
+                Editar
+              </button>
+            </>
+          )
+        }
+      >
+        {vendo && (
+          <div className="stack-md evento-detalhe">
+            <div className="evento-cartao-topo">
+              <span className="evento-tag" style={{ background: corTipo(vendo.tipo) }}>
+                {rotuloTipo(vendo.tipo)}
+              </span>
+              {vendo.concluido && <span className="pill pill-aprovado">Concluído</span>}
+            </div>
+            <dl className="evento-detalhe-lista">
+              <dt>Data</dt>
+              <dd>
+                {formatarData(vendo.data)}
+                {vendo.hora && ` às ${vendo.hora}`}
+              </dd>
+              {vendo.turmaId && (
+                <>
+                  <dt>Turma</dt>
+                  <dd>{nomeTurma(vendo.turmaId)}</dd>
+                </>
+              )}
+              {vendo.prazo && (
+                <>
+                  <dt>Entrega até</dt>
+                  <dd>{formatarData(vendo.prazo)}</dd>
+                </>
+              )}
+              {vendo.conteudo && (
+                <>
+                  <dt>Conteúdo</dt>
+                  <dd className="evento-conteudo">{htmlParaTexto(vendo.conteudo)}</dd>
+                </>
+              )}
+            </dl>
+            {(vendo.tipo === 'prova' || vendo.tipo === 'trabalho') && vendo.turmaId && (
+              <EntregasEvento eventoId={vendo.id} turmaId={vendo.turmaId} />
+            )}
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        aberto={diaAberto !== null}
+        titulo={diaAberto ? diaPorExtenso(diaAberto) : ''}
+        onFechar={() => setDiaAberto(null)}
+        rodape={
+          diaAberto &&
+          !feriadoDoDia.has(diaAberto) && (
+            <button
+              className="btn btn-primario"
+              onClick={() => {
+                const data = diaAberto
+                setDiaAberto(null)
+                abrirNovo(data)
+              }}
+            >
+              + Adicionar evento
+            </button>
+          )
+        }
+      >
+        {diaAberto && (
+          <div className="stack-md">
+            {feriadoDoDia.has(diaAberto) && (
+              <p className="texto-suave">Feriado/sem aula: {feriadoDoDia.get(diaAberto)}</p>
+            )}
+            {eventosDoDiaAberto.length === 0 ? (
+              <p className="texto-suave">Nenhum evento neste dia.</p>
+            ) : (
+              <div className="dia-eventos">
+                {eventosDoDiaAberto.map((e) => (
+                  <button
+                    key={e.id}
+                    type="button"
+                    className={`calendario-evento calendario-evento-grande ${e.concluido ? 'concluido' : ''}`}
+                    style={{ borderLeftColor: corTipo(e.tipo) }}
+                    onClick={() => {
+                      setDiaAberto(null)
+                      setVendoId(e.id)
+                    }}
+                  >
+                    <span className="evento-tag" style={{ background: corTipo(e.tipo) }}>
+                      {rotuloTipo(e.tipo)}
+                    </span>
+                    <span className="calendario-evento-texto">
+                      {e.hora && <strong>{e.hora} </strong>}
+                      {e.titulo}
+                      {e.turmaId && <span className="texto-suave"> · {nomeTurma(e.turmaId)}</span>}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
 
       <Modal
