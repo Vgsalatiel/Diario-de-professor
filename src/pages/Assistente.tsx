@@ -24,9 +24,16 @@ function formatarDataHora(iso: string): string {
   })
 }
 
+// "Corrigir exercício" e "Criar exercício" ainda são protótipos com
+// resposta simulada. Ficam escondidos até usarem IA de verdade — ligar
+// aqui quando estiverem prontos.
+const MOSTRAR_PROTOTIPOS = false
+
 export function Assistente() {
   const { alunos, gerarExerciciosPersonalizados, listarExerciciosGerados } = useData()
-  const [aba, setAba] = useState<'corrigir' | 'gerar' | 'personalizado'>('corrigir')
+  const [aba, setAba] = useState<'corrigir' | 'gerar' | 'personalizado'>(
+    MOSTRAR_PROTOTIPOS ? 'corrigir' : 'personalizado',
+  )
 
   const alunosOrdenados = useMemo(
     () => [...alunos].sort((a, b) => a.nome.localeCompare(b.nome)),
@@ -157,35 +164,36 @@ export function Assistente() {
         <div>
           <h1>Assistente de IA</h1>
           <p className="pagina-sub">
-            "Corrigir" e "Criar exercício" ainda são protótipos simulados —
-            "Exercício personalizado" já usa IA de verdade.
+            Listas de exercícios sob medida para cada aluno, a partir da dificuldade dele.
           </p>
         </div>
       </header>
 
-      <div className="abas">
-        <button
-          className={`aba ${aba === 'corrigir' ? 'ativa' : ''}`}
-          aria-pressed={aba === 'corrigir'}
-          onClick={() => setAba('corrigir')}
-        >
-          Corrigir exercício
-        </button>
-        <button
-          className={`aba ${aba === 'gerar' ? 'ativa' : ''}`}
-          aria-pressed={aba === 'gerar'}
-          onClick={() => setAba('gerar')}
-        >
-          Criar exercício
-        </button>
-        <button
-          className={`aba ${aba === 'personalizado' ? 'ativa' : ''}`}
-          aria-pressed={aba === 'personalizado'}
-          onClick={() => setAba('personalizado')}
-        >
-          Exercício personalizado
-        </button>
-      </div>
+      {MOSTRAR_PROTOTIPOS && (
+        <div className="abas">
+          <button
+            className={`aba ${aba === 'corrigir' ? 'ativa' : ''}`}
+            aria-pressed={aba === 'corrigir'}
+            onClick={() => setAba('corrigir')}
+          >
+            Corrigir exercício
+          </button>
+          <button
+            className={`aba ${aba === 'gerar' ? 'ativa' : ''}`}
+            aria-pressed={aba === 'gerar'}
+            onClick={() => setAba('gerar')}
+          >
+            Criar exercício
+          </button>
+          <button
+            className={`aba ${aba === 'personalizado' ? 'ativa' : ''}`}
+            aria-pressed={aba === 'personalizado'}
+            onClick={() => setAba('personalizado')}
+          >
+            Exercício personalizado
+          </button>
+        </div>
+      )}
 
       {aba === 'corrigir' ? (
         <div className="grid-perfil grid-perfil-media">
